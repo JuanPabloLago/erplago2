@@ -1,0 +1,313 @@
+// Carga las variables de entorno del archivo .env
+require('dotenv').config();
+const express = require('express');
+const { Pool } = require('pg');
+
+const app = express();
+const port = 3000;
+
+// Middleware para leer JSON (la línea clave)
+app.use(express.json());
+
+// Configuración de la conexión usando variables de entorno
+const pool = new Pool({
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_DATABASE,
+    password: process.env.DB_PASSWORD,
+    port: process.env.DB_PORT
+});
+
+// Verificando la conexión a la base de datos
+pool.query('SELECT NOW()', (err, res) => {
+    if (err) {
+        console.error('Error al conectar a la base de datos:', err.stack);
+    } else {
+        console.log('Conexión a PostgreSQL exitosa!');
+    }
+});
+
+// === RUTAS DE LA API ===
+
+// OBTENER todos los productos
+app.get('/api/productos', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM productos ORDER BY id_producto ASC');
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error al obtener los productos:', err.stack);
+        res.status(500).send('Error interno del servidor');
+    }
+});
+
+// CREAR un nuevo producto
+app.post('/api/productos', async (req, res) => {
+    const { sku, nombre, descripcion, id_categoria, marca } = req.body;
+    if (!sku || !nombre) {
+        return res.status(400).json({ error: 'El SKU y el nombre son obligatorios.' });
+    }
+    try {
+        const text = 'INSERT INTO productos(sku, nombre, descripcion, id_categoria, marca) VALUES($1, $2, $3, $4, $5) RETURNING *';
+
+
+
+// =======================================================================
+//                          RUTAS API PARA CLIENTES
+// =======================================================================
+
+// --- OBTENER TODOS LOS CLIENTES ---
+app.get('/api/clientes', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM clientes ORDER BY id_cliente ASC');
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error al obtener los clientes:', err.stack);
+        res.status(500).send('Error interno del servidor');
+    }
+});
+
+// --- OBTENER UN SOLO CLIENTE POR ID ---
+app.get('/api/clientes/:id', async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+        return res.status(400).send('El ID debe ser un número válido.');
+    }
+
+    try {
+        const result = await pool.query('SELECT * FROM clientes WHERE id_cliente = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).send('Cliente no encontrado.');
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error al obtener el cliente:', err.stack);
+        res.status(500).send('Error interno del servidor');
+    }
+});
+
+// --- CREAR UN NUEVO CLIENTE ---
+app.post('/api/clientes', async (req, res) => {
+    const { id_empresa, cuit_cuil, razon_social, domicilio, id_condicion_iva, email, telefono } = req.body;
+
+    if (!id_empresa || !razon_social || !id_condicion_iva) {
+        return res.status(400).json({ error: 'id_empresa, razon_social e id_condicion_iva son obligatorios.' });
+    }
+
+    try {
+        const text = 'INSERT INTO clientes(id_empresa, cuit_cuil, razon_social, domicilio, id_condicion_iva, email, telefono) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING *';
+        const values = [id_empresa, cuit_cuil, razon_social, domicilio, id_condicion_iva, email, telefono];
+        const result = await pool.query(text, values);
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error('Error al insertar el cliente:', err.stack);
+        res.status(500).send('Error interno del servidor');
+    }
+});
+
+// --- ACTUALIZAR UN CLIENTE EXISTENTE ---
+app.put('/api/clientes/:id', async (req, res) => {
+    const id = parseInt(req.params.id);
+    const { cuit_cuil, razon_social, domicilio, id_condicion_iva, email, telefono, activo } = req.body;
+
+    if (isNaN(id)) {
+        return res.status(400).send('El ID debe ser un número válido.');
+    }
+
+    try {
+        const text = 'UPDATE clientes SET cuit_cuil = $1, razon_social = $2, domicilio = $3, id_condicion_iva = $4, email = $5, telefono = $6, activo = $7, fecha_modificacion = now() WHERE id_cliente = $8 RETURNING *';
+        const values = [cuit_cuil, razon_social, domicilio, id_condicion_iva, email, telefono, activo, id];
+        const result = await pool.query(text, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).send('Cliente no encontrado.');
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error al actualizar el cliente:', err.stack);
+        res.status(500).send('Error interno del servidor');
+    }
+});
+
+// --- ELIMINAR UN CLIENTE ---
+app.delete('/api/clientes/:id', async (req, res) => {
+    const id = parseInt(req.params.id);
+
+    if (isNaN(id)) {
+        return res.status(400).send('El ID debe ser un número válido.');
+    }
+
+    try {
+        const text = 'DELETE FROM clientes WHERE id_cliente = $1 RETURNING *';
+        const result = await pool.query(text, [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).send('Cliente no encontrado.');
+        }
+        res.status(200).json({ message: 'Cliente eliminado exitosamente', cliente: result.rows[0] });
+    } catch (err) {
+        console.error('Error al eliminar el cliente:', err.stack);
+        res.status(500).send('Error interno del servidor');
+    }
+});        const values = [sku, nombre, descripcion, id_categoria, marca];
+        const result = await pool.query(text, values);
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error('Error al insertar el producto:', err.stack);
+        res.status(500).send('Error interno del servidor');
+    }
+});
+// --- RUTA PARA ACTUALIZAR UN PRODUCTO EXISTENTE (PUT) ---
+app.put('/api/productos/:id', async (req, res) => {
+    // Obtenemos el ID del producto de los parámetros de la URL.
+    const id = parseInt(req.params.id);
+    // Obtenemos los nuevos datos del cuerpo de la petición.
+    const { sku, nombre, descripcion, id_categoria, marca, activo } = req.body;
+
+    if (isNaN(id)) {
+        return res.status(400).send('El ID debe ser un número válido.');
+    }
+
+    try {
+        const text = 'UPDATE productos SET sku = $1, nombre = $2, descripcion = $3, id_categoria = $4, marca = $5, activo = $6, fecha_modificacion = now() WHERE id_producto = $7 RETURNING *';
+        const values = [sku, nombre, descripcion, id_categoria, marca, activo, id];
+
+        const result = await pool.query(text, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).send('Producto no encontrado.');
+        }
+
+        // Respondemos con el producto ya actualizado.
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error al actualizar el producto:', err.stack);
+        res.status(500).send('Error interno del servidor');
+    }
+});
+// --- RUTA PARA ELIMINAR UN PRODUCTO (DELETE) ---
+app.delete('/api/productos/:id', async (req, res) => {
+    const id = parseInt(req.params.id);
+
+    if (isNaN(id)) {
+        return res.status(400).send('El ID debe ser un número válido.');
+    }
+
+    try {
+        const text = 'DELETE FROM productos WHERE id_producto = $1 RETURNING *';
+        const values = [id];
+
+        const result = await pool.query(text, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).send('Producto no encontrado.');
+        }
+
+        // Respondemos con un mensaje de éxito.
+        res.status(200).json({ message: 'Producto eliminado exitosamente', producto: result.rows[0] });
+    } catch (err) {
+        console.error('Error al eliminar el producto:', err.stack);
+        res.status(500).send('Error interno del servidor');
+    }
+});
+// =======================================================================
+//                          RUTAS API PARA CLIENTES
+// =======================================================================
+
+// --- OBTENER TODOS LOS CLIENTES ---
+app.get('/api/clientes', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM clientes ORDER BY id_cliente ASC');
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error al obtener los clientes:', err.stack);
+        res.status(500).send('Error interno del servidor');
+    }
+});
+
+// --- OBTENER UN SOLO CLIENTE POR ID ---
+app.get('/api/clientes/:id', async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+        return res.status(400).send('El ID debe ser un número válido.');
+    }
+
+    try {
+        const result = await pool.query('SELECT * FROM clientes WHERE id_cliente = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).send('Cliente no encontrado.');
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error al obtener el cliente:', err.stack);
+        res.status(500).send('Error interno del servidor');
+    }
+});
+
+// --- CREAR UN NUEVO CLIENTE ---
+app.post('/api/clientes', async (req, res) => {
+    const { id_empresa, cuit_cuil, razon_social, domicilio, id_condicion_iva, email, telefono } = req.body;
+
+    if (!id_empresa || !razon_social || !id_condicion_iva) {
+        return res.status(400).json({ error: 'id_empresa, razon_social e id_condicion_iva son obligatorios.' });
+    }
+
+    try {
+        const text = 'INSERT INTO clientes(id_empresa, cuit_cuil, razon_social, domicilio, id_condicion_iva, email, telefono) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING *';
+        const values = [id_empresa, cuit_cuil, razon_social, domicilio, id_condicion_iva, email, telefono];
+        const result = await pool.query(text, values);
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error('Error al insertar el cliente:', err.stack);
+        res.status(500).send('Error interno del servidor');
+    }
+});
+
+// --- ACTUALIZAR UN CLIENTE EXISTENTE ---
+app.put('/api/clientes/:id', async (req, res) => {
+    const id = parseInt(req.params.id);
+    const { cuit_cuil, razon_social, domicilio, id_condicion_iva, email, telefono, activo } = req.body;
+
+    if (isNaN(id)) {
+        return res.status(400).send('El ID debe ser un número válido.');
+    }
+
+    try {
+        const text = 'UPDATE clientes SET cuit_cuil = $1, razon_social = $2, domicilio = $3, id_condicion_iva = $4, email = $5, telefono = $6, activo = $7, fecha_modificacion = now() WHERE id_cliente = $8 RETURNING *';
+        const values = [cuit_cuil, razon_social, domicilio, id_condicion_iva, email, telefono, activo, id];
+        const result = await pool.query(text, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).send('Cliente no encontrado.');
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error al actualizar el cliente:', err.stack);
+        res.status(500).send('Error interno del servidor');
+    }
+});
+
+// --- ELIMINAR UN CLIENTE ---
+app.delete('/api/clientes/:id', async (req, res) => {
+    const id = parseInt(req.params.id);
+
+    if (isNaN(id)) {
+        return res.status(400).send('El ID debe ser un número válido.');
+    }
+
+    try {
+        const text = 'DELETE FROM clientes WHERE id_cliente = $1 RETURNING *';
+        const result = await pool.query(text, [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).send('Cliente no encontrado.');
+        }
+        res.status(200).json({ message: 'Cliente eliminado exitosamente', cliente: result.rows[0] });
+    } catch (err) {
+        console.error('Error al eliminar el cliente:', err.stack);
+        res.status(500).send('Error interno del servidor');
+    }
+});
+// Iniciar el servidor
+app.listen(port, '0.0.0.0', () => {
+    console.log(`Servidor Express escuchando en http://0.0.0.0:${port}`);
+});

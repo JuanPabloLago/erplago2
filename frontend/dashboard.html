@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - Mi ERP</title>
+    <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f9; display: flex; min-height: 100vh; }
+        .sidebar { width: 220px; background: #007bff; color: #fff; padding: 1.5rem 1rem; display: flex; flex-direction: column; box-shadow: 2px 0 5px rgba(0,0,0,0.1); }
+        .sidebar h2 { margin: 0 0 2rem; font-size: 1.5rem; text-align: center; }
+        .sidebar a { color: #fff; text-decoration: none; padding: 0.9rem 1rem; border-radius: 6px; transition: background 0.2s; margin-bottom: 0.5rem; display: block; font-weight: 500; }
+        .sidebar a.active, .sidebar a:hover { background: rgba(255,255,255,0.2); }
+        .main { flex: 1; padding: 2rem; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        header h1 { margin: 0; font-size: 1.8rem; color: #333; }
+        .user-info { display: flex; align-items: center; gap: 1rem; }
+        #welcome-message { font-size: 1rem; color: #555; }
+        .logout-btn { padding: 0.5rem 1rem; background: #dc3545; border: none; border-radius: 6px; color: #fff; cursor: pointer; font-weight: bold; transition: background 0.3s; }
+        .logout-btn:hover { background: #c82333; }
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
+        .card { background: #fff; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); padding: 1.5rem; text-align: center; transition: transform 0.2s, box-shadow 0.2s; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
+        .card h3 { margin: 0 0 0.5rem; font-size: 1.1rem; color: #007bff; }
+        .card p { margin: 0; color: #333; font-size: 2rem; font-weight: bold; }
+        .loading { color: #aaa; }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <h2>Mi ERP</h2>
+        <!-- CORRECCIÓN DE RUTAS ABSOLUTAS A RELATIVAS -->
+        <a href="dashboard.html" class="active">📊 Dashboard</a>
+        <a href="ventas.html">🛒 Ventas</a>
+        <a href="productos.html">📦 Productos</a>
+        <a href="clientes.html">👥 Clientes</a>
+        <a href="#">🚚 Proveedores</a>
+        <a href="#">⚙️ Configuración</a>
+    </aside>
+
+    <div class="main">
+        <header>
+            <h1>Resumen General</h1>
+            <div class="user-info">
+                <span id="welcome-message">Bienvenido</span>
+                <button class="logout-btn" id="logoutBtn">Cerrar sesión</button>
+            </div>
+        </header>
+
+        <section class="cards">
+            <div class="card">
+                <h3>Ventas del Mes</h3>
+                <p id="ventas-mes" class="loading">...</p>
+            </div>
+            <div class="card">
+                <h3>Nuevos Clientes</h3>
+                <p id="nuevos-clientes" class="loading">...</p>
+            </div>
+            <div class="card">
+                <h3>Pedidos Pendientes</h3>
+                <p id="pedidos-pendientes" class="loading">...</p>
+            </div>
+            <div class="card">
+                <h3>Productos con Stock Bajo</h3>
+                <p id="stock-bajo" class="loading">...</p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 1. VERIFICACIÓN DE SEGURIDAD
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                // CORRECCIÓN
+                window.location.href = 'login.html'; 
+                return;
+            }
+
+            // 2. DECODIFICAR TOKEN Y PERSONALIZAR SALUDO
+            function parseJwt(token) {
+                try {
+                    const base64Url = token.split('.')[1];
+                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+                    return JSON.parse(jsonPayload);
+                } catch (e) { return null; }
+            }
+
+            const userData = parseJwt(token);
+            // Se usa 'username' según tu DB, pero el token lo llama 'nombre_usuario'
+            const displayUser = userData?.usuario?.nombre_usuario || 'Usuario'; 
+            document.getElementById('welcome-message').textContent = `Bienvenido, ${displayUser}`;
+            
+
+            // 3. FUNCIONALIDAD DE "CERRAR SESIÓN"
+            document.getElementById('logoutBtn').addEventListener('click', function() {
+                localStorage.removeItem('authToken');
+                // CORRECCIÓN
+                window.location.href = 'login.html';
+            });
+
+            // 4. CARGAR ESTADÍSTICAS DEL DASHBOARD
+            async function cargarEstadisticas() {
+                // Esta ruta '/api/dashboard/stats' NO existe en tu server.js actual
+                try {
+                    const response = await fetch('/api/dashboard/stats', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 401 || response.status === 403) {
+                            localStorage.removeItem('authToken');
+                            window.location.href = 'login.html';
+                        }
+                        throw new Error('Error al cargar las estadísticas.');
+                    }
+
+                    const stats = await response.json();
+
+                    const currencyFormatter = new Intl.NumberFormat('es-AR', {
+                        style: 'currency',
+                        currency: 'ARS'
+                    });
+
+                    const ventasEl = document.getElementById('ventas-mes');
+                    const clientesEl = document.getElementById('nuevos-clientes');
+                    const pendientesEl = document.getElementById('pedidos-pendientes');
+                    const stockEl = document.getElementById('stock-bajo');
+
+                    ventasEl.textContent = currencyFormatter.format(stats.ventas_mes);
+                    clientesEl.textContent = stats.nuevos_clientes;
+                    pendientesEl.textContent = stats.pedidos_pendientes;
+                    stockEl.textContent = stats.stock_bajo;
+
+                    [ventasEl, clientesEl, pendientesEl, stockEl].forEach(el => el.classList.remove('loading'));
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    // Opcional: mostrar un mensaje de error en el dashboard
+                }
+            }
+
+            cargarEstadisticas();
+        });
+    </script>
+</body>
+</html>

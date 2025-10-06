@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Productos - Mi ERP</title>
+    <style>
+        :root { --primary-color: #007bff; --danger-color: #dc3545; --success-color: #28a745; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background-color: #f4f7f9; }
+        header { background-color: #2c3e50; color: white; padding: 1rem 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        main { padding: 2rem; max-width: 1400px; margin: auto; }
+        .container { background-color: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; }
+        .controles-tabla { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .btn { padding: 0.7rem 1.4rem; border: none; border-radius: 5px; color: white; cursor: pointer; font-weight: bold; text-decoration: none; }
+        .btn-primary { background-color: var(--primary-color); }
+        .btn-success { background-color: var(--success-color); }
+        .search-input { padding: 0.7rem; border: 1px solid #ccc; border-radius: 5px; width: 100%; max-width: 300px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; vertical-align: middle; }
+        th { background-color: #ecf0f1; }
+        .acciones-tabla button { margin-right: 5px; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); }
+        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 25px; border-radius: 8px; width: 90%; max-width: 900px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 1rem; }
+        .close-button { font-size: 1.5rem; font-weight: bold; cursor: pointer; }
+        .form-tabs { display: flex; border-bottom: 1px solid #ddd; margin-bottom: 1.5rem; }
+        .tab-link { padding: 1rem; cursor: pointer; border: none; background: none; font-size: 1rem; }
+        .tab-link.active { border-bottom: 3px solid var(--primary-color); font-weight: bold; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; }
+        .form-group { display: flex; flex-direction: column; }
+        label { margin-bottom: 0.5rem; font-weight: bold; }
+        input, select { padding: 0.7rem; border: 1px solid #ccc; border-radius: 5px; width: 100%; box-sizing: border-box; }
+        .modal-footer { text-align: right; margin-top: 2rem; border-top: 1px solid #ddd; padding-top: 1rem; }
+        #codigos-barras-list, #precios-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .list-item { display: flex; align-items: center; gap: 0.5rem; }
+        .list-item input { flex-grow: 1; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Gestión de Productos</h1>
+        <a href="/dashboard.html" class="btn btn-primary">Volver al Dashboard</a>
+    </header>
+    <main>
+        <div class="container">
+            <div class="controles-tabla">
+                <input type="text" id="search-productos" class="search-input" placeholder="Buscar por nombre, SKU o marca...">
+                <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
+                    <label for="lista-precios-selector" style="margin: 0;">Ver Precios de Lista:</label>
+                    <select id="lista-precios-selector" class="search-input" style="width: auto;"></select>
+                </div>
+                <button id="btn-nuevo-producto" class="btn btn-success">Nuevo Producto</button>
+            </div>
+            <table>
+                <thead>
+                    <tr><th>Imagen</th><th>SKU</th><th>Nombre</th><th>Marca</th><th>Stock</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr>
+                </thead>
+                <tbody id="tabla-productos-body"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <div id="producto-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Nuevo Producto</h2>
+                <span class="close-button">&times;</span>
+            </div>
+            <div class="form-tabs">
+                <button class="tab-link active" onclick="openTab(event, 'tab-general')">General</button>
+                <button class="tab-link" onclick="openTab(event, 'tab-stock')">Stock</button>
+                <button class="tab-link" onclick="openTab(event, 'tab-precios')">Precios</button>
+                <button class="tab-link" onclick="openTab(event, 'tab-codigos')">Códigos de Barras</button>
+            </div>
+            <form id="producto-form">
+                <input type="hidden" id="id_producto">
+                
+                <div id="tab-general" class="tab-content active">
+                    <div class="form-grid">
+                        <div class="form-group"><label for="sku">SKU (*)</label><input type="text" id="sku" required></div>
+                        <div class="form-group"><label for="nombre">Nombre (*)</label><input type="text" id="nombre" required></div>
+                        <div class="form-group"><label for="marca">Marca</label><input type="text" id="marca"></div>
+                        <div class="form-group"><label for="url_imagen">URL de Imagen</label><input type="text" id="url_imagen" placeholder="https://ejemplo.com/imagen.jpg"></div>
+                        <div class="form-group"><label for="id_categoria">Categoría</label><select id="id_categoria"></select></div>
+                        <div class="form-group"><label for="unidad_medida">Unidad de Medida</label><input type="text" id="unidad_medida" value="unidades"></div>
+                        <div class="form-group"><label for="descripcion">Descripción</label><input type="text" id="descripcion"></div>
+                         <div class="form-group"><label for="activo">Estado</label><select id="activo"><option value="true">Activo</option><option value="false">Inactivo</option></select></div>
+                    </div>
+                </div>
+
+                <div id="tab-stock" class="tab-content">
+                    <div class="form-grid">
+                        <div class="form-group"><label for="stock_real">Stock Actual</label><input type="number" id="stock_real" value="0"></div>
+                        <div class="form-group"><label for="stock_minimo">Stock Mínimo</label><input type="number" id="stock_minimo" value="0"></div>
+                        <div class="form-group"><label for="stock_maximo">Stock Máximo</label><input type="number" id="stock_maximo" value="0"></div>
+                    </div>
+                </div>
+
+                <div id="tab-precios" class="tab-content">
+                    <h3>Asignar Precios por Lista</h3>
+                    <div id="precios-list" class="form-grid"></div>
+                </div>
+
+                <div id="tab-codigos" class="tab-content">
+                    <h3>Códigos de Barras</h3>
+                    <div id="codigos-barras-list"></div>
+                    <button type="button" id="add-codigo-btn" class="btn btn-sm btn-primary" style="margin-top: 1rem;">Añadir Código</button>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    function openTab(evt, tabName) {
+        document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = "none");
+        document.querySelectorAll('.tab-link').forEach(link => link.className = link.className.replace(" active", ""));
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const token = localStorage.getItem('authToken');
+        if (!token) { window.location.href = '/login.html'; return; }
+
+        const modal = document.getElementById('producto-modal');
+        const closeModal = document.querySelector('.close-button');
+        const form = document.getElementById('producto-form');
+        const listaPreciosSelector = document.getElementById('lista-precios-selector');
+        const searchInput = document.getElementById('search-productos');
+        let allProductos = [];
+        let allListas = [];
+
+        async function cargarDatosIniciales(listaId = 1) {
+            try {
+                const [productosRes, listasRes, categoriasRes] = await Promise.all([
+                    fetch(`/api/productos?listaPreciosId=${listaId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch('/api/listasdeprecios', { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch('/api/categorias', { headers: { 'Authorization': `Bearer ${token}` } }) // Asume que esta ruta existirá
+                ]);
+                allProductos = await productosRes.json();
+                
+                if (allListas.length === 0) { // Cargar listas solo la primera vez
+                    allListas = await listasRes.json();
+                    const categorias = await categoriasRes.json();
+                    popularSelects(allListas, categorias);
+                }
+                
+                renderizarTabla(allProductos);
+            } catch (error) {
+                console.error('Error al cargar datos iniciales:', error);
+            }
+        }
+
+        function renderizarTabla(productos) {
+            const tbody = document.getElementById('tabla-productos-body');
+            tbody.innerHTML = '';
+            productos.forEach(p => {
+                const tr = document.createElement('tr');
+                const imageUrl = p.url_imagen || 'https://placehold.co/60x60/eee/ccc?text=Sin+Img';
+                tr.innerHTML = `
+                    <td><img src="${imageUrl}" alt="${p.nombre}" width="50" height="50" style="object-fit: cover; border-radius: 4px;" onerror="this.onerror=null;this.src='https://placehold.co/60x60/eee/ccc?text=Error';"></td>
+                    <td>${p.sku}</td>
+                    <td>${p.nombre}</td>
+                    <td>${p.marca || ''}</td>
+                    <td>${p.stock_real || 0}</td>
+                    <td>$${Number(p.precio_base || 0).toFixed(2)}</td>
+                    <td>${p.activo ? 'Activo' : 'Inactivo'}</td>
+                    <td class="acciones-tabla">
+                        <button class="btn btn-sm btn-primary btn-editar" data-id="${p.id_producto}">Editar</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        function popularSelects(listas, categorias) {
+            const selectCategoria = document.getElementById('id_categoria');
+            selectCategoria.innerHTML = '<option value="">Sin Categoría</option>';
+            categorias.forEach(c => {
+                selectCategoria.innerHTML += `<option value="${c.id_categoria}">${c.nombre}</option>`;
+            });
+
+            const selectLista = document.getElementById('lista-precios-selector');
+            selectLista.innerHTML = '';
+            listas.forEach(l => {
+                selectLista.innerHTML += `<option value="${l.id_lista_precio}">${l.nombre}</option>`;
+            });
+        }
+        
+        listaPreciosSelector.addEventListener('change', () => {
+            cargarDatosIniciales(listaPreciosSelector.value);
+        });
+
+        searchInput.addEventListener('input', () => {
+            const termino = searchInput.value.toLowerCase();
+            const filtrados = allProductos.filter(p =>
+                p.nombre.toLowerCase().includes(termino) ||
+                p.sku.toLowerCase().includes(termino) ||
+                (p.marca && p.marca.toLowerCase().includes(termino))
+            );
+            renderizarTabla(filtrados);
+        });
+
+        function renderizarInputsPrecios(listas, preciosData = []) {
+            const container = document.getElementById('precios-list');
+            container.innerHTML = '';
+            listas.forEach(lista => {
+                const precioGuardado = preciosData.find(p => p.id_lista_precio === lista.id_lista_precio);
+                const group = document.createElement('div');
+                group.className = 'form-group';
+                group.innerHTML = `
+                    <label for="precio-${lista.id_lista_precio}">${lista.nombre}</label>
+                    <input type="number" step="0.01" id="precio-${lista.id_lista_precio}" data-lista-id="${lista.id_lista_precio}" value="${precioGuardado ? precioGuardado.precio : ''}" placeholder="0.00">
+                `;
+                container.appendChild(group);
+            });
+        }
+
+        function renderizarInputsCodigos(codigos = []) {
+            const container = document.getElementById('codigos-barras-list');
+            container.innerHTML = '';
+            (codigos.length > 0 ? codigos : ['']).forEach(codigo => {
+                addCodigoInput(codigo);
+            });
+        }
+
+        function addCodigoInput(valor = '') {
+            const container = document.getElementById('codigos-barras-list');
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            item.innerHTML = `
+                <input type="text" class="codigo-barras-input" value="${valor}">
+                <button type="button" class="btn btn-sm btn-danger remove-codigo-btn">X</button>
+            `;
+            container.appendChild(item);
+        }
+
+        document.getElementById('add-codigo-btn').addEventListener('click', () => addCodigoInput());
+        document.getElementById('codigos-barras-list').addEventListener('click', e => {
+            if (e.target.classList.contains('remove-codigo-btn')) {
+                if (document.querySelectorAll('.codigo-barras-input').length > 1) {
+                    e.target.parentElement.remove();
+                } else {
+                    e.target.parentElement.querySelector('input').value = '';
+                }
+            }
+        });
+
+        document.getElementById('btn-nuevo-producto').addEventListener('click', () => {
+            form.reset();
+            document.getElementById('id_producto').value = '';
+            document.getElementById('modal-title').textContent = 'Nuevo Producto';
+            renderizarInputsPrecios(allListas);
+            renderizarInputsCodigos([]);
+            modal.style.display = 'block';
+            openTab({currentTarget: document.querySelector('.tab-link')}, 'tab-general');
+        });
+
+        closeModal.addEventListener('click', () => modal.style.display = 'none');
+        window.addEventListener('click', (e) => { if (e.target == modal) modal.style.display = 'none'; });
+
+        document.getElementById('tabla-productos-body').addEventListener('click', async e => {
+            if (e.target.classList.contains('btn-editar')) {
+                const id = e.target.dataset.id;
+                const response = await fetch(`/api/productos/${id}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const producto = await response.json();
+
+                Object.keys(producto).forEach(key => {
+                    const el = document.getElementById(key);
+                    if (el) el.value = producto[key] === null ? '' : producto[key];
+                });
+                if (producto.inventario) {
+                    Object.keys(producto.inventario).forEach(key => {
+                        const el = document.getElementById(key);
+                        if (el) el.value = producto.inventario[key];
+                    });
+                }
+                
+                renderizarInputsPrecios(allListas, producto.precios);
+                renderizarInputsCodigos(producto.codigos_barras);
+
+                document.getElementById('modal-title').textContent = 'Editar Producto';
+                modal.style.display = 'block';
+                openTab({currentTarget: document.querySelector('.tab-link')}, 'tab-general');
+            }
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('id_producto').value;
+            
+            const precios = Array.from(document.querySelectorAll('#precios-list input')).map(input => ({
+                id_lista_precio: parseInt(input.dataset.listaId),
+                precio: input.value ? parseFloat(input.value) : null
+            }));
+
+            const codigos_barras = Array.from(document.querySelectorAll('.codigo-barras-input')).map(input => input.value).filter(Boolean);
+
+            const data = {
+                sku: document.getElementById('sku').value,
+                nombre: document.getElementById('nombre').value,
+                marca: document.getElementById('marca').value,
+                descripcion: document.getElementById('descripcion').value,
+                id_categoria: document.getElementById('id_categoria').value ? parseInt(document.getElementById('id_categoria').value) : null,
+                unidad_medida: document.getElementById('unidad_medida').value,
+                url_imagen: document.getElementById('url_imagen').value,
+                activo: document.getElementById('activo').value === 'true',
+                inventario: {
+                    stock_real: parseInt(document.getElementById('stock_real').value),
+                    stock_minimo: parseInt(document.getElementById('stock_minimo').value),
+                    stock_maximo: parseInt(document.getElementById('stock_maximo').value)
+                },
+                precios,
+                codigos_barras
+            };
+
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? `/api/productos/${id}` : '/api/productos';
+
+            try {
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+
+                modal.style.display = 'none';
+                cargarDatosIniciales(listaPreciosSelector.value);
+            } catch (error) {
+                console.error('Error al guardar producto:', error);
+                alert(`Error: ${error.message}`);
+            }
+        });
+
+        cargarDatosIniciales();
+    });
+    </script>
+</body>
+</html>
+
