@@ -1,11 +1,9 @@
 {
   "name": "erp-lago",
   "version": "1.0.0",
-  "description": "Sistema ERP con integración AFIP",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "@afipsdk/afip.js": "^1.2.1",
@@ -21,8 +19,5 @@
     "pg": "^8.13.0",
     "qrcode": "^1.5.4",
     "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.7"
   }
 }
