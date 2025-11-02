@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marcas - ERP LAGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+</head>
+<body>
+    <script src="js/connection-indicator.js"></script>
+    <nav class="navbar navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="dashboard.html">
+                <i class="bi bi-arrow-left-circle"></i> ERP LAGO
+            </a>
+            <span class="navbar-text text-white">
+                <i class="bi bi-award"></i> Gestión de Marcas
+            </span>
+            <button class="btn btn-outline-light btn-sm" onclick="cerrarSesion()">
+                <i class="bi bi-box-arrow-right"></i> Salir
+            </button>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <i class="bi bi-search"></i> Buscar Marca
+                    </div>
+                    <div class="card-body">
+                        <input type="text" class="form-control mb-3" id="buscarMarca" 
+                               placeholder="Buscar por nombre, país..." onkeyup="buscarMarcas()">
+                        
+                        <button class="btn btn-success w-100" onclick="abrirModalNueva()">
+                            <i class="bi bi-plus-circle"></i> Nueva Marca
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mt-3">
+                    <div class="card-header bg-info text-white">
+                        <i class="bi bi-info-circle"></i> Resumen
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-0"><strong>Total Marcas:</strong> <span id="totalMarcas">0</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-secondary text-white">
+                        <i class="bi bi-list-ul"></i> Lista de Marcas
+                    </div>
+                    <div class="card-body">
+                        <div class="row" id="listaMarcas">
+                            <div class="col-12 text-center">
+                                <div class="spinner-border spinner-border-sm" role="status"></div>
+                                Cargando marcas...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Crear/Editar Marca -->
+    <div class="modal fade" id="modalMarca" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="modalTitulo">
+                        <i class="bi bi-plus-circle"></i> Nueva Marca
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formMarca">
+                        <input type="hidden" id="idMarca">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="nombre" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Descripción</label>
+                            <textarea class="form-control" id="descripcion" rows="2"></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">País de Origen</label>
+                            <input type="text" class="form-control" id="paisOrigen" placeholder="Ej: Argentina">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Sitio Web</label>
+                            <input type="url" class="form-control" id="sitioWeb" placeholder="https://...">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarMarca()">
+                        <i class="bi bi-save"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_URL = 'http://72.60.148.18:3000/api';
+        let marcas = [];
+        let modalMarca;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            modalMarca = new bootstrap.Modal(document.getElementById('modalMarca'));
+            await cargarMarcas();
+        });
+
+        async function cargarMarcas() {
+            try {
+                const response = await fetch(`${API_URL}/marcas`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                if (response.status === 403 || response.status === 401) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                marcas = await response.json();
+                mostrarMarcas(marcas);
+                actualizarResumen();
+            } catch (error) {
+                console.error('Error al cargar marcas:', error);
+                document.getElementById('listaMarcas').innerHTML = 
+                    '<div class="col-12"><div class="alert alert-danger">Error al cargar marcas</div></div>';
+            }
+        }
+
+        function mostrarMarcas(lista) {
+            const container = document.getElementById('listaMarcas');
+            
+            if (lista.length === 0) {
+                container.innerHTML = '<div class="col-12"><div class="alert alert-info">No hay marcas registradas</div></div>';
+                return;
+            }
+
+            container.innerHTML = lista.map(m => `
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-award text-primary"></i> ${m.nombre}
+                                </h5>
+                                <div>
+                                    <button class="btn btn-sm btn-warning" onclick="editarMarca(${m.id_marca})" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="eliminarMarca(${m.id_marca}, '${m.nombre}')" title="Eliminar">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="card-text text-muted small mb-2">${m.descripcion || 'Sin descripción'}</p>
+                            ${m.pais_origen ? `<p class="mb-1"><i class="bi bi-globe"></i> <small>${m.pais_origen}</small></p>` : ''}
+                            ${m.sitio_web ? `<p class="mb-0"><i class="bi bi-link-45deg"></i> <small><a href="${m.sitio_web}" target="_blank">${m.sitio_web}</a></small></p>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function buscarMarcas() {
+            const termino = document.getElementById('buscarMarca').value.toLowerCase();
+            
+            if (termino.length === 0) {
+                mostrarMarcas(marcas);
+                return;
+            }
+
+            const filtradas = marcas.filter(m => 
+                m.nombre.toLowerCase().includes(termino) ||
+                (m.descripcion && m.descripcion.toLowerCase().includes(termino)) ||
+                (m.pais_origen && m.pais_origen.toLowerCase().includes(termino))
+            );
+
+            mostrarMarcas(filtradas);
+        }
+
+        function actualizarResumen() {
+            document.getElementById('totalMarcas').textContent = marcas.length;
+        }
+
+        function abrirModalNueva() {
+            document.getElementById('formMarca').reset();
+            document.getElementById('idMarca').value = '';
+            document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-plus-circle"></i> Nueva Marca';
+            modalMarca.show();
+        }
+
+        async function editarMarca(id) {
+            try {
+                const response = await fetch(`${API_URL}/marcas/${id}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                const marca = await response.json();
+
+                document.getElementById('idMarca').value = marca.id_marca;
+                document.getElementById('nombre').value = marca.nombre;
+                document.getElementById('descripcion').value = marca.descripcion || '';
+                document.getElementById('paisOrigen').value = marca.pais_origen || '';
+                document.getElementById('sitioWeb').value = marca.sitio_web || '';
+
+                document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-pencil"></i> Editar Marca';
+                modalMarca.show();
+            } catch (error) {
+                console.error('Error al cargar marca:', error);
+                alert('Error al cargar datos de la marca');
+            }
+        }
+
+        async function guardarMarca() {
+            const id = document.getElementById('idMarca').value;
+            const datos = {
+                nombre: document.getElementById('nombre').value,
+                descripcion: document.getElementById('descripcion').value,
+                pais_origen: document.getElementById('paisOrigen').value,
+                sitio_web: document.getElementById('sitioWeb').value
+            };
+
+            if (!datos.nombre) {
+                alert('El nombre es requerido');
+                return;
+            }
+
+            try {
+                const url = id ? `${API_URL}/marcas/${id}` : `${API_URL}/marcas`;
+                const method = id ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify(datos)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(result.message);
+                    modalMarca.hide();
+                    await cargarMarcas();
+                } else {
+                    alert(result.error || 'Error al guardar marca');
+                }
+            } catch (error) {
+                console.error('Error al guardar marca:', error);
+                alert('Error al guardar marca');
+            }
+        }
+
+        async function eliminarMarca(id, nombre) {
+            if (!confirm(`¿Está seguro que desea eliminar la marca "${nombre}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/marcas/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(result.message);
+                    await cargarMarcas();
+                } else {
+                    alert(result.error || 'Error al eliminar marca');
+                }
+            } catch (error) {
+                console.error('Error al eliminar marca:', error);
+                alert('Error al eliminar marca');
+            }
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('username');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

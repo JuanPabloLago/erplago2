@@ -1,146 +1,519 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Dashboard - Mi ERP</title>
-    <style>
-        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f9; display: flex; min-height: 100vh; }
-        .sidebar { width: 220px; background: #007bff; color: #fff; padding: 1.5rem 1rem; display: flex; flex-direction: column; box-shadow: 2px 0 5px rgba(0,0,0,0.1); }
-        .sidebar h2 { margin: 0 0 2rem; font-size: 1.5rem; text-align: center; }
-        .sidebar a { color: #fff; text-decoration: none; padding: 0.9rem 1rem; border-radius: 6px; transition: background 0.2s; margin-bottom: 0.5rem; display: block; font-weight: 500; }
-        .sidebar a.active, .sidebar a:hover { background: rgba(255,255,255,0.2); }
-        .main { flex: 1; padding: 2rem; }
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-        header h1 { margin: 0; font-size: 1.8rem; color: #333; }
-        .user-info { display: flex; align-items: center; gap: 1rem; }
-        #welcome-message { font-size: 1rem; color: #555; }
-        .logout-btn { padding: 0.5rem 1rem; background: #dc3545; border: none; border-radius: 6px; color: #fff; cursor: pointer; font-weight: bold; transition: background 0.3s; }
-        .logout-btn:hover { background: #c82333; }
-        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
-        .card { background: #fff; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); padding: 1.5rem; text-align: center; transition: transform 0.2s, box-shadow 0.2s; }
-        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
-        .card h3 { margin: 0 0 0.5rem; font-size: 1.1rem; color: #007bff; }
-        .card p { margin: 0; color: #333; font-size: 2rem; font-weight: bold; }
-        .loading { color: #aaa; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - ERP LAGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        .gradient-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .gradient-success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+        .gradient-danger { background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); }
+        .gradient-warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .gradient-info { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        
+        .modulo-card {
+            height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-decoration: none;
+            border-radius: 15px;
+            transition: all 0.3s;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .modulo-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            color: white;
+        }
+        
+        .modulo-card i {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+        
+        .modulo-card h5 {
+            margin: 0;
+            font-weight: bold;
+        }
+        
+        .modulo-card small {
+            opacity: 0.9;
+        }
+        
+        .stat-card {
+            border-left: 4px solid;
+            transition: all 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .seccion-titulo {
+            border-left: 5px solid #667eea;
+            padding-left: 15px;
+            margin: 30px 0 20px 0;
+        }
+        
+        /* Colores por categoría */
+        .cat-ventas { background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); }
+        .cat-inventario { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .cat-clientes { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+        .cat-compras { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .cat-finanzas { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+        .cat-reportes { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .cat-config { background: linear-gradient(135deg, #434343 0%, #000000 100%); }
+    </style>
 </head>
 <body>
-    <aside class="sidebar">
-        <h2>Mi ERP</h2>
-        <!-- CORRECCIÓN DE RUTAS ABSOLUTAS A RELATIVAS -->
-        <a href="dashboard.html" class="active">📊 Dashboard</a>
-        <a href="ventas.html">🛒 Ventas</a>
-        <a href="productos.html">📦 Productos</a>
-        <a href="clientes.html">👥 Clientes</a>
-        <a href="#">🚚 Proveedores</a>
-        <a href="#">⚙️ Configuración</a>
-    </aside>
+    <script src="js/connection-indicator.js"></script>
 
-    <div class="main">
-        <header>
-            <h1>Resumen General</h1>
-            <div class="user-info">
-                <span id="welcome-message">Bienvenido</span>
-                <button class="logout-btn" id="logoutBtn">Cerrar sesión</button>
-            </div>
-        </header>
+    <nav class="navbar navbar-dark gradient-primary sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-speedometer2"></i> ERP LAGO - Dashboard
+            </a>
+            <div class="d-flex align-items-center">
+                <span class="text-white me-3">
+                    <i class="bi bi-person-circle"></i> <span id="usuarioNombre"></span>
+                </span>
+                <button class="btn btn-outline-light btn-sm" onclick="cerrarSesion()">
+                    <i class="bi bi-box-arrow-right"></i> Salir
+                </button>
+            </div>
+        </div>
+    </nav>
 
-        <section class="cards">
-            <div class="card">
-                <h3>Ventas del Mes</h3>
-                <p id="ventas-mes" class="loading">...</p>
-            </div>
-            <div class="card">
-                <h3>Nuevos Clientes</h3>
-                <p id="nuevos-clientes" class="loading">...</p>
-            </div>
-            <div class="card">
-                <h3>Pedidos Pendientes</h3>
-                <p id="pedidos-pendientes" class="loading">...</p>
-            </div>
-            <div class="card">
-                <h3>Productos con Stock Bajo</h3>
-                <p id="stock-bajo" class="loading">...</p>
-            </div>
-        </section>
-    </div>
+    <div class="container-fluid py-4">
+        
+        <!-- ========================================== -->
+        <!-- SECCIÓN 1: VENTAS Y PUNTO DE VENTA -->
+        <!-- ========================================== -->
+        <div class="seccion-titulo">
+            <h3><i class="bi bi-cart-check"></i> VENTAS Y PUNTO DE VENTA</h3>
+        </div>
+        
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <a href="venta-rapida.html" class="modulo-card cat-ventas">
+                    <i class="bi bi-lightning-charge-fill"></i>
+                    <h5>VENTA RÁPIDA</h5>
+                    <small>Mostrador / Por menor</small>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="pedidos.html" class="modulo-card cat-ventas">
+                    <i class="bi bi-cart-plus"></i>
+                    <h5>PEDIDOS</h5>
+                    <small>Venta completa + Pagos</small>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="entregas.html" class="modulo-card cat-ventas">
+                    <i class="bi bi-truck"></i>
+                    <h5>ENTREGAS</h5>
+                    <small>Entregas parciales</small>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="caja.html" class="modulo-card cat-finanzas">
+                    <i class="bi bi-cash-stack"></i>
+                    <h5>CAJA</h5>
+                    <small>Apertura / Cierre / Arqueo</small>
+                </a>
+            </div>
+        </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // 1. VERIFICACIÓN DE SEGURIDAD
-            const token = localStorage.getItem('authToken');
-            if (!token) {
-                // CORRECCIÓN
-                window.location.href = 'login.html'; 
-                return;
-            }
+        <!-- ========================================== -->
+        <!-- SECCIÓN 2: FACTURACIÓN Y COMPROBANTES -->
+        <!-- ========================================== -->
+        <div class="seccion-titulo">
+            <h3><i class="bi bi-receipt"></i> FACTURACIÓN Y COMPROBANTES</h3>
+        </div>
+        
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <a href="facturas.html" class="modulo-card gradient-success">
+                    <i class="bi bi-receipt-cutoff"></i>
+                    <h5>FACTURAS</h5>
+                    <small>Factura electrónica AFIP</small>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="comprobantes-internos.html" class="modulo-card cat-config">
+                    <i class="bi bi-file-earmark-text"></i>
+                    <h5>COMPROBANTES</h5>
+                    <small>Internos (sin AFIP)</small>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="presupuestos.html" class="modulo-card gradient-info">
+                    <i class="bi bi-file-earmark-spreadsheet"></i>
+                    <h5>PRESUPUESTOS</h5>
+                    <small>Cotizaciones</small>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="remitos.html" class="modulo-card gradient-warning">
+                    <i class="bi bi-box-seam"></i>
+                    <h5>REMITOS</h5>
+                    <small>Documentos de entrega</small>
+                </a>
+            </div>
+        </div>
 
-            // 2. DECODIFICAR TOKEN Y PERSONALIZAR SALUDO
-            function parseJwt(token) {
-                try {
-                    const base64Url = token.split('.')[1];
-                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-                    return JSON.parse(jsonPayload);
-                } catch (e) { return null; }
-            }
+        <!-- ========================================== -->
+        <!-- SECCIÓN 3: GESTIÓN DE INVENTARIO -->
+        <!-- ========================================== -->
+        <div class="seccion-titulo">
+            <h3><i class="bi bi-boxes"></i> INVENTARIO Y PRODUCTOS</h3>
+        </div>
+        
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <a href="productos.html" class="modulo-card cat-inventario">
+                    <i class="bi bi-box-seam"></i>
+                    <h5>PRODUCTOS</h5>
+                    <small>Catálogo completo</small>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="categorias.html" class="modulo-card cat-inventario">
+                    <i class="bi bi-tags"></i>
+                    <h5>CATEGORÍAS</h5>
+                    <small>Organización jerárquica</small>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="marcas.html" class="modulo-card cat-inventario">
+                    <i class="bi bi-award"></i>
+                    <h5>MARCAS</h5>
+                    <small>Fabricantes</small>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="variantes.html" class="modulo-card cat-inventario">
+                    <i class="bi bi-palette"></i>
+                    <h5>VARIANTES</h5>
+                    <small>Colores, talles, etc</small>
+                </a>
+            </div>
+        </div>
+        
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <a href="conjuntos.html" class="modulo-card cat-inventario">
+                    <i class="bi bi-collection"></i>
+                    <h5>CONJUNTOS</h5>
+                    <small>Kits y combos</small>
+                </a>
+            </div>
+        </div>
 
-            const userData = parseJwt(token);
-            // Se usa 'username' según tu DB, pero el token lo llama 'nombre_usuario'
-            const displayUser = userData?.usuario?.nombre_usuario || 'Usuario'; 
-            document.getElementById('welcome-message').textContent = `Bienvenido, ${displayUser}`;
-            
+        <!-- ========================================== -->
+        <!-- SECCIÓN 4: CLIENTES Y PROVEEDORES -->
+        <!-- ========================================== -->
+        <div class="seccion-titulo">
+            <h3><i class="bi bi-people"></i> CLIENTES Y PROVEEDORES</h3>
+        </div>
+        
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <a href="clientes.html" class="modulo-card cat-clientes">
+                    <i class="bi bi-person-lines-fill"></i>
+                    <h5>CLIENTES</h5>
+                    <small>Base de datos</small>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="proveedores.html" class="modulo-card cat-compras">
+                    <i class="bi bi-building"></i>
+                    <h5>PROVEEDORES</h5>
+                    <small>Suppliers</small>
+                </a>
+            </div>
+        </div>
 
-            // 3. FUNCIONALIDAD DE "CERRAR SESIÓN"
-            document.getElementById('logoutBtn').addEventListener('click', function() {
-                localStorage.removeItem('authToken');
-                // CORRECCIÓN
-                window.location.href = 'login.html';
-            });
+        <!-- ========================================== -->
+        <!-- SECCIÓN 5: REPORTES Y ESTADÍSTICAS -->
+        <!-- ========================================== -->
+        <div class="seccion-titulo">
+            <h3><i class="bi bi-graph-up"></i> REPORTES Y ANÁLISIS</h3>
+        </div>
+        
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <a href="reportes.html" class="modulo-card cat-reportes">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <h5>REPORTES</h5>
+                    <small>6 tipos + Excel/PDF</small>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="libro-iva.html" class="modulo-card cat-reportes">
+                    <i class="bi bi-journal-text"></i>
+                    <h5>LIBRO IVA</h5>
+                    <small>Registro fiscal</small>
+                </a>
+            </div>
+        </div>
 
-            // 4. CARGAR ESTADÍSTICAS DEL DASHBOARD
-            async function cargarEstadisticas() {
-                // Esta ruta '/api/dashboard/stats' NO existe en tu server.js actual
-                try {
-                    const response = await fetch('/api/dashboard/stats', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
+        <!-- ========================================== -->
+        <!-- ESTADÍSTICAS DEL DÍA -->
+        <!-- ========================================== -->
+        <div class="seccion-titulo">
+            <h3><i class="bi bi-bar-chart"></i> ESTADÍSTICAS DE HOY</h3>
+        </div>
+        
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card stat-card border-success shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">Ventas Hoy</h6>
+                                <h3 class="mb-0 text-success" id="ventasHoy">$0.00</h3>
+                                <small class="text-muted" id="pedidosHoy">0 pedidos</small>
+                            </div>
+                            <i class="bi bi-cash-coin text-success" style="font-size: 2.5rem; opacity: 0.3;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card stat-card border-primary shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">Ventas del Mes</h6>
+                                <h3 class="mb-0 text-primary" id="ventasMes">$0.00</h3>
+                                <small class="text-muted" id="pedidosMes">0 pedidos</small>
+                            </div>
+                            <i class="bi bi-calendar-check text-primary" style="font-size: 2.5rem; opacity: 0.3;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card stat-card border-info shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">Clientes Activos</h6>
+                                <h3 class="mb-0 text-info" id="clientesActivos">0</h3>
+                                <small class="text-muted">registrados</small>
+                            </div>
+                            <i class="bi bi-people text-info" style="font-size: 2.5rem; opacity: 0.3;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card stat-card border-warning shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">Stock Bajo</h6>
+                                <h3 class="mb-0 text-warning" id="stockBajo">0</h3>
+                                <small class="text-muted">productos</small>
+                            </div>
+                            <i class="bi bi-exclamation-triangle text-warning" style="font-size: 2.5rem; opacity: 0.3;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                    if (!response.ok) {
-                        if (response.status === 401 || response.status === 403) {
-                            localStorage.removeItem('authToken');
-                            window.location.href = 'login.html';
-                        }
-                        throw new Error('Error al cargar las estadísticas.');
-                    }
+        <!-- ========================================== -->
+        <!-- GRÁFICOS -->
+        <!-- ========================================== -->
+        <div class="row g-3">
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <h5><i class="bi bi-graph-up"></i> Ventas Últimos 7 Días</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="graficoVentas" height="80"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <h5><i class="bi bi-trophy"></i> Top 5 Productos</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="topProductos">
+                            <div class="text-muted text-center py-3">
+                                <div class="spinner-border spinner-border-sm"></div>
+                                Cargando...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                    const stats = await response.json();
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const API_URL = 'http://72.60.148.18:3000/api';
+        let graficoVentas;
 
-                    const currencyFormatter = new Intl.NumberFormat('es-AR', {
-                        style: 'currency',
-                        currency: 'ARS'
-                    });
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
 
-                    const ventasEl = document.getElementById('ventas-mes');
-                    const clientesEl = document.getElementById('nuevos-clientes');
-                    const pendientesEl = document.getElementById('pedidos-pendientes');
-                    const stockEl = document.getElementById('stock-bajo');
+            const username = localStorage.getItem('username') || 'Usuario';
+            document.getElementById('usuarioNombre').textContent = username;
 
-                    ventasEl.textContent = currencyFormatter.format(stats.ventas_mes);
-                    clientesEl.textContent = stats.nuevos_clientes;
-                    pendientesEl.textContent = stats.pedidos_pendientes;
-                    stockEl.textContent = stats.stock_bajo;
+            await cargarEstadisticas();
+            setInterval(cargarEstadisticas, 300000); // Actualizar cada 5 min
+        });
 
-                    [ventasEl, clientesEl, pendientesEl, stockEl].forEach(el => el.classList.remove('loading'));
+        async function cargarEstadisticas() {
+            try {
+                const response = await fetch(`${API_URL}/reportes/dashboard`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
 
-                } catch (error) {
-                    console.error('Error:', error);
-                    // Opcional: mostrar un mensaje de error en el dashboard
-                }
-            }
+                if (!response.ok) throw new Error('Error al cargar estadísticas');
 
-            cargarEstadisticas();
-        });
-    </script>
+                const data = await response.json();
+
+                // Actualizar cards
+                document.getElementById('ventasHoy').textContent = '$' + parseFloat(data.hoy.ventas || 0).toFixed(2);
+                document.getElementById('pedidosHoy').textContent = (data.hoy.pedidos || 0) + ' pedidos';
+                
+                document.getElementById('ventasMes').textContent = '$' + parseFloat(data.mes.ventas || 0).toFixed(2);
+                document.getElementById('pedidosMes').textContent = (data.mes.pedidos || 0) + ' pedidos';
+                
+                document.getElementById('clientesActivos').textContent = data.clientes_activos || 0;
+                document.getElementById('stockBajo').textContent = data.productos_stock_bajo || 0;
+
+                // Gráfico de ventas
+                crearGraficoVentas(data.ventas_por_dia || []);
+
+                // Top productos
+                mostrarTopProductos(data.top_productos || []);
+
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        function crearGraficoVentas(datos) {
+            const ctx = document.getElementById('graficoVentas');
+            
+            if (graficoVentas) {
+                graficoVentas.destroy();
+            }
+
+            const ultimos7 = datos.slice(0, 7).reverse();
+            
+            graficoVentas = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ultimos7.map(d => new Date(d.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })),
+                    datasets: [{
+                        label: 'Ventas ($)',
+                        data: ultimos7.map(d => parseFloat(d.total_ventas)),
+                        borderColor: 'rgb(102, 126, 234)',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function mostrarTopProductos(productos) {
+            const container = document.getElementById('topProductos');
+            
+            if (productos.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">No hay datos de ventas</p>';
+                return;
+            }
+
+            container.innerHTML = productos.slice(0, 5).map((p, index) => `
+                <div class="d-flex align-items-center mb-3">
+                    <div class="me-3">
+                        <span class="badge bg-primary rounded-circle" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
+                            ${index + 1}
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold">${p.nombre}</div>
+                        <small class="text-muted">${p.cantidad_vendida} unidades | $${parseFloat(p.total_vendido).toFixed(2)}</small>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('username');
+            window.location.href = 'login.html';
+        }
+    </script>
+    <script src="js/config-panel.js"></script>
 </body>
 </html>
+
+<script>
+// Mostrar tarjeta de administración solo para admin
+document.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const rol = payload.rol;
+            
+            if (rol === 'admin' || rol === 'administrador') {
+                const cardAdmin = document.getElementById('cardAdmin');
+                if (cardAdmin) {
+                    cardAdmin.style.display = 'block';
+                }
+            }
+        } catch (e) {
+            console.error('Error al verificar rol:', e);
+        }
+    }
+});
+</script>

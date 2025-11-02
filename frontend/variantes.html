@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variantes de Productos - ERP LAGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        .producto-card {
+            transition: transform 0.2s;
+        }
+        .producto-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .variante-item {
+            border-left: 3px solid #0d6efd;
+            background: #f8f9fa;
+        }
+        .badge-stock-ok { background-color: #28a745; }
+        .badge-stock-bajo { background-color: #ffc107; }
+        .badge-stock-critico { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <script src="js/connection-indicator.js"></script>
+    <nav class="navbar navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="dashboard.html">
+                <i class="bi bi-arrow-left-circle"></i> ERP LAGO
+            </a>
+            <span class="navbar-text text-white">
+                <i class="bi bi-boxes"></i> Gestión de Variantes de Productos
+            </span>
+            <button class="btn btn-outline-light btn-sm" onclick="cerrarSesion()">
+                <i class="bi bi-box-arrow-right"></i> Salir
+            </button>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <i class="bi bi-search"></i> Buscar Producto
+                    </div>
+                    <div class="card-body">
+                        <input type="text" class="form-control mb-3" id="buscarProducto" 
+                               placeholder="Buscar producto..." onkeyup="buscarProductos()">
+                        
+                        <div id="listaProductos" style="max-height: 400px; overflow-y: auto;">
+                            <div class="text-center text-muted">
+                                <i class="bi bi-search"></i> Busca un producto
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card shadow-sm" id="panelVariantes" style="display: none;">
+                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="bi bi-box-seam"></i> <span id="nombreProducto">-</span>
+                            <small class="ms-2" id="skuProducto"></small>
+                        </div>
+                        <button class="btn btn-success btn-sm" onclick="abrirModalNuevaVariante()">
+                            <i class="bi bi-plus-circle"></i> Nueva Variante
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="listaVariantes">
+                            <div class="text-center text-muted">
+                                <div class="spinner-border spinner-border-sm" role="status"></div>
+                                Cargando variantes...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm" id="panelInicio">
+                    <div class="card-body text-center py-5">
+                        <i class="bi bi-boxes" style="font-size: 4rem; color: #ccc;"></i>
+                        <h4 class="mt-3 text-muted">Selecciona un producto para gestionar sus variantes</h4>
+                        <p class="text-muted">Busca un producto en el panel izquierdo</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Crear/Editar Variante -->
+    <div class="modal fade" id="modalVariante" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="modalTitulo">
+                        <i class="bi bi-plus-circle"></i> Nueva Variante
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formVariante">
+                        <input type="hidden" id="idVariante">
+                        <input type="hidden" id="idProductoSeleccionado">
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Nombre Variante <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="nombreVariante" required
+                                           placeholder="Ej: Grano 120, Talle M, Color Rojo">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">SKU <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="skuVariante" required
+                                           placeholder="Código único">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Precio</label>
+                                    <input type="number" class="form-control" id="precioVariante" 
+                                           step="0.01" min="0" value="0">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Stock</label>
+                                    <input type="number" class="form-control" id="stockVariante" 
+                                           min="0" value="0">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Stock Mínimo</label>
+                                    <input type="number" class="form-control" id="stockMinimoVariante" 
+                                           min="0" value="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Atributos Personalizados (JSON)</label>
+                            <textarea class="form-control" id="atributosVariante" rows="3"
+                                      placeholder='{"grano": 120, "uso": "Lijado medio", "medida": "230x280mm"}'></textarea>
+                            <small class="text-muted">Formato JSON válido. Ejemplo: {"color": "rojo", "talle": "M"}</small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarVariante()">
+                        <i class="bi bi-save"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_URL = 'http://72.60.148.18:3000/api';
+        let productos = [];
+        let productoSeleccionado = null;
+        let variantes = [];
+        let modalVariante;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            modalVariante = new bootstrap.Modal(document.getElementById('modalVariante'));
+            await cargarProductos();
+        });
+
+        async function cargarProductos() {
+            try {
+                const response = await fetch(`${API_URL}/productos`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                if (response.status === 403 || response.status === 401) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                productos = await response.json();
+            } catch (error) {
+                console.error('Error al cargar productos:', error);
+            }
+        }
+
+        function buscarProductos() {
+            const termino = document.getElementById('buscarProducto').value.toLowerCase();
+            const container = document.getElementById('listaProductos');
+
+            if (termino.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted"><i class="bi bi-search"></i> Busca un producto</div>';
+                return;
+            }
+
+            const filtrados = productos.filter(p =>
+                p.nombre.toLowerCase().includes(termino) ||
+                p.sku.toLowerCase().includes(termino) ||
+                (p.descripcion && p.descripcion.toLowerCase().includes(termino))
+            );
+
+            if (filtrados.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">No se encontraron productos</div>';
+                return;
+            }
+
+            container.innerHTML = filtrados.map(p => `
+                <div class="card mb-2 producto-card" style="cursor: pointer;" onclick="seleccionarProducto(${p.id_producto})">
+                    <div class="card-body py-2">
+                        <h6 class="mb-1">${p.nombre}</h6>
+                        <small class="text-muted">SKU: ${p.sku}</small>
+                        ${p.tiene_variantes ? '<span class="badge bg-success ms-2">Con variantes</span>' : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function seleccionarProducto(id_producto) {
+            productoSeleccionado = productos.find(p => p.id_producto === id_producto);
+            
+            document.getElementById('nombreProducto').textContent = productoSeleccionado.nombre;
+            document.getElementById('skuProducto').textContent = `SKU: ${productoSeleccionado.sku}`;
+            
+            document.getElementById('panelInicio').style.display = 'none';
+            document.getElementById('panelVariantes').style.display = 'block';
+
+            await cargarVariantes(id_producto);
+        }
+
+        async function cargarVariantes(id_producto) {
+            try {
+                const response = await fetch(`${API_URL}/productos/${id_producto}/variantes`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                variantes = await response.json();
+                mostrarVariantes();
+            } catch (error) {
+                console.error('Error al cargar variantes:', error);
+                document.getElementById('listaVariantes').innerHTML = 
+                    '<div class="alert alert-danger">Error al cargar variantes</div>';
+            }
+        }
+
+        function mostrarVariantes() {
+            const container = document.getElementById('listaVariantes');
+
+            if (variantes.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Este producto no tiene variantes creadas.
+                        <button class="btn btn-sm btn-primary ms-2" onclick="abrirModalNuevaVariante()">
+                            Crear primera variante
+                        </button>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = variantes.map(v => {
+                const stockClase = v.stock > v.stock_minimo ? 'badge-stock-ok' : 
+                                   v.stock > 0 ? 'badge-stock-bajo' : 'badge-stock-critico';
+                
+                let atributosHTML = '';
+                if (v.atributos) {
+                    atributosHTML = Object.entries(v.atributos).map(([key, value]) => 
+                        `<span class="badge bg-secondary me-1">${key}: ${value}</span>`
+                    ).join('');
+                }
+
+                return `
+                    <div class="card variante-item mb-3">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-4">
+                                    <h6 class="mb-1">${v.nombre_variante}</h6>
+                                    <small class="text-muted">SKU: ${v.sku}</small>
+                                </div>
+                                <div class="col-md-2">
+                                    <strong class="text-success">$${parseFloat(v.precio).toFixed(2)}</strong>
+                                </div>
+                                <div class="col-md-3">
+                                    <span class="badge ${stockClase}">Stock: ${v.stock}</span>
+                                    ${v.stock <= v.stock_minimo ? '<i class="bi bi-exclamation-triangle text-warning ms-1"></i>' : ''}
+                                </div>
+                                <div class="col-md-3 text-end">
+                                    <button class="btn btn-sm btn-warning" onclick="editarVariante(${v.id_variante})" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="eliminarVariante(${v.id_variante}, '${v.nombre_variante}')" title="Eliminar">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            ${atributosHTML ? `<div class="mt-2">${atributosHTML}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function abrirModalNuevaVariante() {
+            if (!productoSeleccionado) {
+                alert('Primero selecciona un producto');
+                return;
+            }
+
+            document.getElementById('formVariante').reset();
+            document.getElementById('idVariante').value = '';
+            document.getElementById('idProductoSeleccionado').value = productoSeleccionado.id_producto;
+            document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-plus-circle"></i> Nueva Variante';
+            modalVariante.show();
+        }
+
+        async function editarVariante(id_variante) {
+            try {
+                const response = await fetch(`${API_URL}/variantes/${id_variante}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                const variante = await response.json();
+
+                document.getElementById('idVariante').value = variante.id_variante;
+                document.getElementById('idProductoSeleccionado').value = variante.id_producto;
+                document.getElementById('nombreVariante').value = variante.nombre_variante;
+                document.getElementById('skuVariante').value = variante.sku;
+                document.getElementById('precioVariante').value = variante.precio || 0;
+                document.getElementById('stockVariante').value = variante.stock || 0;
+                document.getElementById('stockMinimoVariante').value = variante.stock_minimo || 0;
+                document.getElementById('atributosVariante').value = variante.atributos ? JSON.stringify(variante.atributos, null, 2) : '';
+
+                document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-pencil"></i> Editar Variante';
+                modalVariante.show();
+            } catch (error) {
+                console.error('Error al cargar variante:', error);
+                alert('Error al cargar datos de la variante');
+            }
+        }
+
+        async function guardarVariante() {
+            const id_variante = document.getElementById('idVariante').value;
+            const id_producto = document.getElementById('idProductoSeleccionado').value;
+            
+            const datos = {
+                nombre_variante: document.getElementById('nombreVariante').value,
+                sku: document.getElementById('skuVariante').value,
+                precio: parseFloat(document.getElementById('precioVariante').value) || 0,
+                stock: parseInt(document.getElementById('stockVariante').value) || 0,
+                stock_minimo: parseInt(document.getElementById('stockMinimoVariante').value) || 0
+            };
+
+            // Validar y parsear atributos JSON
+            const atributosTexto = document.getElementById('atributosVariante').value.trim();
+            if (atributosTexto) {
+                try {
+                    datos.atributos = JSON.parse(atributosTexto);
+                } catch (e) {
+                    alert('El formato de atributos JSON no es válido');
+                    return;
+                }
+            }
+
+            if (!datos.nombre_variante || !datos.sku) {
+                alert('Nombre y SKU son requeridos');
+                return;
+            }
+
+            try {
+                const url = id_variante 
+                    ? `${API_URL}/variantes/${id_variante}` 
+                    : `${API_URL}/productos/${id_producto}/variantes`;
+                const method = id_variante ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify(datos)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(result.message);
+                    modalVariante.hide();
+                    await cargarVariantes(id_producto);
+                } else {
+                    alert(result.error || 'Error al guardar variante');
+                }
+            } catch (error) {
+                console.error('Error al guardar variante:', error);
+                alert('Error al guardar variante');
+            }
+        }
+
+        async function eliminarVariante(id_variante, nombre) {
+            if (!confirm(`¿Está seguro que desea eliminar la variante "${nombre}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/variantes/${id_variante}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(result.message);
+                    await cargarVariantes(productoSeleccionado.id_producto);
+                } else {
+                    alert(result.error || 'Error al eliminar variante');
+                }
+            } catch (error) {
+                console.error('Error al eliminar variante:', error);
+                alert('Error al eliminar variante');
+            }
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('username');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

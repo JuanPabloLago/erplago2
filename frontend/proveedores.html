@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proveedores - ERP LAGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+</head>
+<body>
+    <script src="js/connection-indicator.js"></script>
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="dashboard.html">
+                <i class="bi bi-arrow-left-circle"></i> ERP LAGO
+            </a>
+            <span class="navbar-text text-white">
+                <i class="bi bi-truck"></i> Gestión de Proveedores
+            </span>
+            <button class="btn btn-outline-light btn-sm" onclick="cerrarSesion()">
+                <i class="bi bi-box-arrow-right"></i> Salir
+            </button>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Panel de búsqueda y filtros -->
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <i class="bi bi-search"></i> Buscar Proveedor
+                    </div>
+                    <div class="card-body">
+                        <input type="text" class="form-control mb-3" id="buscarProveedor" 
+                               placeholder="Buscar por razón social, CUIT..." onkeyup="buscarProveedores()">
+                        
+                        <button class="btn btn-success w-100" onclick="abrirModalNuevo()">
+                            <i class="bi bi-plus-circle"></i> Nuevo Proveedor
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Resumen -->
+                <div class="card shadow-sm mt-3">
+                    <div class="card-header bg-info text-white">
+                        <i class="bi bi-info-circle"></i> Resumen
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-2"><strong>Total Proveedores:</strong> <span id="totalProveedores">0</span></p>
+                        <p class="mb-0"><strong>Activos:</strong> <span id="activosProveedores">0</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de proveedores -->
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-secondary text-white">
+                        <i class="bi bi-list-ul"></i> Lista de Proveedores
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Razón Social</th>
+                                        <th>CUIT</th>
+                                        <th>Teléfono</th>
+                                        <th>Email</th>
+                                        <th>Rubro</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaProveedores">
+                                    <tr>
+                                        <td colspan="6" class="text-center">
+                                            <div class="spinner-border spinner-border-sm" role="status"></div>
+                                            Cargando proveedores...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Crear/Editar Proveedor -->
+    <div class="modal fade" id="modalProveedor" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="modalTitulo">
+                        <i class="bi bi-plus-circle"></i> Nuevo Proveedor
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formProveedor">
+                        <input type="hidden" id="idProveedor">
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Razón Social <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="razonSocial" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Nombre Fantasía</label>
+                                <input type="text" class="form-control" id="nombreFantasia">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">CUIT <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="cuit" 
+                                       placeholder="20-12345678-9" maxlength="13" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Condición IVA <span class="text-danger">*</span></label>
+                                <select class="form-select" id="condicionIva" required>
+                                    <option value="">Seleccionar...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Rubro</label>
+                                <input type="text" class="form-control" id="rubro" placeholder="Ej: Mayorista">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Teléfono</label>
+                                <input type="text" class="form-control" id="telefono">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Domicilio</label>
+                            <input type="text" class="form-control" id="domicilio">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Contacto - Nombre</label>
+                                <input type="text" class="form-control" id="contactoNombre">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Contacto - Puesto</label>
+                                <input type="text" class="form-control" id="contactoPuesto">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarProveedor()">
+                        <i class="bi bi-save"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_URL = 'http://72.60.148.18:3000/api';
+        let proveedores = [];
+        let condicionesIva = [];
+        let modalProveedor;
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            modalProveedor = new bootstrap.Modal(document.getElementById('modalProveedor'));
+            
+            await cargarCondicionesIva();
+            await cargarProveedores();
+        });
+
+        // Cargar condiciones IVA
+        async function cargarCondicionesIva() {
+            try {
+                const response = await fetch(`${API_URL}/condicionesiva`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    }
+                });
+
+                if (response.status === 403 || response.status === 401) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                condicionesIva = await response.json();
+                const select = document.getElementById('condicionIva');
+                
+                condicionesIva.forEach(cond => {
+                    const option = document.createElement('option');
+                    option.value = cond.id_condicion_iva;
+                    option.textContent = cond.nombre;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error al cargar condiciones IVA:', error);
+            }
+        }
+
+        // Cargar proveedores
+        async function cargarProveedores() {
+            try {
+                const response = await fetch(`${API_URL}/proveedores`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    }
+                });
+
+                if (response.status === 403 || response.status === 401) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                proveedores = await response.json();
+                mostrarProveedores(proveedores);
+                actualizarResumen();
+            } catch (error) {
+                console.error('Error al cargar proveedores:', error);
+                document.getElementById('tablaProveedores').innerHTML = 
+                    '<tr><td colspan="6" class="text-center text-danger">Error al cargar proveedores</td></tr>';
+            }
+        }
+
+        // Mostrar proveedores en la tabla
+        function mostrarProveedores(lista) {
+            const tbody = document.getElementById('tablaProveedores');
+            
+            if (lista.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay proveedores registrados</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = lista.map(p => `
+                <tr>
+                    <td><strong>${p.razon_social}</strong><br><small class="text-muted">${p.nombre_fantasia || ''}</small></td>
+                    <td>${p.cuit}</td>
+                    <td>${p.telefono || '-'}</td>
+                    <td>${p.email || '-'}</td>
+                    <td><span class="badge bg-info">${p.rubro || 'Sin rubro'}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-warning" onclick="editarProveedor(${p.id_proveedor})" title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="eliminarProveedor(${p.id_proveedor}, '${p.razon_social}')" title="Eliminar">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Buscar proveedores
+        function buscarProveedores() {
+            const termino = document.getElementById('buscarProveedor').value.toLowerCase();
+            
+            if (termino.length === 0) {
+                mostrarProveedores(proveedores);
+                return;
+            }
+
+            const filtrados = proveedores.filter(p => 
+                p.razon_social.toLowerCase().includes(termino) ||
+                (p.nombre_fantasia && p.nombre_fantasia.toLowerCase().includes(termino)) ||
+                p.cuit.includes(termino) ||
+                (p.email && p.email.toLowerCase().includes(termino)) ||
+                (p.rubro && p.rubro.toLowerCase().includes(termino))
+            );
+
+            mostrarProveedores(filtrados);
+        }
+
+        // Actualizar resumen
+        function actualizarResumen() {
+            document.getElementById('totalProveedores').textContent = proveedores.length;
+            document.getElementById('activosProveedores').textContent = proveedores.filter(p => p.activo).length;
+        }
+
+        // Abrir modal nuevo proveedor
+        function abrirModalNuevo() {
+            document.getElementById('formProveedor').reset();
+            document.getElementById('idProveedor').value = '';
+            document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-plus-circle"></i> Nuevo Proveedor';
+            modalProveedor.show();
+        }
+
+        // Editar proveedor
+        async function editarProveedor(id) {
+            try {
+                const response = await fetch(`${API_URL}/proveedores/${id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    }
+                });
+
+                const proveedor = await response.json();
+
+                document.getElementById('idProveedor').value = proveedor.id_proveedor;
+                document.getElementById('razonSocial').value = proveedor.razon_social;
+                document.getElementById('nombreFantasia').value = proveedor.nombre_fantasia || '';
+                document.getElementById('cuit').value = proveedor.cuit;
+                document.getElementById('condicionIva').value = proveedor.id_condicion_iva;
+                document.getElementById('rubro').value = proveedor.rubro || '';
+                document.getElementById('telefono').value = proveedor.telefono || '';
+                document.getElementById('email').value = proveedor.email || '';
+                document.getElementById('domicilio').value = proveedor.domicilio || '';
+                document.getElementById('contactoNombre').value = proveedor.contacto_nombre || '';
+                document.getElementById('contactoPuesto').value = proveedor.contacto_puesto || '';
+
+                document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-pencil"></i> Editar Proveedor';
+                modalProveedor.show();
+            } catch (error) {
+                console.error('Error al cargar proveedor:', error);
+                alert('Error al cargar datos del proveedor');
+            }
+        }
+
+        // Guardar proveedor (crear o actualizar)
+        async function guardarProveedor() {
+            const id = document.getElementById('idProveedor').value;
+            const datos = {
+                razon_social: document.getElementById('razonSocial').value,
+                nombre_fantasia: document.getElementById('nombreFantasia').value,
+                cuit: document.getElementById('cuit').value,
+                id_condicion_iva: parseInt(document.getElementById('condicionIva').value),
+                rubro: document.getElementById('rubro').value,
+                telefono: document.getElementById('telefono').value,
+                email: document.getElementById('email').value,
+                domicilio: document.getElementById('domicilio').value,
+                contacto_nombre: document.getElementById('contactoNombre').value,
+                contacto_puesto: document.getElementById('contactoPuesto').value
+            };
+
+            if (!datos.razon_social || !datos.cuit || !datos.id_condicion_iva) {
+                alert('Por favor complete los campos obligatorios');
+                return;
+            }
+
+            try {
+                const url = id ? `${API_URL}/proveedores/${id}` : `${API_URL}/proveedores`;
+                const method = id ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify(datos)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(result.message);
+                    modalProveedor.hide();
+                    await cargarProveedores();
+                } else {
+                    alert(result.error || 'Error al guardar proveedor');
+                }
+            } catch (error) {
+                console.error('Error al guardar proveedor:', error);
+                alert('Error al guardar proveedor');
+            }
+        }
+
+        // Eliminar proveedor
+        async function eliminarProveedor(id, nombre) {
+            if (!confirm(`¿Está seguro que desea eliminar al proveedor "${nombre}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/proveedores/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(result.message);
+                    await cargarProveedores();
+                } else {
+                    alert(result.error || 'Error al eliminar proveedor');
+                }
+            } catch (error) {
+                console.error('Error al eliminar proveedor:', error);
+                alert('Error al eliminar proveedor');
+            }
+        }
+
+        // Cerrar sesión
+        function cerrarSesion() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('username');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprobantes Internos - ERP LAGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        .gradient-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .comprobante-card {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .comprobante-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .badge-negro {
+            background: linear-gradient(135deg, #434343 0%, #000000 100%);
+        }
+    </style>
+</head>
+<body>
+    <script src="js/connection-indicator.js"></script>
+    <nav class="navbar navbar-dark gradient-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="dashboard.html">
+                <i class="bi bi-arrow-left-circle"></i> ERP LAGO
+            </a>
+            <span class="navbar-text text-white">
+                <i class="bi bi-receipt"></i> Comprobantes Internos (Sin AFIP)
+            </span>
+            <button class="btn btn-outline-light btn-sm" onclick="cerrarSesion()">
+                <i class="bi bi-box-arrow-right"></i> Salir
+            </button>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Panel de Acciones -->
+            <div class="col-md-4">
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-dark text-white">
+                        <i class="bi bi-plus-circle"></i> Generar Comprobante
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning">
+                            <small>
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <strong>Comprobante Interno:</strong> Para operaciones sin AFIP
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Seleccionar Pedido</label>
+                            <select class="form-select" id="pedidoSeleccionado">
+                                <option value="">Cargando pedidos...</option>
+                            </select>
+                        </div>
+
+                        <button class="btn btn-dark w-100 mb-2" onclick="generarDesdePedido()">
+                            <i class="bi bi-receipt-cutoff"></i> Generar desde Pedido
+                        </button>
+
+                        <hr>
+
+                        <button class="btn btn-outline-dark w-100" onclick="generarManual()">
+                            <i class="bi bi-pencil-square"></i> Crear Manual
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filtros -->
+                <div class="card shadow-sm">
+                    <div class="card-header bg-secondary text-white">
+                        <i class="bi bi-funnel"></i> Filtros
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Desde</label>
+                            <input type="date" class="form-control" id="fechaDesde">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Hasta</label>
+                            <input type="date" class="form-control" id="fechaHasta">
+                        </div>
+                        <button class="btn btn-secondary w-100" onclick="cargarComprobantes()">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de Comprobantes -->
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between">
+                        <span><i class="bi bi-list"></i> Comprobantes Internos</span>
+                        <span class="badge bg-light text-dark" id="totalComprobantes">0</span>
+                    </div>
+                    <div class="card-body" id="listaComprobantes">
+                        <div class="text-center text-muted">
+                            <div class="spinner-border spinner-border-sm"></div> Cargando...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Ver Comprobante -->
+    <div class="modal fade" id="modalComprobante" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-receipt"></i> Comprobante Interno
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="detalleComprobante">
+                    <!-- Se llena dinámicamente -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary" onclick="imprimirComprobante()">
+                        <i class="bi bi-printer"></i> Imprimir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_URL = 'http://72.60.148.18:3000/api';
+        let modalComprobante;
+        let comprobanteActual = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            modalComprobante = new bootstrap.Modal(document.getElementById('modalComprobante'));
+
+            // Configurar fechas por defecto (último mes)
+            const hoy = new Date();
+            const haceUnMes = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
+            
+            document.getElementById('fechaDesde').value = haceUnMes.toISOString().split('T')[0];
+            document.getElementById('fechaHasta').value = hoy.toISOString().split('T')[0];
+
+            await Promise.all([
+                cargarPedidosSinComprobante(),
+                cargarComprobantes()
+            ]);
+        });
+
+        async function cargarPedidosSinComprobante() {
+            try {
+                const response = await fetch(`${API_URL}/pedidos`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                const pedidos = await response.json();
+                
+                // Filtrar pedidos que no tengan factura ni comprobante
+                // (En producción deberías tener un campo que indique esto)
+                const select = document.getElementById('pedidoSeleccionado');
+                
+                select.innerHTML = '<option value="">Seleccionar pedido...</option>' +
+                    pedidos.map(p => `
+                        <option value="${p.id_pedido}">
+                            #${p.id_pedido} - ${p.cliente} - $${parseFloat(p.total).toFixed(2)}
+                        </option>
+                    `).join('');
+
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        async function cargarComprobantes() {
+            try {
+                const response = await fetch(`${API_URL}/comprobantes-internos`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                const comprobantes = await response.json();
+                
+                document.getElementById('totalComprobantes').textContent = comprobantes.length;
+
+                const container = document.getElementById('listaComprobantes');
+
+                if (comprobantes.length === 0) {
+                    container.innerHTML = '<div class="alert alert-info">No hay comprobantes internos registrados</div>';
+                    return;
+                }
+
+                container.innerHTML = comprobantes.map(c => `
+                    <div class="card comprobante-card mb-2" onclick="verComprobante(${c.id_comprobante})">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-3">
+                                    <h6 class="mb-0">${c.numero_completo}</h6>
+                                    <small class="text-muted">
+                                        ${new Date(c.fecha_emision).toLocaleDateString()}
+                                    </small>
+                                </div>
+                                <div class="col-md-5">
+                                    <strong>${c.cliente || 'Consumidor Final'}</strong>
+                                </div>
+                                <div class="col-md-2">
+                                    <span class="badge badge-negro">${c.estado}</span>
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    <h6 class="mb-0 text-success">$${parseFloat(c.total).toFixed(2)}</h6>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('listaComprobantes').innerHTML = 
+                    '<div class="alert alert-danger">Error al cargar comprobantes</div>';
+            }
+        }
+
+        async function generarDesdePedido() {
+            const id_pedido = document.getElementById('pedidoSeleccionado').value;
+
+            if (!id_pedido) {
+                alert('Debes seleccionar un pedido');
+                return;
+            }
+
+            if (!confirm('¿Generar comprobante interno desde este pedido?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/comprobantes-internos/desde-pedido/${id_pedido}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({})
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert('¡Comprobante interno generado exitosamente!');
+                    await cargarComprobantes();
+                    await cargarPedidosSinComprobante();
+                    
+                    // Ver el comprobante recién creado
+                    verComprobante(result.comprobante.id_comprobante);
+                } else {
+                    alert(result.error || 'Error al generar comprobante');
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al generar comprobante');
+            }
+        }
+
+        function generarManual() {
+            alert('Funcionalidad de creación manual en desarrollo.\nPor ahora genera desde pedidos existentes.');
+        }
+
+        async function verComprobante(id_comprobante) {
+            try {
+                const response = await fetch(`${API_URL}/comprobantes-internos/${id_comprobante}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                comprobanteActual = await response.json();
+
+                const html = `
+                    <div class="border rounded p-3" style="background: #fff;">
+                        <!-- Header -->
+                        <div class="text-center mb-4">
+                            <h3>COMPROBANTE INTERNO</h3>
+                            <h4>${comprobanteActual.numero_completo}</h4>
+                            <div class="badge badge-negro">SIN VALIDEZ FISCAL</div>
+                        </div>
+
+                        <!-- Datos del Cliente -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Cliente:</strong> ${comprobanteActual.cliente || 'Consumidor Final'}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Fecha:</strong> ${new Date(comprobanteActual.fecha_emision).toLocaleDateString()}
+                            </div>
+                        </div>
+
+                        ${comprobanteActual.observaciones ? `
+                        <div class="mb-3">
+                            <strong>Observaciones:</strong> ${comprobanteActual.observaciones}
+                        </div>
+                        ` : ''}
+
+                        <!-- Items -->
+                        <table class="table table-bordered">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Descripción</th>
+                                    <th class="text-center">Cantidad</th>
+                                    <th class="text-end">Precio Unit.</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${comprobanteActual.items.map(item => `
+                                    <tr>
+                                        <td>${item.descripcion}</td>
+                                        <td class="text-center">${item.cantidad}</td>
+                                        <td class="text-end">$${parseFloat(item.precio_unitario).toFixed(2)}</td>
+                                        <td class="text-end">$${parseFloat(item.subtotal).toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+
+                        <!-- Totales -->
+                        <div class="row">
+                            <div class="col-md-6 offset-md-6">
+                                <table class="table">
+                                    <tr>
+                                        <td><strong>Subtotal:</strong></td>
+                                        <td class="text-end">$${parseFloat(comprobanteActual.subtotal).toFixed(2)}</td>
+                                    </tr>
+                                    ${comprobanteActual.descuento_general > 0 ? `
+                                    <tr class="text-danger">
+                                        <td><strong>Descuento:</strong></td>
+                                        <td class="text-end">-$${parseFloat(comprobanteActual.descuento_general).toFixed(2)}</td>
+                                    </tr>
+                                    ` : ''}
+                                    ${comprobanteActual.recargo > 0 ? `
+                                    <tr class="text-warning">
+                                        <td><strong>Recargo:</strong></td>
+                                        <td class="text-end">+$${parseFloat(comprobanteActual.recargo).toFixed(2)}</td>
+                                    </tr>
+                                    ` : ''}
+                                    <tr class="table-dark">
+                                        <td><strong>TOTAL:</strong></td>
+                                        <td class="text-end"><strong>$${parseFloat(comprobanteActual.total).toFixed(2)}</strong></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-warning mt-3">
+                            <small>
+                                <i class="bi bi-exclamation-triangle"></i>
+                                Este comprobante NO tiene validez fiscal. No fue informado a AFIP.
+                            </small>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('detalleComprobante').innerHTML = html;
+                modalComprobante.show();
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al cargar comprobante');
+            }
+        }
+
+        function imprimirComprobante() {
+            const contenido = document.getElementById('detalleComprobante').innerHTML;
+            
+            const ventana = window.open('', '_blank');
+            ventana.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Comprobante ${comprobanteActual.numero_completo}</title>
+                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                    <style>
+                        @media print {
+                            .no-print { display: none; }
+                        }
+                        body { padding: 20px; }
+                        .badge-negro {
+                            background: #000;
+                            color: #fff;
+                            padding: 5px 10px;
+                            border-radius: 5px;
+                        }
+                    </style>
+                </head>
+                <body>
+    <script src="js/connection-indicator.js"></script>
+                    ${contenido}
+                    <div class="text-center mt-4 no-print">
+                        <button class="btn btn-primary" onclick="window.print()">
+                            <i class="bi bi-printer"></i> Imprimir
+                        </button>
+                        <button class="btn btn-secondary" onclick="window.close()">
+                            Cerrar
+                        </button>
+                    </div>
+                </body>
+                </html>
+            `);
+            ventana.document.close();
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('username');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

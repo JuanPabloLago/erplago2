@@ -1,1 +1,35 @@
+# Archivos sensibles
+afip/certificados/
+afip/tokens/
+*.key
+*.crt
+*.csr
+*.pem
 .env
+
+# Base de datos
+*.sql
+*.dump
+*.dump.gz
+dump_*.txt
+backups/
+
+# Backups
+*.backup*
+*.bak*
+*.old
+*.Old
+*.orig
+*viejo*
+estructura.txt
+
+# Logs
+*.log
+
+# Node
+node_modules/
+npm-debug.log
+
+# Sistema
+.DS_Store
+Thumbs.db

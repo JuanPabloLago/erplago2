@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compras - ERP Lago</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
+<body>
+    <div class="container-fluid p-4">
+        <div class="row">
+            <div class="col-md-7">
+                <h3><i class="bi bi-bag-plus-fill"></i> Nueva Orden de Compra</h3>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="proveedorSelect" class="form-label"><b>1. Seleccionar Proveedor</b></label>
+                            <select id="proveedorSelect" class="form-select"></select>
+                        </div>
+                        <hr>
+                        <div>
+                            <label class="form-label"><b>2. Añadir Productos</b></label>
+                            <input type="text" id="buscadorProductos" class="form-control mb-2" placeholder="Buscar producto por nombre o SKU...">
+                            <div class="list-group" id="listaProductos" style="max-height: 50vh; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <h3><i class="bi bi-clipboard-check"></i> Orden Actual</h3>
+                <div class="card">
+                    <div class="card-body">
+                        <h5 id="proveedorSeleccionado">Seleccione un proveedor</h5>
+                        <div id="ordenItems" style="max-height: 45vh; overflow-y: auto;"></div>
+                        <hr>
+                        <div class="d-flex justify-content-between fs-4">
+                            <b>TOTAL:</b>
+                            <b id="totalOrden">$0.00</b>
+                        </div>
+                        <div class="d-grid gap-2 mt-3">
+                            <button id="btnCrearOrden" class="btn btn-primary btn-lg" disabled>Crear Orden de Compra</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('authToken');
+            if (!token) { window.location.href = '/login.html'; return; }
+            const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+            
+            const proveedorSelect = document.getElementById('proveedorSelect');
+            const listaProductos = document.getElementById('listaProductos');
+            const buscadorProductos = document.getElementById('buscadorProductos');
+            const proveedorSeleccionado = document.getElementById('proveedorSeleccionado');
+            const ordenItemsDiv = document.getElementById('ordenItems');
+            const totalOrden = document.getElementById('totalOrden');
+            const btnCrearOrden = document.getElementById('btnCrearOrden');
+
+            let allProductos = [];
+            let orden = [];
+
+            const cargarDatosIniciales = async () => {
+                const response = await fetch('/api/compras/datos-iniciales', { headers });
+                const data = await response.json();
+                
+                proveedorSelect.innerHTML = '<option selected disabled value="">-- Seleccione --</option>';
+                data.proveedores.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.id_proveedor;
+                    option.textContent = p.razon_social;
+                    proveedorSelect.appendChild(option);
+                });
+
+                allProductos = data.productos;
+                renderizarProductos(allProductos);
+            };
+
+            const renderizarProductos = (productos) => {
+                listaProductos.innerHTML = '';
+                productos.forEach(p => {
+                    const item = document.createElement('a');
+                    item.href = '#';
+                    item.className = 'list-group-item list-group-item-action';
+                    item.dataset.id = p.id_producto;
+                    item.innerHTML = `<div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">${p.nombre}</h6>
+                                    </div>
+                                    <p class="mb-1">SKU: ${p.sku}</p>`;
+                    listaProductos.appendChild(item);
+                });
+            };
+            
+            const renderizarOrden = () => {
+                ordenItemsDiv.innerHTML = '';
+                if(orden.length === 0) {
+                    ordenItemsDiv.innerHTML = '<p class="text-center text-muted">Añada productos a la orden.</p>';
+                } else {
+                    orden.forEach((item, index) => {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'd-flex justify-content-between align-items-center mb-2';
+                        itemDiv.innerHTML = `<div>
+                                                <span>${item.nombre}</span><br>
+                                                <small class="text-muted">$${item.costo.toFixed(2)} x ${item.cantidad} = $${item.subtotal.toFixed(2)}</small>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-danger btn-quitar" data-index="${index}"><i class="bi bi-trash"></i></button>`;
+                        ordenItemsDiv.appendChild(itemDiv);
+                    });
+                }
+                actualizarTotal();
+                validarBoton();
+            };
+            
+            const actualizarTotal = () => {
+                const total = orden.reduce((sum, item) => sum + item.subtotal, 0);
+                totalOrden.textContent = `$${total.toFixed(2)}`;
+            };
+
+            const validarBoton = () => {
+                btnCrearOrden.disabled = (orden.length === 0 || !proveedorSelect.value);
+            };
+
+            proveedorSelect.addEventListener('change', () => {
+                proveedorSeleccionado.textContent = proveedorSelect.options[proveedorSelect.selectedIndex].text;
+                validarBoton();
+            });
+
+            buscadorProductos.addEventListener('keyup', () => {
+                const texto = buscadorProductos.value.toLowerCase();
+                const filtrados = allProductos.filter(p => p.nombre.toLowerCase().includes(texto) || p.sku.toLowerCase().includes(texto));
+                renderizarProductos(filtrados);
+            });
+
+            listaProductos.addEventListener('click', (e) => {
+                e.preventDefault();
+                const itemDiv = e.target.closest('.list-group-item');
+                if(!itemDiv) return;
+
+                const id = parseInt(itemDiv.dataset.id);
+                const producto = allProductos.find(p => p.id_producto === id);
+                
+                const cantidad = parseInt(prompt(`Ingrese cantidad para "${producto.nombre}":`, 1));
+                const costo = parseFloat(prompt(`Ingrese costo unitario para "${producto.nombre}":`, 0));
+
+                if(!isNaN(cantidad) && cantidad > 0 && !isNaN(costo) && costo >= 0) {
+                    orden.push({
+                        id_producto: producto.id_producto,
+                        nombre: producto.nombre,
+                        cantidad: cantidad,
+                        costo: costo,
+                        subtotal: cantidad * costo
+                    });
+                    renderizarOrden();
+                }
+            });
+
+            ordenItemsDiv.addEventListener('click', (e) => {
+                const btnQuitar = e.target.closest('.btn-quitar');
+                if (btnQuitar) {
+                    orden.splice(parseInt(btnQuitar.dataset.index), 1);
+                    renderizarOrden();
+                }
+            });
+
+            btnCrearOrden.addEventListener('click', async () => {
+                const ordenCompra = {
+                    id_proveedor: parseInt(proveedorSelect.value),
+                    items: orden,
+                    total: orden.reduce((sum, item) => sum + item.subtotal, 0)
+                };
+
+                if(confirm('¿Confirmar la creación de esta Orden de Compra?')) {
+                    const response = await fetch('/api/ordenesdecompra', {
+                        method: 'POST', headers, body: JSON.stringify(ordenCompra)
+                    });
+                    const result = await response.json();
+                    if(response.ok) {
+                        alert(`¡Orden de Compra N° ${result.id_orden_compra} creada exitosamente!`);
+                        orden = [];
+                        proveedorSelect.value = '';
+                        renderizarOrden();
+                    } else {
+                        alert(`Error: ${result.error}`);
+                    }
+                }
+            });
+
+            cargarDatosIniciales();
+        });
+    </script>
+    <script src="js/connection-indicator.js"></script>
+</body>
+</html>

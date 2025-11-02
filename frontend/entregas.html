@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entregas Parciales - ERP LAGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        .gradient-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .pedido-card {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .pedido-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .progress-custom {
+            height: 25px;
+            font-size: 14px;
+        }
+        .entrega-timeline {
+            border-left: 3px solid #667eea;
+            padding-left: 1rem;
+            margin-left: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <script src="js/connection-indicator.js"></script>
+    <nav class="navbar navbar-dark gradient-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="dashboard.html">
+                <i class="bi bi-arrow-left-circle"></i> ERP LAGO
+            </a>
+            <span class="navbar-text text-white">
+                <i class="bi bi-truck"></i> Control de Entregas
+            </span>
+            <button class="btn btn-outline-light btn-sm" onclick="cerrarSesion()">
+                <i class="bi bi-box-arrow-right"></i> Salir
+            </button>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Lista de Pedidos Pendientes -->
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-warning text-dark">
+                        <i class="bi bi-clock-history"></i> Pedidos con Entregas Pendientes
+                    </div>
+                    <div class="card-body" id="pedidosPendientes">
+                        <div class="text-center">
+                            <div class="spinner-border spinner-border-sm"></div> Cargando...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detalle del Pedido Seleccionado -->
+            <div class="col-md-8">
+                <div id="detallePedido" style="display: none;">
+                    <!-- Información del Pedido -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-info-circle"></i> Información del Pedido</span>
+                            
+                    <button class="btn btn-success btn-sm" onclick="entregarTodoPedido()" title="Entregar todos los items pendientes">
+                        <i class="bi bi-truck"></i> Entregar Todo
+                    </button>
+                                <span class="badge bg-light text-dark" id="estadoPedido"></span>
+                                <button class="btn btn-success btn-sm" onclick="entregarTodoPedido()">
+                                    <i class="bi bi-truck"></i> Entregar Todo
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Cliente:</strong> <span id="clienteNombre"></span></p>
+                                    <p><strong>Fecha:</strong> <span id="fechaPedido"></span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Total:</strong> <span id="totalPedido" class="text-success"></span></p>
+                                    <p><strong>Dirección:</strong> <span id="direccionEntrega"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Items del Pedido -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-secondary text-white">
+                            <i class="bi bi-box-seam"></i> Items del Pedido - Estado de Entrega
+                        </div>
+                        <div class="card-body" id="itemsPedido"></div>
+                    </div>
+
+                    <!-- Registrar Nueva Entrega -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-success text-white">
+                            <i class="bi bi-plus-circle"></i> Registrar Nueva Entrega
+                        </div>
+                        <div class="card-body">
+                            <div id="formNuevaEntrega"></div>
+                            <div class="mt-3">
+                                <label class="form-label">Observaciones de la entrega</label>
+                                <textarea class="form-control" id="observacionesEntrega" rows="2"></textarea>
+                            </div>
+                            <div class="mt-3">
+                                <button class="btn btn-success btn-lg w-100" onclick="registrarEntrega()">
+                                    <i class="bi bi-check-circle"></i> Registrar Entrega
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Historial de Entregas -->
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-info text-white">
+                            <i class="bi bi-clock-history"></i> Historial de Entregas
+                        </div>
+                        <div class="card-body" id="historialEntregas">
+                            <p class="text-muted">No hay entregas registradas</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sinSeleccion" class="alert alert-info">
+                    <i class="bi bi-hand-index"></i> Selecciona un pedido para ver sus detalles y registrar entregas
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        
+        let pedidoActual = null;
+        const API_URL = 'http://72.60.148.18:3000/api';
+        let pedidoSeleccionado = null;
+        let estadoEntrega = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            cargarPedidosPendientes();
+        });
+
+        async function cargarPedidosPendientes() {
+            try {
+                const response = await fetch(`${API_URL}/pedidos`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                const pedidos = await response.json();
+                
+                // Filtrar solo los que no están completos
+                const pendientes = pedidos.filter(p => 
+                    !p.estado_entrega || p.estado_entrega !== 'completo'
+                );
+
+                const container = document.getElementById('pedidosPendientes');
+
+                if (pendientes.length === 0) {
+                    container.innerHTML = '<div class="alert alert-success">¡No hay entregas pendientes!</div>';
+                    return;
+                }
+
+                container.innerHTML = pendientes.map(p => {
+                    const estado = p.estado_entrega || 'pendiente';
+                    const badgeClass = estado === 'parcial' ? 'warning' : 'danger';
+                    
+                    return `
+                        <div class="card pedido-card mb-2" onclick="seleccionarPedido(${p.id_pedido})">
+                            <div class="card-body">
+                                <h6 class="mb-1">${p.cliente}</h6>
+                                <small class="text-muted">
+                                    ${new Date(p.fecha_creacion).toLocaleDateString()}
+                                </small>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <span class="badge bg-${badgeClass}">${estado}</span>
+                                    <strong class="text-success">$${parseFloat(p.total).toFixed(2)}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        async function seleccionarPedido(id_pedido) {
+            pedidoSeleccionado = id_pedido;
+
+            try {
+                // Cargar datos del pedido
+                const [pedidoRes, estadoRes, entregasRes] = await Promise.all([
+                    fetch(`${API_URL}/pedidos`, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                    }).then(r => r.json()),
+                    
+                    fetch(`${API_URL}/pedidos/${id_pedido}/estado-entrega`, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                    }).then(r => r.json()),
+                    
+                    fetch(`${API_URL}/pedidos/${id_pedido}/entregas`, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                    }).then(r => r.json())
+                ]);
+
+                const pedido = pedidoRes.find(p => p.id_pedido === id_pedido);
+                estadoEntrega = estadoRes;
+
+                // Mostrar información del pedido
+                document.getElementById('clienteNombre').textContent = pedido.cliente;
+                document.getElementById('fechaPedido').textContent = new Date(pedido.fecha_creacion).toLocaleDateString();
+                document.getElementById('totalPedido').textContent = '$' + parseFloat(pedido.total).toFixed(2);
+                document.getElementById('direccionEntrega').textContent = pedido.domicilio_entrega || pedido.direccion_entrega || 'No especificada';
+                
+                const estadoBadge = {
+                    'pendiente': 'warning',
+                    'parcial': 'info',
+                    'completo': 'success'
+                }[pedido.estado_entrega || 'pendiente'];
+                
+                document.getElementById('estadoPedido').className = `badge bg-${estadoBadge}`;
+                document.getElementById('estadoPedido').textContent = (pedido.estado_entrega || 'pendiente').toUpperCase();
+
+                // Mostrar items con progreso
+                mostrarItemsConProgreso();
+
+                // Mostrar formulario de nueva entrega
+                mostrarFormularioEntrega();
+
+                // Mostrar historial
+                mostrarHistorialEntregas(entregasRes);
+
+                // Mostrar secciones
+                document.getElementById('sinSeleccion').style.display = 'none';
+                document.getElementById('detallePedido').style.display = 'block';
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al cargar detalles del pedido');
+            }
+        }
+
+        function mostrarItemsConProgreso() {
+            const container = document.getElementById('itemsPedido');
+            
+            container.innerHTML = estadoEntrega.map(item => {
+                const porcentaje = item.cantidad_pedida > 0 
+                    ? (item.cantidad_entregada / item.cantidad_pedida * 100).toFixed(0) 
+                    : 0;
+                
+                const progressClass = item.estado === 'completo' ? 'success' : 
+                                     item.estado === 'parcial' ? 'warning' : 'danger';
+
+                return `
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <strong>${item.producto}</strong>
+                            <span class="badge bg-${progressClass}">${item.estado}</span>
+                        </div>
+                        <div class="progress progress-custom">
+                            <div class="progress-bar bg-${progressClass}" 
+                                 style="width: ${porcentaje}%"
+                                 role="progressbar">
+                                ${item.cantidad_entregada} / ${item.cantidad_pedida}
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            Pendiente: <strong>${item.cantidad_pendiente}</strong>
+                        </small>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function mostrarFormularioEntrega() {
+            const container = document.getElementById('formNuevaEntrega');
+            
+            // Solo mostrar items que tengan cantidad pendiente
+            const itemsPendientes = estadoEntrega.filter(item => item.cantidad_pendiente > 0);
+
+            if (itemsPendientes.length === 0) {
+                container.innerHTML = '<div class="alert alert-success">✓ Todos los items han sido entregados</div>';
+                return;
+            }
+
+            container.innerHTML = itemsPendientes.map(item => `
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <strong>${item.producto}</strong>
+                                <br>
+                                <small class="text-muted">Pendiente: ${item.cantidad_pendiente}</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">Cantidad a entregar</label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="cantidad_${item.id_item}"
+                                       min="0" 
+                                       max="${item.cantidad_pendiente}" 
+                                       step="0.01"
+                                       value="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function registrarEntrega() {
+    if (!pedidoActual) {
+        Swal.fire('Error', 'Seleccione un pedido primero', 'error');
+        return;
+    }
+    
+    // Verificar deuda del cliente
+    const resultDeuda = await verificarDeudaCliente(pedidoActual.id_cliente);
+    if (!resultDeuda.isConfirmed) return;
+    
+    try {
+                const response = await fetch(`${API_URL}/pedidos/${pedidoSeleccionado}/entregas`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify(datos)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(result.message);
+                    
+                    // Recargar datos
+                    await seleccionarPedido(pedidoSeleccionado);
+                    await cargarPedidosPendientes();
+                    
+                    // Limpiar observaciones
+                    document.getElementById('observacionesEntrega').value = '';
+                } else {
+                    alert(result.error || 'Error al registrar entrega');
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al registrar entrega');
+            }
+        }
+
+        function mostrarHistorialEntregas(entregas) {
+            const container = document.getElementById('historialEntregas');
+            
+            if (!entregas || entregas.length === 0) {
+                container.innerHTML = '<p class="text-muted">No hay entregas registradas</p>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="entrega-timeline">
+                    ${entregas.map(entrega => `
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <strong>Entrega #${entrega.numero_entrega}</strong>
+                                <small class="text-muted">
+                                    ${new Date(entrega.fecha_entrega).toLocaleString('es-AR')}
+                                </small>
+                            </div>
+                            <small class="text-muted">Por: ${entrega.usuario}</small>
+                            ${entrega.items && entrega.items.length > 0 ? `
+                                <ul class="mt-2 mb-0">
+                                    ${entrega.items.map(item => `
+                                        <li><small>${item.nombre}: <strong>${item.cantidad_entregada}</strong></small></li>
+                                    `).join('')}
+                                </ul>
+                            ` : ''}
+                            ${entrega.observaciones ? `
+                                <p class="mt-2 mb-0"><small><em>${entrega.observaciones}</em></small></p>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('username');
+            window.location.href = 'login.html';
+        }
+    
+// Verificar deuda del cliente antes de crear remito
+async function verificarDeudaCliente(idCliente) {
+    try {
+        const response = await fetch(`${API_URL}/api/clientes/${idCliente}/saldo`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+        });
+        
+        if (!response.ok) throw new Error('Error al verificar deuda');
+        
+        const saldo = await response.json();
+        
+        if (saldo.saldo_actual > 0) {
+            return Swal.fire({
+                icon: 'warning',
+                title: '⚠️ Cliente con Deuda',
+                html: `
+                    <p><strong>Cliente:</strong> ${saldo.razon_social}</p>
+                    <p><strong>Deuda actual:</strong> <span class="text-danger">$${saldo.saldo_actual.toFixed(2)}</span></p>
+                    <p><strong>Límite de crédito:</strong> $${saldo.limite_credito.toFixed(2)}</p>
+                    ${saldo.excede_limite ? '<p class="text-danger"><strong>⚠️ EXCEDE EL LÍMITE DE CRÉDITO</strong></p>' : ''}
+                    <hr>
+                    <p>¿Desea continuar con la entrega?</p>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Sí, continuar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#dc3545'
+            });
+        }
+        
+        return { isConfirmed: true };
+        
+    } catch (error) {
+        console.error('Error al verificar deuda:', error);
+        return { isConfirmed: true };
+    }
+}
+
+// Entregar todo el pedido de una vez
+async function entregarTodoPedido() {
+    if (!pedidoActual) {
+        Swal.fire('Error', 'No hay pedido seleccionado', 'error');
+        return;
+    }
+    
+    // Verificar deuda del cliente
+    const resultDeuda = await verificarDeudaCliente(pedidoActual.id_cliente);
+    if (!resultDeuda.isConfirmed) return;
+    
+    const result = await Swal.fire({
+        icon: 'question',
+        title: '¿Entregar todo el pedido?',
+        text: 'Se entregarán todos los items pendientes y se generará un remito',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, entregar todo',
+        cancelButtonText: 'Cancelar'
+    });
+    
+    if (!result.isConfirmed) return;
+    
+    try {
+        mostrarCargando(true);
+        
+        const response = await fetch(`${API_URL}/api/pedidos/${pedidoActual.id_pedido}/entregar-todo`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            },
+            body: JSON.stringify({
+                direccion_entrega: pedidoActual.direccion_entrega || '',
+                transportista: '',
+                observaciones: 'Entrega completa'
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Error al entregar pedido');
+        }
+        
+        const data = await response.json();
+        
+        await Swal.fire({
+            icon: 'success',
+            title: '¡Entrega registrada!',
+            html: `
+                <p>Remito #${data.remito.numero_completo}</p>
+                <p>${data.items_entregados} items entregados</p>
+                <p>Total: $${data.remito.total.toFixed(2)}</p>
+            `,
+            confirmButtonText: 'OK'
+        });
+        
+        // Recargar lista
+        cargarPedidos();
+        pedidoActual = null;
+        document.getElementById('detallePedido').style.display = 'none';
+        
+    } catch (error) {
+        console.error('Error:', error);
+        Swal.fire('Error', error.message, 'error');
+    } finally {
+        mostrarCargando(false);
+    }
+}
+
+// Confirmar pago de un remito
+async function confirmarPagoRemito(idRemito) {
+    const { value: metodoPago } = await Swal.fire({
+        title: 'Confirmar Pago',
+        input: 'select',
+        inputOptions: {
+            'Efectivo': 'Efectivo',
+            'Transferencia': 'Transferencia',
+            'Cheque': 'Cheque',
+            'Tarjeta': 'Tarjeta de Crédito/Débito'
+        },
+        inputPlaceholder: 'Seleccione método de pago',
+        showCancelButton: true,
+        confirmButtonText: 'Confirmar',
+        cancelButtonText: 'Cancelar'
+    });
+    
+    if (!metodoPago) return;
+    
+    try {
+        const response = await fetch(`${API_URL}/api/remitos/${idRemito}/confirmar-pago`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            },
+            body: JSON.stringify({ metodo_pago: metodoPago })
+        });
+        
+        if (!response.ok) throw new Error('Error al confirmar pago');
+        
+        await Swal.fire('¡Confirmado!', 'Pago confirmado exitosamente', 'success');
+        
+        cargarPedidos();
+        
+    } catch (error) {
+        console.error('Error:', error);
+        Swal.fire('Error', 'No se pudo confirmar el pago', 'error');
+    }
+}
+
+// Imprimir remito (incrementa contador)
+async function imprimirRemito(idRemito) {
+    try {
+        // Incrementar contador de impresiones
+        await fetch(`${API_URL}/api/remitos/${idRemito}/incrementar-impresion`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+        });
+        
+        // Generar PDF
+        window.open(`${API_URL}/api/remitos/${idRemito}/pdf`, '_blank');
+        
+    } catch (error) {
+        console.error('Error al imprimir:', error);
+        Swal.fire('Error', 'No se pudo imprimir el remito', 'error');
+    }
+}
+
+
+
+// ===== FUNCIONES PARA REMITOS - ENTREGAS =====
+
+// Verificar deuda del cliente antes de crear remito
+async function verificarDeudaCliente(idCliente) {
+    try {
+        const response = await fetch(`${API_URL}/api/clientes/${idCliente}/saldo`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+        });
+        
+        if (!response.ok) return { isConfirmed: true };
+        
+        const saldo = await response.json();
+        
+        if (saldo.saldo_actual > 0) {
+            return Swal.fire({
+                icon: 'warning',
+                title: '⚠️ Cliente con Deuda',
+                html: `
+                    <p><strong>Cliente:</strong> ${saldo.razon_social}</p>
+                    <p><strong>Deuda actual:</strong> <span class="text-danger">$${saldo.saldo_actual.toFixed(2)}</span></p>
+                    <p><strong>Límite de crédito:</strong> $${saldo.limite_credito.toFixed(2)}</p>
+                    ${saldo.excede_limite ? '<p class="text-danger"><strong>⚠️ EXCEDE EL LÍMITE DE CRÉDITO</strong></p>' : ''}
+                    <hr>
+                    <p>¿Desea continuar con la entrega?</p>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Sí, continuar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#dc3545'
+            });
+        }
+        
+        return { isConfirmed: true };
+        
+    } catch (error) {
+        console.error('Error al verificar deuda:', error);
+        return { isConfirmed: true };
+    }
+}
+
+// Entregar todo el pedido de una vez
+async function entregarTodoPedido() {
+    if (!pedidoActual) {
+        Swal.fire('Error', 'No hay pedido seleccionado', 'error');
+        return;
+    }
+    
+    // Verificar deuda del cliente
+    const resultDeuda = await verificarDeudaCliente(pedidoActual.id_cliente);
+    if (!resultDeuda.isConfirmed) return;
+    
+    const result = await Swal.fire({
+        icon: 'question',
+        title: '¿Entregar todo el pedido?',
+        text: 'Se entregarán todos los items pendientes y se generará un remito',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, entregar todo',
+        cancelButtonText: 'Cancelar'
+    });
+    
+    if (!result.isConfirmed) return;
+    
+    try {
+        mostrarCargando(true);
+        
+        const response = await fetch(`${API_URL}/api/pedidos/${pedidoActual.id_pedido}/entregar-todo`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            },
+            body: JSON.stringify({
+                direccion_entrega: pedidoActual.direccion_entrega || '',
+                transportista: '',
+                observaciones: 'Entrega completa'
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Error al entregar pedido');
+        }
+        
+        const data = await response.json();
+        
+        await Swal.fire({
+            icon: 'success',
+            title: '¡Entrega registrada!',
+            html: `
+                <p>Remito #${data.remito.numero_completo}</p>
+                <p>${data.items_entregados} items entregados</p>
+                <p>Total: $${data.remito.total.toFixed(2)}</p>
+            `,
+            confirmButtonText: 'OK'
+        });
+        
+        cargarPedidos();
+        pedidoActual = null;
+        document.getElementById('detallePedido').style.display = 'none';
+        
+    } catch (error) {
+        console.error('Error:', error);
+        Swal.fire('Error', error.message, 'error');
+    } finally {
+        mostrarCargando(false);
+    }
+}
+
+    </script>
+</body>
+</html>

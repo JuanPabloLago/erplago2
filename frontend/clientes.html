@@ -3,266 +3,392 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Clientes - Mi ERP</title>
+    <title>Gestión de Clientes - ERP Lago</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
-        :root { --primary-color: #007bff; --danger-color: #dc3545; --success-color: #28a745; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background-color: #f4f7f9; }
-        header { background-color: #2c3e50; color: white; padding: 1rem 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-        main { padding: 2rem; max-width: 1400px; margin: auto; }
-        .container { background-color: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        h1, h2 { color: #333; }
-        .controles-tabla { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
-        .btn { padding: 0.7rem 1.4rem; border: none; border-radius: 5px; color: white; cursor: pointer; font-weight: bold; text-decoration: none; }
-        .btn-primary { background-color: var(--primary-color); }
-        .btn-success { background-color: var(--success-color); }
-        .btn-danger { background-color: var(--danger-color); }
-        .search-input { padding: 0.7rem; border: 1px solid #ccc; border-radius: 5px; width: 100%; max-width: 300px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background-color: #ecf0f1; }
-        .acciones-tabla button { margin-right: 5px; }
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); }
-        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 25px; border-radius: 8px; width: 90%; max-width: 800px; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 1rem; }
-        .close-button { font-size: 1.5rem; font-weight: bold; cursor: pointer; }
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
-        .form-group { display: flex; flex-direction: column; }
-        .form-group.full-width { grid-column: 1 / -1; }
-        label { margin-bottom: 0.5rem; font-weight: bold; }
-        input, select, textarea { padding: 0.7rem; border: 1px solid #ccc; border-radius: 5px; width: 100%; box-sizing: border-box; }
-        textarea { resize: vertical; min-height: 80px; }
-        .modal-footer { text-align: right; margin-top: 2rem; border-top: 1px solid #ddd; padding-top: 1rem; }
+        .table-hover tbody tr.table-active,
+        .table-hover tbody tr.table-active:hover {
+            background-color: #cfe2ff;
+            cursor: pointer;
+        }
+        .search-highlight {
+            background-color: #fff3cd;
+            font-weight: bold;
+        }
+        #buscador:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Gestión de Clientes</h1>
-        <a href="/dashboard.html" class="btn btn-primary">Volver al Dashboard</a>
-    </header>
-    <main>
-        <div class="container">
-            <div class="controles-tabla">
-                <input type="text" id="search-clientes" class="search-input" placeholder="Buscar por nombre, CUIT o email...">
-                <button id="btn-nuevo-cliente" class="btn btn-success">Nuevo Cliente</button>
-            </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Razón Social</th>
-                        <th>CUIT</th>
-                        <th>Email</th>
-                        <th>Teléfono</th>
-                        <th>Lista de Precios</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="tabla-clientes-body"></tbody>
-            </table>
+    <script src="js/connection-indicator.js"></script>
+    <div class="container mt-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-people-fill"></i> Gestión de Clientes</h1>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#clienteModal" id="btnNuevoCliente">
+                <i class="bi bi-plus-circle"></i> Nuevo Cliente
+            </button>
         </div>
-    </main>
-
-    <div id="cliente-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modal-title">Nuevo Cliente</h2>
-                <span class="close-button">&times;</span>
+        <div class="card">
+            <div class="card-body">
+                <div class="input-group mb-3">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" id="buscador" class="form-control" placeholder="Buscar por cualquier campo... (nombre, CUIT, email, teléfono, domicilio, IVA)">
+                    <button class="btn btn-outline-secondary" type="button" id="btnLimpiar" title="Limpiar búsqueda">
+                        <i class="bi bi-x-circle"></i>
+                    </button>
+                </div>
+                <div id="resultadosInfo" class="text-muted small mb-2"></div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Razón Social</th>
+                                <th>CUIT/CUIL</th>
+                                <th>Condición IVA</th>
+                                <th>Email</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaClientesBody"></tbody>
+                    </table>
+                </div>
             </div>
-            <form id="cliente-form">
-                <input type="hidden" id="id_cliente">
-                <div class="form-grid">
-                    <div class="form-group"><label for="razon_social">Razón Social (*)</label><input type="text" id="razon_social" required></div>
-                    <div class="form-group"><label for="nombre_fantasia">Nombre Fantasía</label><input type="text" id="nombre_fantasia"></div>
-                    <div class="form-group"><label for="cuit">CUIT (*)</label><input type="text" id="cuit" required></div>
-                    <div class="form-group"><label for="id_condicion_iva">Condición IVA (*)</label><select id="id_condicion_iva" required></select></div>
-                    <div class="form-group"><label for="tipo_persona">Tipo Persona</label><select id="tipo_persona"><option value="Física">Física</option><option value="Jurídica">Jurídica</option></select></div>
-                    <div class="form-group"><label for="domicilio">Domicilio</label><input type="text" id="domicilio"></div>
-                    <div class="form-group"><label for="localidad">Localidad</label><input type="text" id="localidad"></div>
-                    <div class="form-group"><label for="provincia">Provincia</label><input type="text" id="provincia"></div>
-                    <div class="form-group"><label for="codigo_postal">Código Postal</label><input type="text" id="codigo_postal"></div>
-                    <div class="form-group"><label for="telefono">Teléfono</label><input type="text" id="telefono"></div>
-                    <div class="form-group"><label for="email">Email</label><input type="email" id="email"></div>
-                    <div class="form-group"><label for="id_lista_precio">Lista de Precios</label><select id="id_lista_precio"></select></div>
-                    <div class="form-group"><label for="limite_credito">Límite de Crédito</label><input type="number" id="limite_credito" step="0.01" value="0"></div>
-                    <div class="form-group"><label for="saldo_actual">Saldo Actual</label><input type="number" id="saldo_actual" step="0.01" value="0" readonly></div>
-                    <div class="form-group"><label for="activo">Estado</label><select id="activo"><option value="true">Activo</option><option value="false">Inactivo</option></select></div>
-                    <div class="form-group full-width"><label for="observaciones">Observaciones</label><textarea id="observaciones"></textarea></div>
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-success">Guardar</button>
-                </div>
-            </form>
         </div>
     </div>
 
+    <!-- Modal -->
+    <div class="modal fade" id="clienteModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalLabel">Datos del Cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="clienteForm">
+                        <input type="hidden" id="clienteId">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="razon_social" class="form-label">Razón Social (*)</label>
+                                <input type="text" class="form-control" id="razon_social" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="cuit_cuil" class="form-label">CUIT/CUIL</label>
+                                <input type="text" class="form-control" id="cuit_cuil">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="domicilio" class="form-label">Domicilio</label>
+                            <input type="text" class="form-control" id="domicilio">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="telefono" class="form-label">Teléfono</label>
+                                <input type="text" class="form-control" id="telefono">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_condicion_iva" class="form-label">Condición IVA (*)</label>
+                                <select class="form-select" id="id_condicion_iva" required>
+                                    <option value="1">Responsable Inscripto</option>
+                                    <option value="2">Monotributo</option>
+                                    <option value="3">Exento</option>
+                                    <option value="4">Consumidor Final</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_lista_precio" class="form-label">Lista de Precios</label>
+                                <select class="form-select" id="id_lista_precio">
+                                    <option value="1">Lista General</option>
+                                    <option value="3">Lista Distribuidores (-7%)</option>
+                                    <option value="4">Lista Promocional (-20%)</option>
+                                    <option value="2" disabled>Lista Minorista Plus (+15%)</option>
+                                    <option value="5" disabled>Lista VIP (-25%)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="descuento_predefinido" class="form-label">Descuento Predefinido (%)</label>
+                                <input type="number" class="form-control" id="descuento_predefinido" min="0" max="100" step="0.01" value="0">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" form="clienteForm">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const token = localStorage.getItem('authToken');
-        if (!token) { window.location.href = '/login.html'; return; }
-
-        const tbody = document.getElementById('tabla-clientes-body');
-        const searchInput = document.getElementById('search-clientes');
-        const modal = document.getElementById('cliente-modal');
-        const closeModal = document.querySelector('.close-button');
-        const form = document.getElementById('cliente-form');
-        let allClientes = [];
-
-        async function cargarDatosIniciales() {
-            try {
-                // Hacemos las llamadas a la API en paralelo para más eficiencia
-                const [clientesRes, listasRes] = await Promise.all([
-                    fetch('/api/clientes', { headers: { 'Authorization': `Bearer ${token}` } }),
-                    fetch('/api/listasdeprecios', { headers: { 'Authorization': `Bearer ${token}` } })
-                ]);
-                allClientes = await clientesRes.json();
-                const listasDePrecios = await listasRes.json();
-                
-                // Las condiciones de IVA son fijas, podemos simularlas o crear una API.
-                // Por simplicidad, las definimos aquí.
-                const condicionesIVA = [
-                    {id_condicion_iva: 1, nombre: 'Responsable Inscripto'},
-                    {id_condicion_iva: 2, nombre: 'Monotributo'},
-                    {id_condicion_iva: 3, nombre: 'Exento'},
-                    {id_condicion_iva: 4, nombre: 'Consumidor Final'},
-                ];
-                
-                renderizarTabla(allClientes);
-                popularSelects(listasDePrecios, condicionesIVA);
-            } catch (error) {
-                console.error('Error al cargar datos iniciales:', error);
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
             }
-        }
 
-        function popularSelects(listas, condiciones) {
-            const selectLista = document.getElementById('id_lista_precio');
-            selectLista.innerHTML = '<option value="">(Por defecto)</option>';
-            listas.forEach(l => {
-                selectLista.innerHTML += `<option value="${l.id_lista_precio}">${l.nombre}</option>`;
-            });
+            const API_URL = '/api/clientes';
+            const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+            const tablaBody = document.getElementById('tablaClientesBody');
+            const buscador = document.getElementById('buscador');
+            const btnLimpiar = document.getElementById('btnLimpiar');
+            const resultadosInfo = document.getElementById('resultadosInfo');
+            const clienteModal = new bootstrap.Modal(document.getElementById('clienteModal'));
+            const clienteForm = document.getElementById('clienteForm');
+            const modalLabel = document.getElementById('modalLabel');
+            
+            let allClientes = [];
+            let clientesFiltrados = [];
+            let selectedIndex = -1;
 
-            const selectCondicion = document.getElementById('id_condicion_iva');
-            selectCondicion.innerHTML = '';
-            condiciones.forEach(c => {
-                selectCondicion.innerHTML += `<option value="${c.id_condicion_iva}">${c.nombre}</option>`;
-            });
-        }
-
-        function renderizarTabla(clientes) {
-            tbody.innerHTML = '';
-            clientes.forEach(cliente => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${cliente.razon_social}</td>
-                    <td>${cliente.cuit || ''}</td>
-                    <td>${cliente.email || ''}</td>
-                    <td>${cliente.telefono || ''}</td>
-                    <td>${cliente.lista_precios || 'General'}</td>
-                    <td>${cliente.activo ? 'Activo' : 'Inactivo'}</td>
-                    <td class="acciones-tabla">
-                        <button class="btn btn-sm btn-primary btn-editar" data-id="${cliente.id_cliente}">Editar</button>
-                        <button class="btn btn-sm btn-danger btn-eliminar" data-id="${cliente.id_cliente}">Eliminar</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        searchInput.addEventListener('input', () => {
-            const termino = searchInput.value.toLowerCase();
-            const filtrados = allClientes.filter(c =>
-                c.razon_social.toLowerCase().includes(termino) ||
-                (c.cuit && c.cuit.includes(termino)) ||
-                (c.email && c.email.toLowerCase().includes(termino))
-            );
-            renderizarTabla(filtrados);
-        });
-
-        document.getElementById('btn-nuevo-cliente').addEventListener('click', () => {
-            form.reset();
-            document.getElementById('id_cliente').value = '';
-            document.getElementById('modal-title').textContent = 'Nuevo Cliente';
-            document.getElementById('saldo_actual').readOnly = true; // Saldo no editable al crear
-            modal.style.display = 'block';
-        });
-
-        closeModal.addEventListener('click', () => modal.style.display = 'none');
-        window.addEventListener('click', (e) => { if (e.target == modal) modal.style.display = 'none'; });
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const id = document.getElementById('id_cliente').value;
-            const data = {
-                razon_social: document.getElementById('razon_social').value,
-                cuit: document.getElementById('cuit').value,
-                domicilio: document.getElementById('domicilio').value,
-                id_condicion_iva: parseInt(document.getElementById('id_condicion_iva').value),
-                email: document.getElementById('email').value,
-                telefono: document.getElementById('telefono').value,
-                id_lista_precio: document.getElementById('id_lista_precio').value ? parseInt(document.getElementById('id_lista_precio').value) : null,
-                activo: document.getElementById('activo').value === 'true',
-                nombre_fantasia: document.getElementById('nombre_fantasia').value,
-                tipo_persona: document.getElementById('tipo_persona').value,
-                localidad: document.getElementById('localidad').value,
-                provincia: document.getElementById('provincia').value,
-                codigo_postal: document.getElementById('codigo_postal').value,
-                limite_credito: parseFloat(document.getElementById('limite_credito').value),
-                saldo_actual: parseFloat(document.getElementById('saldo_actual').value),
-                observaciones: document.getElementById('observaciones').value
+            // FUNCIÓN PARA NORMALIZAR TEXTO
+            const normalizarTexto = (texto) => {
+                if (!texto) return '';
+                return texto
+                    .toString()
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .trim();
             };
 
-            const method = id ? 'PUT' : 'POST';
-            const url = id ? `/api/clientes/${id}` : '/api/clientes';
-
-            try {
-                const response = await fetch(url, {
-                    method,
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(data)
-                });
-                if (!response.ok) throw new Error('Error al guardar el cliente.');
-                modal.style.display = 'none';
-                cargarDatosIniciales();
-            } catch (error) {
-                console.error('Error:', error);
-                alert('No se pudo guardar el cliente.');
-            }
-        });
-
-        tbody.addEventListener('click', async (e) => {
-            const target = e.target;
-            if (target.classList.contains('btn-editar')) {
-                const id = target.dataset.id;
-                const response = await fetch(`/api/clientes/${id}`, { headers: { 'Authorization': `Bearer ${token}` } });
-                const cliente = await response.json();
-                
-                // Llenar el formulario campo por campo
-                Object.keys(cliente).forEach(key => {
-                    const el = document.getElementById(key);
-                    if (el) {
-                        el.value = cliente[key] === null ? '' : cliente[key];
-                    }
-                });
-                // Aseguramos que el campo oculto de ID también se llene
-                document.getElementById('id_cliente').value = cliente.id_cliente;
-
-
-                document.getElementById('modal-title').textContent = 'Editar Cliente';
-                document.getElementById('saldo_actual').readOnly = false; // Saldo editable al editar
-                modal.style.display = 'block';
-            }
-
-            if (target.classList.contains('btn-eliminar')) {
-                const id = target.dataset.id;
-                if (confirm('¿Está seguro de que desea marcar este cliente como inactivo? (No se borrará permanentemente)')) {
-                    await fetch(`/api/clientes/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
-                    cargarDatosIniciales();
+            // CARGAR CLIENTES
+            const cargarClientes = async () => {
+                try {
+                    const response = await fetch(API_URL, { headers });
+                    if (!response.ok) throw new Error('No se pudieron cargar los clientes.');
+                    allClientes = await response.json();
+                    clientesFiltrados = allClientes;
+                    renderizarTabla(clientesFiltrados);
+                } catch (error) {
+                    console.error('Error al cargar clientes:', error);
+                    alert('No se pudieron cargar los clientes. Verifique la consola.');
                 }
-            }
+            };
+
+            // RENDERIZAR TABLA
+            const renderizarTabla = (clientes) => {
+                tablaBody.innerHTML = '';
+                selectedIndex = -1;
+
+                if (buscador.value.trim()) {
+                    resultadosInfo.textContent = `Mostrando ${clientes.length} de ${allClientes.length} clientes`;
+                } else {
+                    resultadosInfo.textContent = `Total: ${clientes.length} clientes`;
+                }
+
+                if (clientes.length === 0) {
+                    tablaBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No se encontraron clientes.</td></tr>';
+                    return;
+                }
+
+                clientes.forEach(cliente => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${cliente.razon_social || ''}</td>
+                        <td>${cliente.cuit_cuil || ''}</td>
+                        <td>${cliente.condicion_iva || ''}</td>
+                        <td>${cliente.email || ''}</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning btn-editar" data-id="${cliente.id_cliente}" title="Editar">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger btn-eliminar" data-id="${cliente.id_cliente}" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    `;
+                    tablaBody.appendChild(tr);
+                });
+            };
+
+            // BÚSQUEDA MEJORADA
+            const buscarClientes = () => {
+                const textoBuscado = buscador.value.trim();
+                
+                if (!textoBuscado) {
+                    clientesFiltrados = allClientes;
+                    renderizarTabla(clientesFiltrados);
+                    return;
+                }
+
+                const terminos = textoBuscado
+                    .split(' ')
+                    .map(t => normalizarTexto(t))
+                    .filter(t => t.length > 0);
+
+                if (terminos.length === 0) {
+                    clientesFiltrados = allClientes;
+                    renderizarTabla(clientesFiltrados);
+                    return;
+                }
+
+                clientesFiltrados = allClientes.filter(cliente => {
+                    const textoCompleto = normalizarTexto([
+                        cliente.razon_social || '',
+                        cliente.cuit_cuil || '',
+                        cliente.condicion_iva || '',
+                        cliente.email || '',
+                        cliente.telefono || '',
+                        cliente.domicilio || ''
+                    ].join(' '));
+
+                    return terminos.every(termino => textoCompleto.includes(termino));
+                });
+
+                renderizarTabla(clientesFiltrados);
+            };
+
+            buscador.addEventListener('input', (e) => {
+                if (e.inputType) {
+                    buscarClientes();
+                }
+            });
+
+            btnLimpiar.addEventListener('click', () => {
+                buscador.value = '';
+                buscarClientes();
+                buscador.focus();
+            });
+
+            buscador.addEventListener('keydown', (e) => {
+                const rows = tablaBody.querySelectorAll('tr');
+                if (rows.length === 0 || (rows.length === 1 && rows[0].children.length === 1)) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedIndex++;
+                    if (selectedIndex >= rows.length) selectedIndex = 0;
+                    updateSelection(rows);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedIndex--;
+                    if (selectedIndex < 0) selectedIndex = rows.length - 1;
+                    updateSelection(rows);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (selectedIndex > -1 && rows[selectedIndex]) {
+                        const editButton = rows[selectedIndex].querySelector('.btn-editar');
+                        if (editButton) editButton.click();
+                    }
+                } else if (e.key === 'Escape') {
+                    buscador.value = '';
+                    buscarClientes();
+                }
+            });
+
+            const updateSelection = (rows) => {
+                rows.forEach(row => row.classList.remove('table-active'));
+                if (selectedIndex > -1 && rows[selectedIndex]) {
+                    const selectedRow = rows[selectedIndex];
+                    selectedRow.classList.add('table-active');
+                    selectedRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            };
+
+            document.getElementById('btnNuevoCliente').addEventListener('click', () => {
+                clienteForm.reset();
+                document.getElementById('clienteId').value = '';
+                modalLabel.textContent = 'Nuevo Cliente';
+            });
+
+            clienteForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const id = document.getElementById('clienteId').value;
+                const body = {
+                    razon_social: document.getElementById('razon_social').value,
+                    cuit_cuil: document.getElementById('cuit_cuil').value,
+                    domicilio: document.getElementById('domicilio').value,
+                    telefono: document.getElementById('telefono').value,
+                    email: document.getElementById('email').value,
+                    id_condicion_iva: parseInt(document.getElementById('id_condicion_iva').value),
+                    id_lista_precio: parseInt(document.getElementById('id_lista_precio').value) || 1,
+                    descuento_predefinido: parseFloat(document.getElementById('descuento_predefinido').value) || 0,
+                    id_lista_precio: parseInt(document.getElementById('id_lista_precio').value) || 1,
+                    descuento_predefinido: parseFloat(document.getElementById('descuento_predefinido').value) || 0,
+                    id_lista_precio: parseInt(document.getElementById('id_lista_precio').value)
+                };
+
+                const method = id ? 'PUT' : 'POST';
+                const url = id ? `${API_URL}/${id}` : API_URL;
+
+                try {
+                    const response = await fetch(url, { method, headers, body: JSON.stringify(body) });
+                    if (!response.ok) throw new Error('No se pudo guardar el cliente.');
+                    clienteModal.hide();
+                    await cargarClientes();
+                    if (buscador.value.trim()) {
+                        buscarClientes();
+                    }
+                } catch (error) {
+                    console.error('Error al guardar cliente:', error);
+                    alert('No se pudo guardar el cliente.');
+                }
+            });
+
+            tablaBody.addEventListener('click', async (e) => {
+                const target = e.target.closest('button');
+                if (!target) return;
+                const id = target.dataset.id;
+
+                if (target.classList.contains('btn-editar')) {
+                    try {
+                        const response = await fetch(`${API_URL}/${id}`, { headers });
+                        if (!response.ok) throw new Error('Cliente no encontrado');
+                        const cliente = await response.json();
+
+                        document.getElementById('clienteId').value = cliente.id_cliente;
+                        document.getElementById('razon_social').value = cliente.razon_social || '';
+                        document.getElementById('cuit_cuil').value = cliente.cuit_cuil || '';
+                        document.getElementById('domicilio').value = cliente.domicilio || '';
+                        document.getElementById('email').value = cliente.email || '';
+                        document.getElementById('telefono').value = cliente.telefono || '';
+                        document.getElementById('id_condicion_iva').value = cliente.id_condicion_iva;
+                    document.getElementById('id_lista_precio').value = cliente.id_lista_precio || 1;
+                    document.getElementById('descuento_predefinido').value = cliente.descuento_predefinido || 0;
+                    document.getElementById('id_lista_precio').value = cliente.id_lista_precio || 1;
+                    document.getElementById('descuento_predefinido').value = cliente.descuento_predefinido || 0;
+                        document.getElementById('id_lista_precio').value = cliente.id_lista_precio || 1;
+
+                        modalLabel.textContent = 'Editar Cliente';
+                        clienteModal.show();
+                    } catch (error) {
+                        console.error('Error al cargar datos para editar:', error);
+                        alert('No se pudieron cargar los datos del cliente.');
+                    }
+                }
+
+                if (target.classList.contains('btn-eliminar')) {
+                    if (confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
+                        try {
+                            const response = await fetch(`${API_URL}/${id}`, { method: 'DELETE', headers });
+                            if (!response.ok) throw new Error('No se pudo eliminar el cliente.');
+                            await cargarClientes();
+                            if (buscador.value.trim()) {
+                                buscarClientes();
+                            }
+                        } catch (error) {
+                            console.error('Error al eliminar cliente:', error);
+                            alert('No se pudo eliminar el cliente.');
+                        }
+                    }
+                }
+            });
+
+            cargarClientes();
+            buscador.focus();
         });
-        
-        cargarDatosIniciales();
-    });
     </script>
 </body>
 </html>
-

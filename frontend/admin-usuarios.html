@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración de Usuarios - ERP LAGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        .gradient-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .permiso-badge { margin: 3px; font-size: 0.85rem; }
+        .permiso-activo { background-color: #28a745; }
+        .permiso-inactivo { background-color: #6c757d; }
+    </style>
+</head>
+<body>
+    <script src="js/connection-indicator.js"></script>
+
+    <nav class="navbar navbar-dark gradient-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="dashboard.html">
+                <i class="bi bi-arrow-left-circle"></i> Volver al Dashboard
+            </a>
+            <span class="navbar-text text-white">
+                <i class="bi bi-shield-lock"></i> ADMINISTRACIÓN DE USUARIOS Y PERMISOS
+            </span>
+            <span class="text-white">
+                <i class="bi bi-person-circle"></i> <span id="usuarioNombre"></span>
+            </span>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- USUARIOS -->
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-people"></i> Usuarios del Sistema</h5>
+                        <button class="btn btn-light btn-sm" onclick="mostrarModalNuevoUsuario()">
+                            <i class="bi bi-plus-circle"></i> Nuevo Usuario
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Email</th>
+                                        <th>Rol</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaUsuarios">
+                                    <tr>
+                                        <td colspan="5" class="text-center">Cargando...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PERMISOS POR ROL -->
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="bi bi-key"></i> Permisos por Rol</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Seleccionar Rol:</label>
+                            <select class="form-select" id="selectRol" onchange="cargarPermisosRol()">
+                                <option value="">-- Seleccionar --</option>
+                            </select>
+                        </div>
+
+                        <div id="listaPermisos">
+                            <p class="text-muted">Selecciona un rol para ver sus permisos</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mt-3">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="bi bi-info-circle"></i> Información</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>Roles disponibles:</h6>
+                        <ul class="small">
+                            <li><strong>admin/administrador:</strong> Acceso total</li>
+                            <li><strong>gerente:</strong> Gestión de ventas y reportes</li>
+                            <li><strong>vendedor:</strong> Solo ventas</li>
+                        </ul>
+                        
+                        <h6 class="mt-3">Permisos:</h6>
+                        <ul class="small">
+                            <li><strong>cambiar_lista_precios:</strong> Cambiar precios en ventas</li>
+                            <li><strong>venta_sin_stock:</strong> Vender sin stock</li>
+                            <li><strong>ver_costos:</strong> Ver costos de productos</li>
+                            <li><strong>modificar_precios:</strong> Editar precios</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nuevo Usuario -->
+    <div class="modal fade" id="modalNuevoUsuario" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-person-plus"></i> Nuevo Usuario</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Usuario *</label>
+                        <input type="text" class="form-control" id="nuevoUsername" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="nuevoEmail">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña *</label>
+                        <input type="password" class="form-control" id="nuevoPassword" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rol *</label>
+                        <select class="form-select" id="nuevoRol" required>
+                            <option value="">-- Seleccionar --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="crearUsuario()">
+                        <i class="bi bi-save"></i> Crear Usuario
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Editar Usuario -->
+    <div class="modal fade" id="modalEditarUsuario" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="bi bi-pencil"></i> Editar Usuario</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editarIdUsuario">
+                    <div class="mb-3">
+                        <label class="form-label">Usuario *</label>
+                        <input type="text" class="form-control" id="editarUsername" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="editarEmail">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rol *</label>
+                        <select class="form-select" id="editarRol" required>
+                            <option value="">-- Seleccionar --</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Estado *</label>
+                        <select class="form-select" id="editarEstado" required>
+                            <option value="activo">Activo</option>
+                            <option value="inactivo">Inactivo</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nueva Contraseña (dejar vacío para mantener)</label>
+                        <input type="password" class="form-control" id="editarPassword">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-warning" onclick="actualizarUsuario()">
+                        <i class="bi bi-save"></i> Guardar Cambios
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_URL = 'http://72.60.148.18:3000/api';
+        let usuarios = [];
+        let roles = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            document.getElementById('usuarioNombre').textContent = localStorage.getItem('username') || 'Admin';
+
+            await cargarRoles();
+            await cargarUsuarios();
+        });
+
+        async function cargarRoles() {
+            try {
+                const response = await fetch(`${API_URL}/admin/roles`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 403) {
+                        alert('No tienes permisos de administrador');
+                        window.location.href = 'dashboard.html';
+                        return;
+                    }
+                    throw new Error('Error al cargar roles');
+                }
+
+                roles = await response.json();
+
+                const selectRol = document.getElementById('selectRol');
+                const nuevoRol = document.getElementById('nuevoRol');
+                const editarRol = document.getElementById('editarRol');
+
+                const opcionesRoles = roles.map(r => `<option value="${r}">${r}</option>`).join('');
+
+                selectRol.innerHTML += opcionesRoles;
+                nuevoRol.innerHTML += opcionesRoles;
+                editarRol.innerHTML += opcionesRoles;
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al cargar roles');
+            }
+        }
+
+        async function cargarUsuarios() {
+            try {
+                const response = await fetch(`${API_URL}/admin/usuarios`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                if (!response.ok) throw new Error('Error al cargar usuarios');
+
+                usuarios = await response.json();
+
+                const tbody = document.getElementById('tablaUsuarios');
+                tbody.innerHTML = usuarios.map(u => `
+                    <tr>
+                        <td><strong>${u.username}</strong></td>
+                        <td>${u.email || '-'}</td>
+                        <td><span class="badge bg-info">${u.rol}</span></td>
+                        <td>
+                            <span class="badge ${u.estado === 'activo' ? 'bg-success' : 'bg-secondary'}">
+                                ${u.estado}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-warning" onclick="mostrarModalEditarUsuario(${u.id_usuario})">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            ${u.estado === 'activo' ? `
+                            <button class="btn btn-sm btn-danger" onclick="desactivarUsuario(${u.id_usuario}, '${u.username}')">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `).join('');
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al cargar usuarios');
+            }
+        }
+
+        async function cargarPermisosRol() {
+            const rol = document.getElementById('selectRol').value;
+            if (!rol) {
+                document.getElementById('listaPermisos').innerHTML = '<p class="text-muted">Selecciona un rol</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/admin/permisos/${rol}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                if (!response.ok) throw new Error('Error al cargar permisos');
+
+                const permisos = await response.json();
+
+                const container = document.getElementById('listaPermisos');
+                container.innerHTML = '<h6 class="mb-3">Permisos de ' + rol + ':</h6>';
+
+                permisos.forEach(p => {
+                    container.innerHTML += `
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" 
+                                   id="permiso_${p.permiso}"
+                                   ${p.activo ? 'checked' : ''}
+                                   onchange="togglePermiso('${rol}', '${p.permiso}', this.checked)">
+                            <label class="form-check-label" for="permiso_${p.permiso}">
+                                <strong>${p.permiso}</strong><br>
+                                <small class="text-muted">${p.descripcion}</small>
+                            </label>
+                        </div>
+                    `;
+                });
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al cargar permisos');
+            }
+        }
+
+        async function togglePermiso(rol, permiso, activo) {
+            try {
+                const response = await fetch(`${API_URL}/admin/permisos/${rol}/${permiso}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({ activo })
+                });
+
+                if (!response.ok) throw new Error('Error al actualizar permiso');
+
+                const result = await response.json();
+                alert('✅ ' + result.message);
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Error al actualizar permiso');
+                cargarPermisosRol();
+            }
+        }
+
+        function mostrarModalNuevoUsuario() {
+            const modal = new bootstrap.Modal(document.getElementById('modalNuevoUsuario'));
+            document.getElementById('nuevoUsername').value = '';
+            document.getElementById('nuevoEmail').value = '';
+            document.getElementById('nuevoPassword').value = '';
+            document.getElementById('nuevoRol').value = '';
+            modal.show();
+        }
+
+        async function crearUsuario() {
+            const username = document.getElementById('nuevoUsername').value;
+            const email = document.getElementById('nuevoEmail').value;
+            const password = document.getElementById('nuevoPassword').value;
+            const rol = document.getElementById('nuevoRol').value;
+
+            if (!username || !password || !rol) {
+                alert('Completa los campos requeridos');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/admin/usuarios`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({ username, email, password, rol })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    alert('❌ ' + result.error);
+                    return;
+                }
+
+                alert('✅ ' + result.message);
+                bootstrap.Modal.getInstance(document.getElementById('modalNuevoUsuario')).hide();
+                await cargarUsuarios();
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Error al crear usuario');
+            }
+        }
+
+        function mostrarModalEditarUsuario(id) {
+            const usuario = usuarios.find(u => u.id_usuario === id);
+            if (!usuario) return;
+
+            document.getElementById('editarIdUsuario').value = usuario.id_usuario;
+            document.getElementById('editarUsername').value = usuario.username;
+            document.getElementById('editarEmail').value = usuario.email || '';
+            document.getElementById('editarRol').value = usuario.rol;
+            document.getElementById('editarEstado').value = usuario.estado;
+            document.getElementById('editarPassword').value = '';
+
+            const modal = new bootstrap.Modal(document.getElementById('modalEditarUsuario'));
+            modal.show();
+        }
+
+        async function actualizarUsuario() {
+            const id = document.getElementById('editarIdUsuario').value;
+            const username = document.getElementById('editarUsername').value;
+            const email = document.getElementById('editarEmail').value;
+            const rol = document.getElementById('editarRol').value;
+            const estado = document.getElementById('editarEstado').value;
+            const password = document.getElementById('editarPassword').value;
+
+            if (!username || !rol) {
+                alert('Completa los campos requeridos');
+                return;
+            }
+
+            try {
+                const body = { username, email, rol, estado };
+                if (password) body.password = password;
+
+                const response = await fetch(`${API_URL}/admin/usuarios/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    alert('❌ ' + result.error);
+                    return;
+                }
+
+                alert('✅ ' + result.message);
+                bootstrap.Modal.getInstance(document.getElementById('modalEditarUsuario')).hide();
+                await cargarUsuarios();
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Error al actualizar usuario');
+            }
+        }
+
+        async function desactivarUsuario(id, username) {
+            if (!confirm(`¿Desactivar usuario ${username}?`)) return;
+
+            try {
+                const response = await fetch(`${API_URL}/admin/usuarios/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    alert('❌ ' + result.error);
+                    return;
+                }
+
+                alert('✅ ' + result.message);
+                await cargarUsuarios();
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Error al desactivar usuario');
+            }
+        }
+    </script>
+    <script src="js/config-panel.js"></script>
+</body>
+</html>
