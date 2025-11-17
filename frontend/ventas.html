@@ -34,6 +34,7 @@
         <div class="action-bar d-flex gap-2 mb-2">
             <button id="btnCotizacion" class="btn btn-info btn-sm"><i class="bi bi-file-earmark-text"></i> Cotización</button>
             <button id="btnSuspender" class="btn btn-warning btn-sm"><i class="bi bi-pause-circle"></i> Suspender</button>
+            <button id="btnRecuperar" class="btn btn-success btn-sm"><i class="bi bi-arrow-counterclockwise"></i> Recuperar</button>
             <button id="btnLimpiar" class="btn btn-outline-danger btn-sm ms-auto"><i class="bi bi-trash"></i> Limpiar</button>
         </div>
 
@@ -168,6 +169,23 @@
         </div>
     </div>
 
+    <!-- MODAL RECUPERAR PEDIDOS SUSPENDIDOS -->
+    <div class="modal fade" id="recuperarPedidoModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-arrow-counterclockwise"></i> Recuperar Pedido Suspendido</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="listaPedidosSuspendidos" class="list-group">
+                        <div class="text-center text-muted py-3">Cargando pedidos suspendidos...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
@@ -177,6 +195,7 @@
 
             const buscarClienteModal = new bootstrap.Modal(document.getElementById('buscarClienteModal'));
             const buscarProductoModal = new bootstrap.Modal(document.getElementById('buscarProductoModal'));
+            const recuperarPedidoModal = new bootstrap.Modal(document.getElementById('recuperarPedidoModal'));
 
             let cart = [];
             let allClientes = [];
@@ -532,6 +551,172 @@
                 if (e.key === 'F3') { e.preventDefault(); productoSearch.focus(); }
                 if (e.key === 'F10' && !btnFinalizarVenta.disabled) { e.preventDefault(); btnFinalizarVenta.click(); }
             });
+
+            // SUSPENDER PEDIDO
+            document.getElementById('btnSuspender').addEventListener('click', async () => {
+                if (!selectedCliente || cart.length === 0) {
+                    alert('Debe tener cliente y productos en el carrito para suspender');
+                    return;
+                }
+
+                const totalFinal = parseFloat(cartTotal.textContent.replace('$', '').trim());
+                const tipoEntrega = document.querySelector('input[name="tipo_entrega"]:checked').value;
+                const observaciones = document.getElementById('observacionesEntrega').value;
+                const descGral = parseFloat(descuentoGeneralInput.value) || 0;
+
+                const pedidoData = {
+                    id_cliente: selectedCliente.id_cliente,
+                    items: cart.map(item => ({
+                        id_producto: item.id_producto,
+                        cantidad: item.cantidad,
+                        precio_unitario_congelado: item.precio,
+                        porcentaje_descuento: item.descuento || 0,
+                        iva: item.iva || 21
+                    })),
+                    total: totalFinal,
+                    tipo_entrega: tipoEntrega,
+                    descuento_general: descGral,
+                    observaciones: observaciones || 'Pedido suspendido',
+                    id_estado: 8 // Estado: Suspendido
+                };
+
+                if (!confirm(`¿Suspender pedido por $${totalFinal.toFixed(2)}?`)) return;
+
+                try {
+                    const btnSuspender = document.getElementById('btnSuspender');
+                    btnSuspender.disabled = true;
+                    btnSuspender.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Suspendiendo...';
+
+                    const response = await fetch('/api/pedidos', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify(pedidoData)
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(result.error || 'Error al suspender pedido');
+                    }
+
+                    alert(`✅ Pedido #${result.id_pedido} suspendido con éxito`);
+                    resetVenta(); // LIMPIAR CARRITO después de suspender
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert(`❌ Error: ${error.message}`);
+                } finally {
+                    const btnSuspender = document.getElementById('btnSuspender');
+                    btnSuspender.disabled = false;
+                    btnSuspender.innerHTML = '<i class="bi bi-pause-circle"></i> Suspender';
+                }
+            });
+
+            // RECUPERAR PEDIDO SUSPENDIDO
+            document.getElementById('btnRecuperar').addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/api/pedidos/suspendidos', { headers });
+                    if (!response.ok) throw new Error('Error al cargar pedidos suspendidos');
+
+                    const pedidosSuspendidos = await response.json();
+                    const container = document.getElementById('listaPedidosSuspendidos');
+
+                    if (!pedidosSuspendidos || pedidosSuspendidos.length === 0) {
+                        container.innerHTML = '<div class="text-center text-muted py-3">No hay pedidos suspendidos</div>';
+                        recuperarPedidoModal.show();
+                        return;
+                    }
+
+                    container.innerHTML = '';
+                    pedidosSuspendidos.forEach(pedido => {
+                        const item = document.createElement('a');
+                        item.className = 'list-group-item list-group-item-action';
+                        item.innerHTML = `
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">Pedido #${pedido.id_pedido} - ${pedido.cliente_nombre || 'Cliente'}</h6>
+                                    <p class="mb-1"><small class="text-muted">${pedido.observaciones || 'Sin observaciones'}</small></p>
+                                    <small class="text-muted">Fecha: ${new Date(pedido.fecha_creacion).toLocaleDateString()}</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-success fs-6">$${parseFloat(pedido.total || 0).toFixed(2)}</span><br>
+                                    <small class="text-muted">${pedido.items_count || 0} items</small>
+                                </div>
+                            </div>
+                        `;
+                        item.addEventListener('click', async () => {
+                            await cargarPedidoSuspendido(pedido.id_pedido);
+                            recuperarPedidoModal.hide();
+                        });
+                        container.appendChild(item);
+                    });
+
+                    recuperarPedidoModal.show();
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert(`❌ Error: ${error.message}`);
+                }
+            });
+
+            // CARGAR PEDIDO SUSPENDIDO AL CARRITO
+            async function cargarPedidoSuspendido(idPedido) {
+                try {
+                    const response = await fetch(`/api/pedidos/${idPedido}/recuperar`, { headers });
+                    if (!response.ok) throw new Error('Error al recuperar pedido');
+
+                    const pedido = await response.json();
+
+                    // Limpiar carrito actual si tiene datos
+                    if (cart.length > 0) {
+                        if (!confirm('¿Reemplazar el carrito actual con el pedido suspendido?')) {
+                            return;
+                        }
+                    }
+
+                    // Cargar cliente
+                    const cliente = allClientes.find(c => c.id_cliente === pedido.id_cliente);
+                    if (cliente) {
+                        selectCliente(cliente);
+                    }
+
+                    // Cargar items al carrito
+                    cart = [];
+                    if (pedido.items && pedido.items.length > 0) {
+                        pedido.items.forEach(item => {
+                            const producto = allProductos.find(p => p.id_producto === item.id_producto);
+                            if (producto) {
+                                cart.push({
+                                    ...producto,
+                                    cantidad: item.cantidad,
+                                    precio: item.precio_unitario_congelado || producto.precio,
+                                    iva: item.iva_aplicado || 21,
+                                    descuento: item.porcentaje_descuento || 0
+                                });
+                            }
+                        });
+                    }
+
+                    // Cargar observaciones y tipo de entrega
+                    if (pedido.observaciones) {
+                        document.getElementById('observacionesEntrega').value = pedido.observaciones;
+                    }
+                    if (pedido.tipo_entrega) {
+                        const radioEntrega = document.querySelector(`input[name="tipo_entrega"][value="${pedido.tipo_entrega}"]`);
+                        if (radioEntrega) radioEntrega.checked = true;
+                    }
+                    if (pedido.descuento_general_porcentaje) {
+                        descuentoGeneralInput.value = pedido.descuento_general_porcentaje;
+                    }
+
+                    renderCart();
+                    alert(`✅ Pedido #${idPedido} recuperado al carrito`);
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert(`❌ Error al recuperar pedido: ${error.message}`);
+                }
+            }
 
             init();
         });
