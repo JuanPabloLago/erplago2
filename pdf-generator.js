@@ -637,13 +637,273 @@ function generarPresupuestoPDF(datosPresupuesto, callback) {
         callback(error);
     }
 }
+// ============================================
+// FUNCIÓN PARA GENERAR PDF DE PEDIDOS
+// Agregar al final de pdf-generator.js (antes de module.exports)
+// ============================================
+
+/**
+ * Genera PDF de un pedido
+ * @param {Object} pedidoData - Datos del pedido con items
+ * @param {Function} callback - Callback(err, pdfBuffer)
+ */
+function generarPedidoPDF(pedidoData, callback) {
+    try {
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        const chunks = [];
+
+        doc.on('data', chunk => chunks.push(chunk));
+        doc.on('end', () => {
+            const pdfBuffer = Buffer.concat(chunks);
+            callback(null, pdfBuffer);
+        });
+        doc.on('error', err => callback(err));
+
+        // ===== ENCABEZADO =====
+        doc.fontSize(20)
+           .font('Helvetica-Bold')
+           .text('PEDIDO', { align: 'center' })
+           .moveDown(0.5);
+
+        doc.fontSize(12)
+           .font('Helvetica')
+           .text(`Nro: ${pedidoData.id_pedido}`, { align: 'center' })
+           .moveDown(1);
+
+        // ===== DATOS DE LA EMPRESA =====
+        if (pedidoData.empresa_razon_social) {
+            doc.fontSize(10)
+               .font('Helvetica-Bold')
+               .text(pedidoData.empresa_razon_social, { align: 'left' });
+            
+            if (pedidoData.empresa_domicilio) {
+                doc.font('Helvetica')
+                   .fontSize(9)
+                   .text(pedidoData.empresa_domicilio);
+            }
+            
+            if (pedidoData.empresa_cuit) {
+                doc.text(`CUIT: ${pedidoData.empresa_cuit}`);
+            }
+            
+            if (pedidoData.empresa_telefono) {
+                doc.text(`Tel: ${pedidoData.empresa_telefono}`);
+            }
+            
+            doc.moveDown(1);
+        }
+
+        // ===== LÍNEA DIVISORIA =====
+        doc.moveTo(50, doc.y)
+           .lineTo(550, doc.y)
+           .stroke()
+           .moveDown(0.5);
+
+        // ===== DATOS DEL CLIENTE Y PEDIDO =====
+        const leftColumn = 50;
+        const rightColumn = 300;
+        const startY = doc.y;
+
+        // Columna izquierda - Cliente
+        doc.fontSize(9)
+           .font('Helvetica-Bold')
+           .text('CLIENTE:', leftColumn, startY);
+        
+        doc.font('Helvetica')
+           .text(pedidoData.cliente_nombre || 'Consumidor Final', leftColumn, doc.y);
+        
+        if (pedidoData.cliente_direccion) {
+            doc.text(pedidoData.cliente_direccion, leftColumn);
+        }
+        
+        if (pedidoData.cliente_cuit) {
+            doc.text(`CUIT: ${pedidoData.cliente_cuit}`, leftColumn);
+        }
+
+        // Columna derecha - Datos del pedido
+        doc.font('Helvetica-Bold')
+           .text('FECHA:', rightColumn, startY);
+        
+        doc.font('Helvetica')
+           .text(new Date(pedidoData.fecha_creacion).toLocaleDateString('es-AR', {
+               day: '2-digit',
+               month: '2-digit',
+               year: 'numeric',
+               hour: '2-digit',
+               minute: '2-digit'
+           }), rightColumn);
+
+        if (pedidoData.estado_nombre) {
+            doc.font('Helvetica-Bold')
+               .text('ESTADO:', rightColumn)
+               .font('Helvetica')
+               .text(pedidoData.estado_nombre, rightColumn);
+        }
+
+        if (pedidoData.fecha_entrega_pactada) {
+            doc.font('Helvetica-Bold')
+               .text('ENTREGA:', rightColumn)
+               .font('Helvetica')
+               .text(new Date(pedidoData.fecha_entrega_pactada).toLocaleDateString('es-AR'), rightColumn);
+        }
+
+        doc.moveDown(2);
+
+        // ===== TABLA DE ITEMS =====
+        const tableTop = doc.y;
+        const tableHeaders = ['#', 'Producto', 'Cant.', 'P. Unit.', 'Dto%', 'Subtotal'];
+        const colWidths = [30, 200, 50, 70, 50, 80];
+        const colPositions = [50, 80, 280, 330, 400, 450];
+
+        // Encabezado de tabla
+        doc.fontSize(9)
+           .font('Helvetica-Bold');
+
+        tableHeaders.forEach((header, i) => {
+            const align = (i === 1) ? 'left' : 'right';
+            doc.text(header, colPositions[i], tableTop, { 
+                width: colWidths[i], 
+                align: align 
+            });
+        });
+
+        // Línea debajo del encabezado
+        doc.moveTo(50, tableTop + 15)
+           .lineTo(550, tableTop + 15)
+           .stroke();
+
+        // Items
+        let y = tableTop + 25;
+        let subtotalGeneral = 0;
+        let descuentoGeneral = 0;
+
+        doc.font('Helvetica')
+           .fontSize(8);
+
+        pedidoData.items.forEach((item, index) => {
+            const cantidad = parseFloat(item.cantidad || 0);
+            const precioUnitario = parseFloat(item.precio_unitario_congelado || 0);
+            const porcentajeDescuento = parseFloat(item.porcentaje_descuento || 0);
+            
+            const subtotalItem = cantidad * precioUnitario;
+            const descuentoItem = subtotalItem * (porcentajeDescuento / 100);
+            const totalItem = subtotalItem - descuentoItem;
+
+            subtotalGeneral += subtotalItem;
+            descuentoGeneral += descuentoItem;
+
+            // Nueva página si es necesario
+            if (y > 700) {
+                doc.addPage();
+                y = 50;
+            }
+
+            // Número
+            doc.text(index + 1, colPositions[0], y, { width: colWidths[0], align: 'right' });
+            
+            // Producto
+            doc.text(item.producto_nombre || 'Producto', colPositions[1], y, { 
+                width: colWidths[1], 
+                align: 'left' 
+            });
+            
+            // Cantidad
+            doc.text(cantidad.toFixed(2), colPositions[2], y, { width: colWidths[2], align: 'right' });
+            
+            // Precio Unitario
+            doc.text('$' + precioUnitario.toFixed(2), colPositions[3], y, { width: colWidths[3], align: 'right' });
+            
+            // Descuento
+            doc.text(porcentajeDescuento.toFixed(0) + '%', colPositions[4], y, { width: colWidths[4], align: 'right' });
+            
+            // Total
+            doc.text('$' + totalItem.toFixed(2), colPositions[5], y, { width: colWidths[5], align: 'right' });
+
+            y += 20;
+        });
+
+        // ===== TOTALES =====
+        y += 10;
+        doc.moveTo(50, y)
+           .lineTo(550, y)
+           .stroke();
+
+        y += 15;
+        const totalSinDescuento = subtotalGeneral;
+        const totalConDescuento = subtotalGeneral - descuentoGeneral;
+        const iva = totalConDescuento * 0.21;
+        const totalFinal = totalConDescuento + iva;
+
+        const totalesX = 400;
+        doc.fontSize(9)
+           .font('Helvetica');
+
+        doc.text('Subtotal:', totalesX, y);
+        doc.text('$' + totalSinDescuento.toFixed(2), 480, y, { align: 'right' });
+        y += 15;
+
+        if (descuentoGeneral > 0) {
+            doc.text('Descuentos:', totalesX, y);
+            doc.text('-$' + descuentoGeneral.toFixed(2), 480, y, { align: 'right' });
+            y += 15;
+        }
+
+        doc.text('IVA (21%):', totalesX, y);
+        doc.text('$' + iva.toFixed(2), 480, y, { align: 'right' });
+        y += 15;
+
+        doc.fontSize(11)
+           .font('Helvetica-Bold');
+        doc.text('TOTAL:', totalesX, y);
+        doc.text('$' + totalFinal.toFixed(2), 480, y, { align: 'right' });
+
+        // ===== OBSERVACIONES =====
+        if (pedidoData.observaciones) {
+            y += 30;
+            doc.fontSize(9)
+               .font('Helvetica-Bold')
+               .text('OBSERVACIONES:', 50, y);
+            
+            y += 15;
+            doc.font('Helvetica')
+               .fontSize(8)
+               .text(pedidoData.observaciones, 50, y, { width: 500 });
+        }
+
+        // ===== PIE DE PÁGINA =====
+        doc.fontSize(8)
+           .font('Helvetica')
+           .text(
+               `Documento generado el ${new Date().toLocaleDateString('es-AR')} a las ${new Date().toLocaleTimeString('es-AR')}`,
+               50,
+               750,
+               { align: 'center', width: 500 }
+           );
+
+        doc.end();
+
+    } catch (error) {
+        callback(error);
+    }
+}
+
+// ===== AGREGAR A module.exports =====
+// Al final del archivo pdf-generator.js, agregar:
+// generarPedidoPDF: generarPedidoPDF,
+
+
+
+
+
 
 // =======================================================================
 //                    EXPORTACIONES
 // =======================================================================
 
 module.exports = {
-    generarFacturaPDF,
+generarPedidoPDF: generarPedidoPDF,    
+generarFacturaPDF,
     generarNotaPDF,
     generarRemitoPDF,
     generarPresupuestoPDF,

@@ -1,113 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <script src="js/config.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Venta Rápida - ERP LAGO</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <style>
-        .gradient-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .producto-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-        .producto-btn {
-            height: 120px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            font-size: 13px;
-            transition: all 0.2s;
-            position: relative;
-            text-align: center;
-            word-break: break-word;
-        }
-        .producto-btn:hover { transform: scale(1.05); }
-        .producto-precio {
-            position: absolute;
-            bottom: 5px;
-            right: 5px;
-            background: #28a745;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-        .item-venta {
-            border-left: 4px solid #667eea;
-            padding: 10px;
-            margin-bottom: 5px;
-            background: #f8f9fa;
-        }
-        .total-display {
-            font-size: 3rem;
-            font-weight: bold;
-            color: #28a745;
-        }
-        .busqueda-rapida {
-            font-size: 1.5rem;
-            padding: 15px;
-        }
-        .teclas-rapidas {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            z-index: 9998;
-        }
-        .forma-pago-btn {
-            height: 80px;
-            font-size: 0.95rem;
-            font-weight: bold;
-            position: relative;
-            cursor: pointer;
-        }
-        .forma-pago-btn i {
-            font-size: 1.8rem;
-            display: block;
-            margin-bottom: 3px;
-        }
-        .forma-pago-btn.pago-completo {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            color: white;
-            border: 3px solid #0d7a6a;
-        }
-        .forma-pago-btn.pago-parcial {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-            border: 3px solid #d4145a;
-        }
-        .pago-item {
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
-            padding: 10px;
-            margin-bottom: 5px;
-        }
-        .saldo-pendiente {
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 15px;
-            margin-top: 10px;
-        }
-        .hint-texto {
-            font-size: 11px;
-            color: #6c757d;
-            font-style: italic;
-        }
-        
-        /* Animación de spinner */
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        .bi-spin {
-            animation: spin 1s linear infinite;
-        }
-    </style>
+    <link rel="stylesheet" href="css/erp-lago-styles.css?v=20251118_MASVENDIDOS">
 </head>
 <body>
     <script src="js/connection-indicator.js"></script>
@@ -126,164 +26,231 @@
         </div>
     </nav>
 
+    <!-- CUADRO FLOTANTE: TOTAL -->
+    <div class="cuadro-flotante-total">
+        <small class="text-muted d-block text-center">TOTAL</small>
+        <div class="total-display" id="totalVenta">$0.00</div>
+        <small class="text-muted d-block text-center mt-1" id="detalleDescuentos" style="display: none;"></small>
+    </div>
+
+    <!-- CUADRO FLOTANTE: ATAJOS -->
+    <div class="cuadro-flotante-atajos no-select">
+        <strong>⚡ Atajos</strong>
+        <div class="atajo"><span class="tecla">ESPACIO</span> <span>→ Cantidad</span></div>
+        <div class="atajo"><span class="tecla">ENTER</span> <span>→ Siguiente</span></div>
+        <div class="atajo"><span class="tecla">F2</span> <span>→ Guardar</span></div>
+        <div class="atajo"><span class="tecla">F3</span> <span>→ Cliente</span></div>
+        <div class="atajo"><span class="tecla">ESC</span> <span>→ Cancelar</span></div>
+    </div>
+
     <div class="container-fluid mt-3">
-        <div class="row">
-            <!-- IZQUIERDA: Búsqueda y Productos -->
-            <div class="col-md-7">
-                <!-- Búsqueda Rápida -->
-                <div class="card shadow-sm mb-3">
-                    <div class="card-body">
-                        <input type="text"
-                               class="form-control busqueda-rapida"
-                               id="busquedaRapida"
-                               placeholder="🔍 Buscar producto (código, nombre) o escanear..."
-                               autofocus>
+        <!-- BÚSQUEDA POR CÓDIGO -->
+        <div class="row mb-2">
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-body p-2">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-md-3">
+                                <label class="form-label small mb-1"><i class="bi bi-upc-scan"></i> Código / Barras</label>
+                                <input type="text"
+                                       class="form-control busqueda-codigo"
+                                       id="codigoProducto"
+                                       placeholder="Escanear..."
+                                       autocomplete="off"
+                                       autofocus>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label small mb-1"><i class="bi bi-tag"></i> Lista de Precios</label>
+                                <select id="listaPrecios" class="form-select">
+                                    <option value="1">Cargando...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small mb-1"><i class="bi bi-person"></i> Cliente</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text"
+                                           class="form-control"
+                                           id="clienteNombre"
+                                           value="Consumidor Final"
+                                           readonly
+                                           style="background: #e9ecef; font-size: 12px;">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="buscarCliente()">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                                <input type="hidden" id="idCliente">
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Resultados de Búsqueda -->
-                <div id="resultadosBusqueda" class="mb-3"></div>
+                <!-- Sugerencias de búsqueda -->
+                <div id="sugerenciasProductos" class="mt-2"></div>
 
-                <!-- Productos Frecuentes -->
-                <div class="card shadow-sm">
-                    <div class="card-header bg-secondary text-white">
-                        <i class="bi bi-star"></i> Productos Frecuentes
+                <!-- PRODUCTOS MÁS VENDIDOS -->
+                <div class="card shadow-sm mt-2" id="cardMasVendidos" style="display: none;">
+                    <div class="card-header bg-info text-white py-1 d-flex justify-content-between align-items-center">
+                        <small><i class="bi bi-star-fill"></i> Productos Más Vendidos</small>
+                        <button class="btn btn-sm btn-outline-light" onclick="cargarMasVendidos()" title="Actualizar">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
                     </div>
-                    <div class="card-body">
-                        <div class="producto-grid" id="productosFrecuentes">
-                            <div class="text-muted">Cargando productos...</div>
+                    <div class="card-body p-2">
+                        <div class="d-flex flex-wrap gap-2" id="productosMasVendidos">
+                            <!-- Los productos se cargarán aquí dinámicamente -->
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- DERECHA: Venta Actual -->
-            <div class="col-md-5">
-                <div class="card shadow-sm sticky-top" style="top: 10px;">
-                    <div class="card-header bg-success text-white">
-                        <h5><i class="bi bi-cart-check"></i> Venta Actual</h5>
-                    </div>
-
-                    <div class="card-body">
-                        <!-- Selector de Lista de Precios -->
-                        <div class="mb-3">
-                            <label for="listaPrecios" class="form-label">
-                                <i class="bi bi-tag"></i> Lista de Precios
-                            </label>
-                            <select id="listaPrecios" class="form-select">
-                                <option value="1">Cargando listas...</option>
-                            </select>
+            <div class="col-md-4">
+                <!-- Descuento General -->
+                <div class="card shadow-sm">
+                    <div class="card-body p-2">
+                        <label class="form-label small mb-1"><i class="bi bi-percent"></i> Descuento General</label>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="input-group input-group-sm">
+                                    <input type="number"
+                                           id="descuentoGeneralPorcentaje"
+                                           class="form-control"
+                                           min="0"
+                                           max="100"
+                                           step="0.01"
+                                           value="0"
+                                           placeholder="0"
+                                           onchange="calcularTotal()">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number"
+                                           id="descuentoGeneralMonto"
+                                           class="form-control"
+                                           min="0"
+                                           step="0.01"
+                                           value="0"
+                                           placeholder="0"
+                                           onchange="calcularTotal()">
+                                </div>
+                            </div>
                         </div>
-                        
-                        <!-- Cliente (precargado) -->
-                        <div class="mb-3">
-                            <label class="form-label small">Cliente</label>
-                            <div class="input-group input-group-sm">
-                                <input type="text"
-                                       class="form-control"
-                                       id="clienteNombre"
-                                       value="Consumidor Final"
-                                       readonly
-                                       style="background: #e9ecef;">
-                                <button class="btn btn-outline-secondary" type="button" onclick="buscarCliente()">
-                                    <i class="bi bi-search"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA DE ITEMS COMPACTA -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-success text-white py-1">
+                        <small><i class="bi bi-cart-check"></i> Items del Pedido (<span id="cantidadItems">0</span>)</small>
+                    </div>
+                    <div class="card-body p-2" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm tabla-compacta mb-0">
+                            <thead class="sticky-top">
+                                <tr>
+                                    <th style="width: 3%;">Nro</th>
+                                    <th style="width: 10%;">Código</th>
+                                    <th style="width: 30%;">Producto</th>
+                                    <th style="width: 10%;" class="text-center">Cantidad</th>
+                                    <th style="width: 15%;" class="text-end">Precio</th>
+                                    <th style="width: 10%;" class="text-center">Dto%</th>
+                                    <th style="width: 15%;" class="text-end">Total</th>
+                                    <th style="width: 5%;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemsVentaBody">
+                                <tr id="sinItems">
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="bi bi-inbox fa-2x"></i><br>
+                                        <small>Escanea o escribe un código para agregar productos</small>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FORMAS DE PAGO Y ACCIONES -->
+        <div class="row mt-2">
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-info text-white py-1">
+                        <small><i class="bi bi-cash-stack"></i> Formas de Pago (1 clic = Total | 2 clics = Parcial)</small>
+                    </div>
+                    <div class="card-body p-2">
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <button class="btn btn-outline-success forma-pago-btn w-100"
+                                        data-forma="efectivo"
+                                        onclick="manejarClicPago('efectivo', event)"
+                                        ondblclick="manejarDobleClicPago('efectivo', event)">
+                                    <i class="bi bi-cash-coin"></i>
+                                    Efectivo
                                 </button>
                             </div>
-                            <input type="hidden" id="idCliente">
-                        </div>
-
-                        <!-- Items -->
-                        <div id="itemsVenta" style="max-height: 180px; overflow-y: auto;">
-                            <div class="alert alert-info">
-                                <i class="bi bi-info-circle"></i> Busca productos para agregar
+                            <div class="col-4">
+                                <button class="btn btn-outline-primary forma-pago-btn w-100"
+                                        data-forma="debito"
+                                        onclick="manejarClicPago('debito', event)"
+                                        ondblclick="manejarDobleClicPago('debito', event)">
+                                    <i class="bi bi-credit-card"></i>
+                                    Débito
+                                </button>
                             </div>
-                        </div>
-
-                        <hr>
-
-                        <!-- Total -->
-                        <div class="text-center mb-2">
-                            <small class="text-muted">TOTAL A COBRAR</small>
-                            <div class="total-display" id="totalVenta">$0.00</div>
-                        </div>
-
-                        <!-- Formas de Pago con hint -->
-                        <div class="mb-2">
-                            <label class="form-label">
-                                <strong>Formas de Pago:</strong>
-                            </label>
-                            <div class="hint-texto mb-2">
-                                💡 1 clic = Pagar TODO | 2 clics = Pago PARCIAL
+                            <div class="col-4">
+                                <button class="btn btn-outline-warning forma-pago-btn w-100"
+                                        data-forma="credito"
+                                        onclick="manejarClicPago('credito', event)"
+                                        ondblclick="manejarDobleClicPago('credito', event)">
+                                    <i class="bi bi-credit-card-2-front"></i>
+                                    Crédito
+                                </button>
                             </div>
-                            <div class="row g-2">
-                                <div class="col-6">
-                                    <button class="btn btn-outline-success forma-pago-btn w-100"
-                                            data-forma="efectivo"
-                                            onclick="manejarClicPago('efectivo', event)"
-                                            ondblclick="manejarDobleClicPago('efectivo', event)">
-                                        <i class="bi bi-cash-coin"></i>
-                                        Efectivo
-                                    </button>
-                                </div>
-                                <div class="col-6">
-                                    <button class="btn btn-outline-primary forma-pago-btn w-100"
-                                            data-forma="debito"
-                                            onclick="manejarClicPago('debito', event)"
-                                            ondblclick="manejarDobleClicPago('debito', event)">
-                                        <i class="bi bi-credit-card"></i>
-                                        Débito
-                                    </button>
-                                </div>
-                                <div class="col-6">
-                                    <button class="btn btn-outline-warning forma-pago-btn w-100"
-                                            data-forma="credito"
-                                            onclick="manejarClicPago('credito', event)"
-                                            ondblclick="manejarDobleClicPago('credito', event)">
-                                        <i class="bi bi-credit-card-2-front"></i>
-                                        Crédito
-                                    </button>
-                                </div>
-                                <div class="col-6">
-                                    <button class="btn btn-outline-info forma-pago-btn w-100"
-                                            data-forma="transferencia"
-                                            onclick="manejarClicPago('transferencia', event)"
-                                            ondblclick="manejarDobleClicPago('transferencia', event)">
-                                        <i class="bi bi-bank"></i>
-                                        Transfer
-                                    </button>
-                                </div>
-                                <div class="col-6">
-                                    <button class="btn btn-outline-secondary forma-pago-btn w-100"
-                                            data-forma="mercadopago"
-                                            onclick="manejarClicPago('mercadopago', event)"
-                                            ondblclick="manejarDobleClicPago('mercadopago', event)">
-                                        <i class="bi bi-wallet2"></i>
-                                        MP
-                                    </button>
-                                </div>
-                                <div class="col-6">
-                                    <button class="btn btn-outline-dark forma-pago-btn w-100"
-                                            data-forma="mercadopago_qr"
-                                            onclick="manejarClicPago('mercadopago_qr', event)"
-                                            ondblclick="manejarDobleClicPago('mercadopago_qr', event)">
-                                        <i class="bi bi-qr-code"></i>
-                                        MP QR
-                                    </button>
-                                </div>
+                            <div class="col-4">
+                                <button class="btn btn-outline-info forma-pago-btn w-100"
+                                        data-forma="transferencia"
+                                        onclick="manejarClicPago('transferencia', event)"
+                                        ondblclick="manejarDobleClicPago('transferencia', event)">
+                                    <i class="bi bi-bank"></i>
+                                    Transfer
+                                </button>
+                            </div>
+                            <div class="col-4">
+                                <button class="btn btn-outline-secondary forma-pago-btn w-100"
+                                        data-forma="mercadopago"
+                                        onclick="manejarClicPago('mercadopago', event)"
+                                        ondblclick="manejarDobleClicPago('mercadopago', event)">
+                                    <i class="bi bi-wallet2"></i>
+                                    MP
+                                </button>
+                            </div>
+                            <div class="col-4">
+                                <button class="btn btn-outline-dark forma-pago-btn w-100"
+                                        data-forma="mercadopago_qr"
+                                        onclick="manejarClicPago('mercadopago_qr', event)"
+                                        ondblclick="manejarDobleClicPago('mercadopago_qr', event)">
+                                    <i class="bi bi-qr-code"></i>
+                                    MP QR
+                                </button>
                             </div>
                         </div>
 
                         <!-- Lista de pagos agregados -->
-                        <div id="listaPagos" class="mb-2">
-                            <!-- Se llenan dinámicamente -->
-                        </div>
+                        <div id="listaPagos" class="mt-2"></div>
 
                         <!-- Input para pago parcial -->
-                        <div id="inputPagoParcial" style="display: none;" class="mb-2">
+                        <div id="inputPagoParcial" style="display: none;" class="mt-2">
                             <label class="form-label small">
                                 <strong>Monto a pagar con <span id="formaParcialNombre"></span>:</strong>
                             </label>
-                            <div class="input-group">
+                            <div class="input-group input-group-sm">
                                 <span class="input-group-text">$</span>
                                 <input type="number"
                                        class="form-control"
@@ -291,43 +258,76 @@
                                        step="0.01"
                                        placeholder="0.00">
                                 <button class="btn btn-success" onclick="confirmarPagoParcial()">
-                                    <i class="bi bi-check"></i> OK
+                                    <i class="bi bi-check"></i>
                                 </button>
                                 <button class="btn btn-secondary" onclick="cancelarPagoParcial()">
                                     <i class="bi bi-x"></i>
                                 </button>
                             </div>
-                            <small class="text-muted">Saldo restante: $<span id="saldoRestanteInfo">0.00</span></small>
+                            <small class="text-muted">Saldo: $<span id="saldoRestanteInfo">0.00</span></small>
                         </div>
 
                         <!-- Resumen de pagos -->
-                        <div id="resumenPagos" class="alert alert-info" style="display: none;">
+                        <div id="resumenPagos" class="alert alert-info p-2 mt-2" style="display: none;">
                             <small>
-                                <strong>Total:</strong> $<span id="totalAPagar">0.00</span><br>
-                                <strong>Pagado:</strong> $<span id="totalPagado">0.00</span><br>
+                                <strong>Total:</strong> $<span id="totalAPagar">0.00</span> |
+                                <strong>Pagado:</strong> $<span id="totalPagado">0.00</span> |
                                 <strong>Restante:</strong> $<span id="saldoRestante">0.00</span>
                             </small>
                         </div>
 
                         <!-- Alerta de saldo pendiente -->
-                        <div id="alertaSaldoPendiente" class="saldo-pendiente" style="display: none;">
-                            <div class="d-flex align-items-center">
-                                <i class="bi bi-exclamation-triangle-fill me-2" style="font-size: 1.5rem;"></i>
-                                <div>
-                                    <strong>Saldo Pendiente:</strong> $<span id="montoPendiente">0.00</span><br>
-                                    <small>Se guardará en cuenta corriente del cliente</small>
-                                </div>
-                            </div>
+                        <div id="alertaSaldoPendiente" class="alerta-saldo" style="display: none;">
+                            <small>
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <strong>Saldo Pendiente:</strong> $<span id="montoPendiente">0.00</span>
+                                (Se guardará en cuenta corriente)
+                            </small>
                         </div>
+                    </div>
+                </div>
+            </div>
 
-                        <!-- Botones de Acción -->
-                        <div class="d-grid gap-2 mt-3">
-                            <button class="btn btn-success btn-lg" onclick="guardarVenta()" id="btnGuardar" disabled>
-                                <i class="bi bi-check-circle"></i> GUARDAR VENTA (F2)
-                            </button>
-                            <button class="btn btn-warning" onclick="limpiarVenta()">
-                                <i class="bi bi-x-circle"></i> Cancelar (ESC)
-                            </button>
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body p-2">
+                        <button class="btn btn-success btn-lg w-100 mb-2" onclick="guardarVenta()" id="btnGuardar" disabled>
+                            <i class="bi bi-check-circle"></i> GUARDAR (F2)
+                        </button>
+                        <button class="btn btn-secondary w-100 mb-2" onclick="suspenderVenta()" id="btnSuspender" disabled>
+                            <i class="bi bi-pause-circle"></i> Suspender
+                        </button>
+                        <button class="btn btn-outline-info w-100 mb-2" onclick="vistaPrevia()" id="btnVistaPrevia" disabled>
+                            <i class="bi bi-eye"></i> Vista Previa / Cotización
+                        </button>
+                        <button class="btn btn-info w-100 mb-2" onclick="mostrarSuspendidos()">
+                            <i class="bi bi-clipboard-check"></i> Recuperar Suspendidos
+                        </button>
+                        <button class="btn btn-warning w-100 mb-2" onclick="limpiarVenta()">
+                            <i class="bi bi-x-circle"></i> Cancelar (ESC)
+                        </button>
+                        <textarea id="observaciones"
+                                  class="form-control form-control-sm"
+                                  rows="2"
+                                  placeholder="Observaciones..."
+                                  style="font-size: 12px;"></textarea>
+
+                        <div class="mt-2">
+                            <label class="form-label small mb-1"><i class="bi bi-truck"></i> Tipo de Entrega</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="tipoEntrega" id="btnRetira" value="retira" checked autocomplete="off">
+                                <label class="btn btn-outline-success" for="btnRetira" style="font-size: 13px;">
+                                    <i class="bi bi-bag-check"></i> RETIRA
+                                </label>
+
+                                <input type="radio" class="btn-check" name="tipoEntrega" id="btnEntrega" value="entrega" autocomplete="off">
+                                <label class="btn btn-outline-warning" for="btnEntrega" style="font-size: 13px;">
+                                    <i class="bi bi-truck"></i> ENTREGA
+                                </label>
+                            </div>
+                            <small class="text-muted d-block mt-1" id="infoTipoEntrega">
+                                <i class="bi bi-info-circle"></i> Descuenta stock inmediatamente
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -335,26 +335,15 @@
         </div>
     </div>
 
-    <!-- Teclas Rápidas -->
-    <div class="teclas-rapidas">
-        <strong>Atajos:</strong><br>
-        F2 = Guardar<br>
-        ESC = Cancelar<br>
-        1 clic = Pago total<br>
-        2 clics = Pago parcial
-    </div>
-
-    <!-- MODAL DE ALERTA -->
-    <div class="modal fade" id="alertaModal" tabindex="-1" aria-labelledby="alertaModalLabel" aria-hidden="true">
+    <!-- MODALES -->
+    <div class="modal fade" id="alertaModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="alertaModalTitulo">Aviso</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body" id="alertaModalMensaje">
-                    ...
-                </div>
+                <div class="modal-body" id="alertaModalMensaje"></div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Aceptar</button>
                 </div>
@@ -362,17 +351,14 @@
         </div>
     </div>
 
-    <!-- MODAL DE CONFIRMACIÓN -->
-    <div class="modal fade" id="confirmarModal" tabindex="-1" aria-labelledby="confirmarModalLabel" aria-hidden="true">
+    <div class="modal fade" id="confirmarModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="confirmarModalTitulo">Confirmar</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body" id="confirmarModalMensaje" style="white-space: pre-wrap;">
-                    ...
-                </div>
+                <div class="modal-body" id="confirmarModalMensaje" style="white-space: pre-wrap;"></div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" id="confirmarModalBtnNo">Cancelar</button>
                     <button type="button" class="btn btn-success" id="confirmarModalBtnSi">Confirmar</button>
@@ -381,729 +367,154 @@
         </div>
     </div>
 
+    <div class="modal fade" id="modalBuscarCliente" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Buscar Cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" class="form-control mb-3" id="busquedaClienteInput" placeholder="Buscar..." autocomplete="off">
+                    <div id="resultadosBusquedaClientes" style="max-height: 400px; overflow-y: auto;"></div>
+                    <button class="btn btn-success btn-sm mt-3" onclick="mostrarFormNuevoCliente()">
+                        <i class="bi bi-plus-circle"></i> Crear Nuevo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalNuevoCliente" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nuevo Cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formNuevoCliente">
+                        <div class="mb-2">
+                            <label class="form-label small">CUIT/DNI *</label>
+                            <input type="text" class="form-control form-control-sm" id="nuevoCuit" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Razón Social *</label>
+                            <input type="text" class="form-control form-control-sm" id="nuevoNombre" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Dirección</label>
+                            <input type="text" class="form-control form-control-sm" id="nuevaDireccion">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Teléfono</label>
+                            <input type="text" class="form-control form-control-sm" id="nuevoTelefono">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Email</label>
+                            <input type="email" class="form-control form-control-sm" id="nuevoEmail">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="guardarNuevoCliente()">
+                        <i class="bi bi-save"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Agregar/Actualizar Dirección del Cliente -->
+    <div class="modal fade" id="modalActualizarDireccion" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">
+                        <i class="bi bi-truck"></i> Confirmar Dirección de Entrega
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">
+                        <strong id="nombreClienteDireccion"></strong>
+                    </p>
+                    <div class="alert alert-info py-2">
+                        <small>
+                            <i class="bi bi-info-circle"></i>
+                            Confirmá o modificá la dirección de entrega para este pedido
+                        </small>
+                    </div>
+                    <form id="formActualizarDireccion">
+                        <div class="mb-3">
+                            <label class="form-label">Dirección de Entrega *</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="direccionEntrega"
+                                   placeholder="Calle, número, piso, depto..."
+                                   required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Localidad</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="localidadEntrega"
+                                   placeholder="Ciudad/Localidad">
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   id="guardarDireccionCliente"
+                                   checked>
+                            <label class="form-check-label" for="guardarDireccionCliente">
+                                Actualizar dirección en el perfil del cliente
+                            </label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="cancelarEntrega()">
+                        <i class="bi bi-arrow-left"></i> Cambiar a RETIRA
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="confirmarDireccionEntrega()">
+                        <i class="bi bi-check-circle"></i> Confirmar Entrega
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Venta Guardada - Opciones -->
+    <div class="modal fade" id="modalVentaGuardada" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-check-circle"></i> ¡Venta Guardada!
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <h3 class="text-success mb-3">Pedido #<span id="numeroPedidoGuardado"></span></h3>
+                    <p class="mb-3">Total: <strong>$<span id="totalPedidoGuardado"></span></strong></p>
+
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="verPedido()">
+                            <i class="bi bi-eye"></i> Ver / Imprimir
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="cerrarYNuevaVenta()">
+                        Cerrar y Nueva Venta
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // =======================================================================
-        //                          VARIABLES GLOBALES
-        // =======================================================================
-        const API_URL = 'http://72.60.148.18:3000/api';
-        let itemsVentaArray = [];
-        let productos = []; // Almacén local de productos de la lista seleccionada
-        let pagosRegistrados = []; // {forma, monto, es_completo}
-        let formaParcialActual = null;
-        let clickTimer = null;
-        let listasPreciosDisponibles = [];
-        let listaSeleccionada = 1; // Default
-        
-        // Nombres de formas de pago
-        const nombresForma = {
-            'efectivo': '💵 Efectivo',
-            'debito': '💳 Débito',
-            'credito': '💳 Crédito',
-            'transferencia': '🏦 Transferencia',
-            'mercadopago': '💰 Mercado Pago',
-            'mercadopago_qr': '📱 MP QR'
-        };
-
-        // Instancias de Modales (Bootstrap 5)
-        let alertaModal = null;
-        let confirmarModal = null;
-        let confirmarModalRespuesta = null;
-
-
-        // =======================================================================
-        //                       INICIALIZACIÓN (DOMContentLoaded)
-        // =======================================================================
-        document.addEventListener('DOMContentLoaded', async () => {
-            const token = localStorage.getItem('authToken');
-            if (!token) {
-                window.location.href = 'login.html';
-                return;
-            }
-
-            document.getElementById('usuarioNombre').textContent = localStorage.getItem('username') || 'Usuario';
-
-            // Inicializar modales
-            alertaModal = new bootstrap.Modal(document.getElementById('alertaModal'));
-            confirmarModal = new bootstrap.Modal(document.getElementById('confirmarModal'));
-
-            // Setup listeners de modales
-            document.getElementById('confirmarModalBtnSi').addEventListener('click', () => {
-                if (confirmarModalRespuesta) confirmarModalRespuesta(true);
-                confirmarModal.hide();
-            });
-            document.getElementById('confirmarModalBtnNo').addEventListener('click', () => {
-                if (confirmarModalRespuesta) confirmarModalRespuesta(false);
-                confirmarModal.hide();
-            });
-
-
-            await obtenerConsumidorFinal();
-            
-            // Cargar listas Y LUEGO cargar productos
-            await cargarListasPrecios();
-            await cargarProductos(); // <-- FIX: Cargar productos al inicio
-
-            // Listeners de UI
-            document.getElementById('busquedaRapida').addEventListener('keyup', buscarProductoRapido);
-            document.getElementById('listaPrecios').addEventListener('change', onListaPreciosChange);
-            
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'F2') {
-                    e.preventDefault();
-                    document.getElementById('btnGuardar').click();
-                } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    if (document.getElementById('inputPagoParcial').style.display === 'block') {
-                        cancelarPagoParcial();
-                    } else {
-                        limpiarVenta();
-                    }
-                }
-            });
-        });
-
-        // =======================================================================
-        //                      FUNCIONES DE MODALES (ALERTA/CONFIRM)
-        // =======================================================================
-
-        /**
-         * Muestra un modal de alerta no bloqueante.
-         * @param {string} mensaje El mensaje a mostrar.
-         * @param {string} [titulo='Aviso'] Título opcional.
-         */
-        function mostrarAlerta(mensaje, titulo = 'Aviso') {
-            document.getElementById('alertaModalTitulo').textContent = titulo;
-            document.getElementById('alertaModalMensaje').textContent = mensaje;
-            alertaModal.show();
-        }
-
-        /**
-         * Muestra un modal de confirmación y devuelve una Promesa que se resuelve a true (confirmar) o false (cancelar).
-         * @param {string} mensaje El mensaje a mostrar.
-         * @param {string} [titulo='Confirmar'] Título opcional.
-         * @returns {Promise<boolean>}
-         */
-        function mostrarConfirmacion(mensaje, titulo = 'Confirmar') {
-            document.getElementById('confirmarModalTitulo').textContent = titulo;
-            document.getElementById('confirmarModalMensaje').textContent = mensaje;
-            
-            return new Promise((resolve) => {
-                confirmarModalRespuesta = resolve;
-                confirmarModal.show();
-            });
-        }
-
-
-        // =======================================================================
-        //                   CLIENTES Y LISTAS DE PRECIOS
-        // =======================================================================
-
-        async function obtenerConsumidorFinal() {
-            try {
-                const response = await fetch(`${API_URL}/clientes`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-                });
-                if (!response.ok) throw new Error('No se pudo obtener clientes');
-                const clientes = await response.json();
-
-                const consumidorFinal = clientes.find(c =>
-                    c.razon_social && c.razon_social.toLowerCase().includes('consumidor final')
-                );
-
-                if (consumidorFinal) {
-                    document.getElementById('idCliente').value = consumidorFinal.id_cliente;
-                    document.getElementById('clienteNombre').value = consumidorFinal.razon_social;
-                }
-            } catch (error) {
-                console.error('Error obteniendo Consumidor Final:', error);
-                mostrarAlerta(`Error al cargar cliente por defecto: ${error.message}`, 'Error');
-            }
-        }
-
-        // Cargar listas de precios disponibles
-        async function cargarListasPrecios() {
-            try {
-                const token = localStorage.getItem('authToken');
-                const response = await fetch(`${API_URL}/listas-precios`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (response.ok) {
-                    listasPreciosDisponibles = await response.json();
-                    console.log('✅ Listas cargadas:', listasPreciosDisponibles);
-
-                    const select = document.getElementById('listaPrecios');
-                    if (!select) {
-                        console.error('❌ Selector no encontrado');
-                        return;
-                    }
-
-                    select.innerHTML = '';
-                    if (listasPreciosDisponibles.length === 0) {
-                        select.innerHTML = '<option value="">No hay listas</option>';
-                        return;
-                    }
-
-                    listasPreciosDisponibles.forEach(lista => {
-                        const option = document.createElement('option');
-                        option.value = lista.id_lista_precio;
-                        option.textContent = lista.nombre;
-                        select.appendChild(option);
-                    });
-
-                    // Asignar la primera lista como seleccionada por defecto
-                    listaSeleccionada = listasPreciosDisponibles[0]?.id_lista_precio || 1;
-                    select.value = listaSeleccionada;
-                    
-                    // FIX: El listener de 'change' se agrega una sola vez en DOMContentLoaded
-                    // Se eliminó el listener duplicado que estaba aquí.
-
-                } else {
-                    throw new Error('Respuesta no OK del servidor');
-                }
-            } catch (error) {
-                console.error('❌ Error cargando listas de precios:', error);
-                mostrarAlerta(`No se pudo cargar las listas de precios: ${error.message}`, 'Error de Red');
-            }
-        }
-
-        // Event listener para cambio de lista
-        async function onListaPreciosChange(event) {
-            const nuevaLista = parseInt(event.target.value);
-            console.log('📋 Lista cambiada a:', nuevaLista);
-
-            if (itemsVentaArray.length > 0) {
-                // Confirmar cambio
-                const confirmar = await mostrarConfirmacion('¿Actualizar los precios de los productos en el carrito según la nueva lista?');
-                if (!confirmar) {
-                    event.target.value = listaSeleccionada; // Revertir selección
-                    return;
-                }
-            }
-
-            listaSeleccionada = nuevaLista;
-
-            try {
-                // PERFORMANCE FIX: 
-                // 1. Cargar *todos* los productos de la nueva lista
-                await cargarProductos(); 
-                
-                // 2. Actualizar precios del carrito usando el array local `productos` (mucho más rápido)
-                for (let item of itemsVentaArray) {
-                    const productoEncontrado = productos.find(p => p.id_producto === item.id_producto);
-
-                    if (productoEncontrado && productoEncontrado.precio) {
-                        item.precio_unitario = parseFloat(productoEncontrado.precio);
-                        console.log(`✅ ${item.nombre} actualizado a: $${item.precio_unitario}`);
-                    } else {
-                        console.warn(`⚠️ ${item.nombre} no encontrado en la nueva lista de precios. Se mantiene precio anterior.`);
-                    }
-                }
-
-                // 3. Actualizar UI
-                mostrarItemsVenta();
-                calcularTotal();
-                mostrarAlerta('✅ Precios actualizados según la nueva lista');
-
-            } catch (error) {
-                console.error('❌ Error al actualizar precios:', error);
-                mostrarAlerta('Error al actualizar precios: ' + error.message, 'Error');
-            }
-        }
-
-        // =======================================================================
-        //                        GESTIÓN DE PRODUCTOS
-        // =======================================================================
-
-        async function cargarProductos() {
-            const container = document.getElementById('productosFrecuentes');
-            container.innerHTML = '<div class="text-muted">Cargando productos...</div>';
-            
-            try {
-                const response = await fetch(`${API_URL}/productos/listar?id_lista_precio=${listaSeleccionada}`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-                });
-
-                if (!response.ok) throw new Error('Error al cargar productos');
-
-                productos = await response.json(); // Actualizar el array global
-
-                if (productos.length === 0) {
-                    container.innerHTML = '<div class="alert alert-warning">No hay productos cargados para esta lista.</div>';
-                    return;
-                }
-
-                // Renderizar productos frecuentes
-                container.innerHTML = productos.slice(0, 12).map(p => {
-                    const precio = parseFloat(p.precio) || 0;
-                    return `
-                        <button class="btn btn-outline-primary producto-btn" onclick="agregarProducto(${p.id_producto})" title="${p.nombre} | $${precio.toFixed(0)}">
-                            <i class="bi bi-box"></i><br>
-                            <small>${(p.nombre || 'Sin nombre').substring(0, 20)}</small>
-                            <span class="producto-precio">$${precio.toFixed(0)}</span>
-                        </button>
-                    `;
-                }).join('');
-
-            } catch (error) {
-                console.error('Error al cargar productos:', error);
-                container.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
-            }
-        }
-
-        function buscarProductoRapido(event) {
-            const termino = event.target.value.toLowerCase();
-            const container = document.getElementById('resultadosBusqueda');
-
-            // Filtrar productos del array local
-            const filtrados = productos.filter(p =>
-                (p.nombre || '').toLowerCase().includes(termino) ||
-                (p.sku || '').toLowerCase().includes(termino)
-            );
-
-            if (event.key === 'Enter' && termino.length > 0) {
-                if (filtrados.length > 0) {
-                    // Si hay filtrados, agregar el primero
-                    agregarProducto(filtrados[0].id_producto);
-                    event.target.value = '';
-                    container.innerHTML = '';
-                    return;
-                }
-            }
-
-            if (termino.length < 2) {
-                container.innerHTML = '';
-                return;
-            }
-
-            // Mostrar los primeros 5 resultados
-            container.innerHTML = filtrados.length > 0 ? `
-                <div class="card">
-                    <div class="list-group list-group-flush">
-                        ${filtrados.slice(0, 5).map(p => {
-                            const precio = parseFloat(p.precio) || 0;
-                            return `
-                                <button class="list-group-item list-group-item-action" onclick="agregarProducto(${p.id_producto})">
-                                    <strong>${p.nombre}</strong> (${p.sku || 'S/C'})<br>
-                                    <small class="text-muted">Stock: ${p.stock_real || 0}</small>
-                                    <strong class="text-success"> | $${precio.toFixed(2)}</strong>
-                                </button>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
-            ` : '<div class="alert alert-warning">No se encontraron productos</div>';
-        }
-
-        // =======================================================================
-        //                        GESTIÓN DEL CARRITO (ITEMS)
-        // =======================================================================
-
-        function agregarProducto(id) {
-            const producto = productos.find(p => p.id_producto === id);
-            if (!producto) return;
-
-            const existe = itemsVentaArray.find(i => i.id_producto === id);
-            if (existe) {
-                existe.cantidad++;
-            } else {
-                itemsVentaArray.push({
-                    id_producto: id,
-                    sku: producto.sku, // Guardar SKU para recálculo
-                    nombre: producto.nombre,
-                    cantidad: 1,
-                    precio_unitario: parseFloat(producto.precio) || 0
-                });
-            }
-
-            mostrarItemsVenta();
-            calcularTotal();
-
-            document.getElementById('busquedaRapida').value = '';
-            document.getElementById('resultadosBusqueda').innerHTML = '';
-            document.getElementById('busquedaRapida').focus();
-        }
-
-        function mostrarItemsVenta() {
-            const container = document.getElementById('itemsVenta');
-
-            if (itemsVentaArray.length === 0) {
-                container.innerHTML = '<div class="alert alert-info"><i class="bi bi-info-circle"></i> Busca productos para agregar</div>';
-                return;
-            }
-
-            container.innerHTML = itemsVentaArray.map((item, index) => `
-                <div class="item-venta">
-                    <div class="row align-items-center">
-                        <div class="col-5">
-                            <small><strong>${item.nombre}</strong></small>
-                        </div>
-                        <div class="col-3">
-                            <input type="number"
-                                   class="form-control form-control-sm"
-                                   value="${item.cantidad}"
-                                   min="0.1"
-                                   step="0.1"
-                                   onchange="cambiarCantidad(${index}, this.value)">
-                        </div>
-                        <div class="col-3 text-end">
-                            <strong>$${(item.cantidad * item.precio_unitario).toFixed(2)}</strong>
-                        </div>
-                        <div class="col-1">
-                            <button class="btn btn-sm btn-danger" onclick="quitarItem(${index})">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function cambiarCantidad(index, cantidad) {
-            itemsVentaArray[index].cantidad = parseFloat(cantidad) || 0.1;
-            calcularTotal();
-            mostrarItemsVenta();
-        }
-
-        function quitarItem(index) {
-            itemsVentaArray.splice(index, 1);
-            mostrarItemsVenta();
-            calcularTotal();
-        }
-
-        function calcularTotal() {
-            const total = itemsVentaArray.reduce((sum, item) =>
-                sum + (item.cantidad * item.precio_unitario), 0
-            );
-
-            document.getElementById('totalVenta').textContent = '$' + total.toFixed(2);
-            actualizarResumenPagos();
-        }
-
-        // =======================================================================
-        //                        GESTIÓN DE PAGOS
-        // =======================================================================
-
-        // SISTEMA DE CLICS: 1 clic = total, 2 clics = parcial
-        function manejarClicPago(forma, event) {
-            event.preventDefault();
-            if (clickTimer) {
-                clearTimeout(clickTimer);
-                clickTimer = null;
-                return; // El doble clic se maneja en manejarDobleClicPago
-            }
-            clickTimer = setTimeout(() => {
-                clickTimer = null;
-                pagarTotalConForma(forma);
-            }, 250);
-        }
-
-        function manejarDobleClicPago(forma, event) {
-            event.preventDefault();
-            if (clickTimer) {
-                clearTimeout(clickTimer);
-                clickTimer = null;
-            }
-            iniciarPagoParcial(forma);
-        }
-
-        function pagarTotalConForma(forma) {
-            if (itemsVentaArray.length === 0) {
-                mostrarAlerta('Agrega productos primero');
-                return;
-            }
-
-            const total = itemsVentaArray.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
-            const totalPagado = pagosRegistrados.reduce((sum, p) => sum + p.monto, 0);
-            const saldoRestante = total - totalPagado;
-
-            if (saldoRestante <= 0.01) { // Usar tolerancia
-                mostrarAlerta('El pago ya está completo');
-                return;
-            }
-
-            pagosRegistrados.push({
-                forma: forma,
-                monto: saldoRestante,
-                es_completo: pagosRegistrados.length === 0
-            });
-
-            marcarBotonPago(forma, 'completo');
-            mostrarPagosRegistrados();
-            actualizarResumenPagos();
-        }
-
-        function iniciarPagoParcial(forma) {
-            if (itemsVentaArray.length === 0) {
-                mostrarAlerta('Agrega productos primero');
-                return;
-            }
-            
-            const total = itemsVentaArray.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
-            const totalPagado = pagosRegistrados.reduce((sum, p) => sum + p.monto, 0);
-            const saldoRestante = total - totalPagado;
-
-            if (saldoRestante <= 0.01) {
-                mostrarAlerta('El pago ya está completo');
-                return;
-            }
-
-            formaParcialActual = forma;
-            document.getElementById('formaParcialNombre').textContent = nombresForma[forma];
-            document.getElementById('montoParcial').value = saldoRestante.toFixed(2);
-            document.getElementById('saldoRestanteInfo').textContent = saldoRestante.toFixed(2);
-            document.getElementById('inputPagoParcial').style.display = 'block';
-
-            setTimeout(() => document.getElementById('montoParcial').select(), 100);
-        }
-
-        function confirmarPagoParcial() {
-            const monto = parseFloat(document.getElementById('montoParcial').value);
-
-            if (!monto || monto <= 0) {
-                mostrarAlerta('Ingresa un monto válido');
-                return;
-            }
-
-            const total = itemsVentaArray.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
-            const totalPagado = pagosRegistrados.reduce((sum, p) => sum + p.monto, 0);
-            const saldoRestante = total - totalPagado;
-
-            // Usar una pequeña tolerancia para comparaciones de punto flotante
-            if (monto > saldoRestante + 0.001) {
-                mostrarAlerta(`El monto no puede ser mayor al saldo restante ($${saldoRestante.toFixed(2)})`);
-                return;
-            }
-
-            pagosRegistrados.push({
-                forma: formaParcialActual,
-                monto: monto,
-                es_completo: false
-            });
-
-            marcarBotonPago(formaParcialActual, 'parcial');
-            cancelarPagoParcial();
-            mostrarPagosRegistrados();
-            actualizarResumenPagos();
-        }
-
-        function cancelarPagoParcial() {
-            formaParcialActual = null;
-            document.getElementById('inputPagoParcial').style.display = 'none';
-            document.getElementById('montoParcial').value = '';
-        }
-
-        function marcarBotonPago(forma, tipo) {
-            const btn = document.querySelector(`[data-forma="${forma}"]`);
-            if (btn) {
-                btn.classList.remove('pago-completo', 'pago-parcial');
-                if (tipo === 'completo') {
-                    btn.classList.add('pago-completo');
-                } else {
-                    btn.classList.add('pago-parcial');
-                }
-            }
-        }
-
-        function mostrarPagosRegistrados() {
-            const container = document.getElementById('listaPagos');
-
-            if (pagosRegistrados.length === 0) {
-                container.innerHTML = '';
-                return;
-            }
-
-            container.innerHTML = pagosRegistrados.map((pago, index) => `
-                <div class="pago-item">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>${nombresForma[pago.forma]}</strong>
-                            ${pago.es_completo ? '<span class="badge bg-success ms-1">Total</span>' : ''}
-                            <br>
-                            <span class="text-success">$${pago.monto.toFixed(2)}</span>
-                        </div>
-                        <button class="btn btn-sm btn-danger" onclick="quitarPago(${index})">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function quitarPago(index) {
-            const pago = pagosRegistrados[index];
-
-            // Quitar marca del botón solo si no hay *otros* pagos con la misma forma
-            const otrosPagosMismaForma = pagosRegistrados.filter((p, i) => i !== index && p.forma === pago.forma).length > 0;
-
-            if (!otrosPagosMismaForma) {
-                const btn = document.querySelector(`[data-forma="${pago.forma}"]`);
-                if (btn) {
-                    btn.classList.remove('pago-completo', 'pago-parcial');
-                }
-            }
-            
-            pagosRegistrados.splice(index, 1);
-            mostrarPagosRegistrados();
-            actualizarResumenPagos();
-        }
-
-        function actualizarResumenPagos() {
-            const total = itemsVentaArray.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
-            const totalPagado = pagosRegistrados.reduce((sum, p) => sum + p.monto, 0);
-            const saldoRestante = total - totalPagado;
-
-            if (pagosRegistrados.length > 0) {
-                document.getElementById('resumenPagos').style.display = 'block';
-                document.getElementById('totalAPagar').textContent = total.toFixed(2);
-                document.getElementById('totalPagado').textContent = totalPagado.toFixed(2);
-                document.getElementById('saldoRestante').textContent = saldoRestante.toFixed(2);
-            } else {
-                document.getElementById('resumenPagos').style.display = 'none';
-            }
-
-            if (saldoRestante > 0.01 && pagosRegistrados.length > 0) {
-                document.getElementById('alertaSaldoPendiente').style.display = 'block';
-                document.getElementById('montoPendiente').textContent = saldoRestante.toFixed(2);
-            } else {
-                document.getElementById('alertaSaldoPendiente').style.display = 'none';
-            }
-
-            // Habilitar botón guardar si hay items
-            const hayItems = itemsVentaArray.length > 0;
-            document.getElementById('btnGuardar').disabled = !hayItems;
-        }
-
-
-        // =======================================================================
-        //                       ACCIONES PRINCIPALES (GUARDAR/LIMPIAR)
-        // =======================================================================
-
-        async function guardarVenta() {
-            if (itemsVentaArray.length === 0) {
-                mostrarAlerta('No hay productos en la venta');
-                return;
-            }
-
-            const total = itemsVentaArray.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
-            const totalPagado = pagosRegistrados.reduce((sum, p) => sum + p.monto, 0);
-            const saldoPendiente = total - totalPagado;
-
-            let mensaje = '¿Confirmar venta?\n\n';
-            mensaje += `Total: $${total.toFixed(2)}\n`;
-
-            if (pagosRegistrados.length > 0) {
-                mensaje += '\nPagos:\n';
-                pagosRegistrados.forEach(p => {
-                    mensaje += `  • ${nombresForma[p.forma]}: $${p.monto.toFixed(2)}\n`;
-                });
-                mensaje += `\nTotal pagado: $${totalPagado.toFixed(2)}`;
-            }
-
-            if (saldoPendiente > 0.01) {
-                mensaje += `\n\n⚠️ Saldo pendiente: $${saldoPendiente.toFixed(2)}`;
-                mensaje += '\n(Se guardará en cuenta corriente)';
-            }
-
-            // Usar modal de confirmación
-            const confirmado = await mostrarConfirmacion(mensaje);
-            if (!confirmado) return;
-
-            const btn = document.getElementById('btnGuardar');
-            
-            try {
-                // UX: Mostrar estado de carga
-                btn.disabled = true;
-                btn.innerHTML = '<i class="bi bi-arrow-clockwise bi-spin"></i> Guardando...';
-
-                let datosVenta = {
-                    items: itemsVentaArray,
-                    observaciones: 'Venta rápida - Mostrador',
-                    id_lista_precio: listaSeleccionada // Enviar la lista de precios usada
-                };
-
-                if (pagosRegistrados.length > 0) {
-                    datosVenta.pagos_multiples = pagosRegistrados.map(p => ({
-                        forma: p.forma,
-                        monto: p.monto
-                    }));
-                }
-
-                if (saldoPendiente > 0.01) {
-                    datosVenta.saldo_pendiente = saldoPendiente;
-                    datosVenta.id_cliente = document.getElementById('idCliente').value;
-                }
-
-                const response = await fetch(`${API_URL}/venta-rapida`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    },
-                    body: JSON.stringify(datosVenta)
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    let mensajeExito = '✅ ¡VENTA GUARDADA!\n\n';
-                    mensajeExito += `Total: $${total.toFixed(2)}\n`;
-                    if (pagosRegistrados.length > 0) {
-                        mensajeExito += '\nPagos recibidos:\n';
-                        pagosRegistrados.forEach(p => {
-                            mensajeExito += `  • ${nombresForma[p.forma]}: $${p.monto.toFixed(2)}\n`;
-                        });
-                    }
-                    if (saldoPendiente > 0.01) {
-                        mensajeExito += `\n💰 Cuenta corriente: $${saldoPendiente.toFixed(2)}`;
-                    }
-
-                    mostrarAlerta(mensajeExito, 'Venta Exitosa');
-                    limpiarVenta();
-
-                } else {
-                    mostrarAlerta('❌ Error: ' + (result.error || 'No se pudo guardar'), 'Error');
-                }
-
-            } catch (error) {
-                console.error('Error en guardarVenta:', error);
-                mostrarAlerta('❌ Error de conexión: ' + error.message, 'Error');
-            } finally {
-                // UX: Restaurar botón
-                btn.disabled = itemsVentaArray.length === 0; // Re-deshabilitar si el carrito está vacío
-                btn.innerHTML = '<i class="bi bi-check-circle"></i> GUARDAR VENTA (F2)';
-            }
-        }
-
-        async function limpiarVenta() {
-            itemsVentaArray = [];
-            pagosRegistrados = [];
-            formaParcialActual = null;
-
-            document.querySelectorAll('.forma-pago-btn').forEach(btn => {
-                btn.classList.remove('pago-completo', 'pago-parcial');
-            });
-
-            document.getElementById('listaPagos').innerHTML = '';
-            document.getElementById('inputPagoParcial').style.display = 'none';
-            document.getElementById('resumenPagos').style.display = 'none';
-            document.getElementById('alertaSaldoPendiente').style.display = 'none';
-
-            mostrarItemsVenta();
-            calcularTotal();
-            await obtenerConsumidorFinal(); // Resetear a consumidor final
-            await cargarProductos(); // Recargar productos
-            document.getElementById('busquedaRapida').focus();
-        }
-
-        function buscarCliente() {
-            mostrarAlerta('Función de búsqueda de clientes en desarrollo.');
-        }
-
-    </script>
-    <script src="js/config-panel.js"></script>
+    <script src="js/venta-rapida-script.js?v=20251118_OVERLAY_FIX"></script>
 </body>
 </html>
-

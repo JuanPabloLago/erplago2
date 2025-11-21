@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script src="js/config.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venta Rápida - ERP LAGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/erp-lago-styles.css?v=20251117_ZINDEX">
+</head>
+<body>
+    <script src="js/connection-indicator.js"></script>
+
+    <nav class="navbar navbar-dark gradient-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="dashboard.html">
+                <i class="bi bi-arrow-left-circle"></i> Volver
+            </a>
+            <span class="navbar-text text-white">
+                <i class="bi bi-cart"></i> VENTA RÁPIDA - MOSTRADOR
+            </span>
+            <span class="text-white">
+                <i class="bi bi-person-circle"></i> <span id="usuarioNombre"></span>
+            </span>
+        </div>
+    </nav>
+
+    <!-- CUADRO FLOTANTE: TOTAL -->
+    <div class="cuadro-flotante-total">
+        <small class="text-muted d-block text-center">TOTAL</small>
+        <div class="total-display" id="totalVenta">$0.00</div>
+        <small class="text-muted d-block text-center mt-1" id="detalleDescuentos" style="display: none;"></small>
+    </div>
+
+    <!-- CUADRO FLOTANTE: ATAJOS -->
+    <div class="cuadro-flotante-atajos no-select">
+        <strong>⚡ Atajos</strong>
+        <div class="atajo"><span class="tecla">ESPACIO</span> <span>→ Cantidad</span></div>
+        <div class="atajo"><span class="tecla">ENTER</span> <span>→ Siguiente</span></div>
+        <div class="atajo"><span class="tecla">F2</span> <span>→ Guardar</span></div>
+        <div class="atajo"><span class="tecla">F3</span> <span>→ Cliente</span></div>
+        <div class="atajo"><span class="tecla">ESC</span> <span>→ Cancelar</span></div>
+    </div>
+
+    <div class="container-fluid mt-3">
+        <!-- BÚSQUEDA POR CÓDIGO -->
+        <div class="row mb-2">
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-body p-2">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-md-3">
+                                <label class="form-label small mb-1"><i class="bi bi-upc-scan"></i> Código / Barras</label>
+                                <input type="text"
+                                       class="form-control busqueda-codigo"
+                                       id="codigoProducto"
+                                       placeholder="Escanear..."
+                                       autocomplete="off"
+                                       autofocus>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label small mb-1"><i class="bi bi-tag"></i> Lista de Precios</label>
+                                <select id="listaPrecios" class="form-select">
+                                    <option value="1">Cargando...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small mb-1"><i class="bi bi-person"></i> Cliente</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text"
+                                           class="form-control"
+                                           id="clienteNombre"
+                                           value="Consumidor Final"
+                                           readonly
+                                           style="background: #e9ecef; font-size: 12px;">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="buscarCliente()">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                                <input type="hidden" id="idCliente">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sugerencias de búsqueda -->
+                <div id="sugerenciasProductos" class="mt-2"></div>
+            </div>
+
+            <div class="col-md-4">
+                <!-- Descuento General -->
+                <div class="card shadow-sm">
+                    <div class="card-body p-2">
+                        <label class="form-label small mb-1"><i class="bi bi-percent"></i> Descuento General</label>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="input-group input-group-sm">
+                                    <input type="number" 
+                                           id="descuentoGeneralPorcentaje" 
+                                           class="form-control" 
+                                           min="0" 
+                                           max="100" 
+                                           step="0.01"
+                                           value="0"
+                                           placeholder="0"
+                                           onchange="calcularTotal()">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" 
+                                           id="descuentoGeneralMonto" 
+                                           class="form-control" 
+                                           min="0" 
+                                           step="0.01"
+                                           value="0"
+                                           placeholder="0"
+                                           onchange="calcularTotal()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA DE ITEMS COMPACTA -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-success text-white py-1">
+                        <small><i class="bi bi-cart-check"></i> Items del Pedido (<span id="cantidadItems">0</span>)</small>
+                    </div>
+                    <div class="card-body p-2" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm tabla-compacta mb-0">
+                            <thead class="sticky-top">
+                                <tr>
+                                    <th style="width: 3%;">Nro</th>
+                                    <th style="width: 10%;">Código</th>
+                                    <th style="width: 30%;">Producto</th>
+                                    <th style="width: 10%;" class="text-center">Cantidad</th>
+                                    <th style="width: 15%;" class="text-end">Precio</th>
+                                    <th style="width: 10%;" class="text-center">Dto%</th>
+                                    <th style="width: 15%;" class="text-end">Total</th>
+                                    <th style="width: 5%;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemsVentaBody">
+                                <tr id="sinItems">
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="bi bi-inbox fa-2x"></i><br>
+                                        <small>Escanea o escribe un código para agregar productos</small>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FORMAS DE PAGO Y ACCIONES -->
+        <div class="row mt-2">
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-info text-white py-1">
+                        <small><i class="bi bi-cash-stack"></i> Formas de Pago (1 clic = Total | 2 clics = Parcial)</small>
+                    </div>
+                    <div class="card-body p-2">
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <button class="btn btn-outline-success forma-pago-btn w-100"
+                                        data-forma="efectivo"
+                                        onclick="manejarClicPago('efectivo', event)"
+                                        ondblclick="manejarDobleClicPago('efectivo', event)">
+                                    <i class="bi bi-cash-coin"></i>
+                                    Efectivo
+                                </button>
+                            </div>
+                            <div class="col-4">
+                                <button class="btn btn-outline-primary forma-pago-btn w-100"
+                                        data-forma="debito"
+                                        onclick="manejarClicPago('debito', event)"
+                                        ondblclick="manejarDobleClicPago('debito', event)">
+                                    <i class="bi bi-credit-card"></i>
+                                    Débito
+                                </button>
+                            </div>
+                            <div class="col-4">
+                                <button class="btn btn-outline-warning forma-pago-btn w-100"
+                                        data-forma="credito"
+                                        onclick="manejarClicPago('credito', event)"
+                                        ondblclick="manejarDobleClicPago('credito', event)">
+                                    <i class="bi bi-credit-card-2-front"></i>
+                                    Crédito
+                                </button>
+                            </div>
+                            <div class="col-4">
+                                <button class="btn btn-outline-info forma-pago-btn w-100"
+                                        data-forma="transferencia"
+                                        onclick="manejarClicPago('transferencia', event)"
+                                        ondblclick="manejarDobleClicPago('transferencia', event)">
+                                    <i class="bi bi-bank"></i>
+                                    Transfer
+                                </button>
+                            </div>
+                            <div class="col-4">
+                                <button class="btn btn-outline-secondary forma-pago-btn w-100"
+                                        data-forma="mercadopago"
+                                        onclick="manejarClicPago('mercadopago', event)"
+                                        ondblclick="manejarDobleClicPago('mercadopago', event)">
+                                    <i class="bi bi-wallet2"></i>
+                                    MP
+                                </button>
+                            </div>
+                            <div class="col-4">
+                                <button class="btn btn-outline-dark forma-pago-btn w-100"
+                                        data-forma="mercadopago_qr"
+                                        onclick="manejarClicPago('mercadopago_qr', event)"
+                                        ondblclick="manejarDobleClicPago('mercadopago_qr', event)">
+                                    <i class="bi bi-qr-code"></i>
+                                    MP QR
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Lista de pagos agregados -->
+                        <div id="listaPagos" class="mt-2"></div>
+
+                        <!-- Input para pago parcial -->
+                        <div id="inputPagoParcial" style="display: none;" class="mt-2">
+                            <label class="form-label small">
+                                <strong>Monto a pagar con <span id="formaParcialNombre"></span>:</strong>
+                            </label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">$</span>
+                                <input type="number"
+                                       class="form-control"
+                                       id="montoParcial"
+                                       step="0.01"
+                                       placeholder="0.00">
+                                <button class="btn btn-success" onclick="confirmarPagoParcial()">
+                                    <i class="bi bi-check"></i>
+                                </button>
+                                <button class="btn btn-secondary" onclick="cancelarPagoParcial()">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Saldo: $<span id="saldoRestanteInfo">0.00</span></small>
+                        </div>
+
+                        <!-- Resumen de pagos -->
+                        <div id="resumenPagos" class="alert alert-info p-2 mt-2" style="display: none;">
+                            <small>
+                                <strong>Total:</strong> $<span id="totalAPagar">0.00</span> |
+                                <strong>Pagado:</strong> $<span id="totalPagado">0.00</span> |
+                                <strong>Restante:</strong> $<span id="saldoRestante">0.00</span>
+                            </small>
+                        </div>
+
+                        <!-- Alerta de saldo pendiente -->
+                        <div id="alertaSaldoPendiente" class="alerta-saldo" style="display: none;">
+                            <small>
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <strong>Saldo Pendiente:</strong> $<span id="montoPendiente">0.00</span>
+                                (Se guardará en cuenta corriente)
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body p-2">
+                        <button class="btn btn-success btn-lg w-100 mb-2" onclick="guardarVenta()" id="btnGuardar" disabled>
+                            <i class="bi bi-check-circle"></i> GUARDAR (F2)
+                        </button>
+                        <button class="btn btn-secondary w-100 mb-2" onclick="suspenderVenta()" id="btnSuspender" disabled>
+                            <i class="bi bi-pause-circle"></i> Suspender
+                        </button>
+                        <button class="btn btn-outline-info w-100 mb-2" onclick="vistaPrevia()" id="btnVistaPrevia" disabled>
+                            <i class="bi bi-eye"></i> Vista Previa / Cotización
+                        </button>
+                        <button class="btn btn-info w-100 mb-2" onclick="mostrarSuspendidos()">
+                            <i class="bi bi-clipboard-check"></i> Recuperar Suspendidos
+                        </button>
+                        <button class="btn btn-warning w-100 mb-2" onclick="limpiarVenta()">
+                            <i class="bi bi-x-circle"></i> Cancelar (ESC)
+                        </button>
+                        <textarea id="observaciones" 
+                                  class="form-control form-control-sm" 
+                                  rows="2" 
+                                  placeholder="Observaciones..."
+                                  style="font-size: 12px;"></textarea>
+                        
+                        <div class="mt-2">
+                            <label class="form-label small mb-1"><i class="bi bi-truck"></i> Tipo de Entrega</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="tipoEntrega" id="btnRetira" value="retira" checked autocomplete="off">
+                                <label class="btn btn-outline-success" for="btnRetira" style="font-size: 13px;">
+                                    <i class="bi bi-bag-check"></i> RETIRA
+                                </label>
+
+                                <input type="radio" class="btn-check" name="tipoEntrega" id="btnEntrega" value="entrega" autocomplete="off">
+                                <label class="btn btn-outline-warning" for="btnEntrega" style="font-size: 13px;">
+                                    <i class="bi bi-truck"></i> ENTREGA
+                                </label>
+                            </div>
+                            <small class="text-muted d-block mt-1" id="infoTipoEntrega">
+                                <i class="bi bi-info-circle"></i> Descuenta stock inmediatamente
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALES (mismos que antes) -->
+    <div class="modal fade" id="alertaModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="alertaModalTitulo">Aviso</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="alertaModalMensaje"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Aceptar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="confirmarModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmarModalTitulo">Confirmar</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="confirmarModalMensaje" style="white-space: pre-wrap;"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="confirmarModalBtnNo">Cancelar</button>
+                    <button type="button" class="btn btn-success" id="confirmarModalBtnSi">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalBuscarCliente" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Buscar Cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" class="form-control mb-3" id="busquedaClienteInput" placeholder="Buscar..." autocomplete="off">
+                    <div id="resultadosBusquedaClientes" style="max-height: 400px; overflow-y: auto;"></div>
+                    <button class="btn btn-success btn-sm mt-3" onclick="mostrarFormNuevoCliente()">
+                        <i class="bi bi-plus-circle"></i> Crear Nuevo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalNuevoCliente" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nuevo Cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formNuevoCliente">
+                        <div class="mb-2">
+                            <label class="form-label small">CUIT/DNI *</label>
+                            <input type="text" class="form-control form-control-sm" id="nuevoCuit" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Razón Social *</label>
+                            <input type="text" class="form-control form-control-sm" id="nuevoNombre" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Dirección</label>
+                            <input type="text" class="form-control form-control-sm" id="nuevaDireccion">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Teléfono</label>
+                            <input type="text" class="form-control form-control-sm" id="nuevoTelefono">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Email</label>
+                            <input type="email" class="form-control form-control-sm" id="nuevoEmail">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="guardarNuevoCliente()">
+                        <i class="bi bi-save"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Agregar/Actualizar Dirección del Cliente -->
+    <div class="modal fade" id="modalActualizarDireccion" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">
+                        <i class="bi bi-truck"></i> Confirmar Dirección de Entrega
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">
+                        <strong id="nombreClienteDireccion"></strong>
+                    </p>
+                    <div class="alert alert-info py-2">
+                        <small>
+                            <i class="bi bi-info-circle"></i> 
+                            Confirmá o modificá la dirección de entrega para este pedido
+                        </small>
+                    </div>
+                    <form id="formActualizarDireccion">
+                        <div class="mb-3">
+                            <label class="form-label">Dirección de Entrega *</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="direccionEntrega" 
+                                   placeholder="Calle, número, piso, depto..."
+                                   required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Localidad</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="localidadEntrega" 
+                                   placeholder="Ciudad/Localidad">
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" 
+                                   type="checkbox" 
+                                   id="guardarDireccionCliente" 
+                                   checked>
+                            <label class="form-check-label" for="guardarDireccionCliente">
+                                Actualizar dirección en el perfil del cliente
+                            </label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="cancelarEntrega()">
+                        <i class="bi bi-arrow-left"></i> Cambiar a RETIRA
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="confirmarDireccionEntrega()">
+                        <i class="bi bi-check-circle"></i> Confirmar Entrega
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Venta Guardada - Opciones -->
+    <div class="modal fade" id="modalVentaGuardada" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-check-circle"></i> ¡Venta Guardada!
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <h3 class="text-success mb-3">Pedido #<span id="numeroPedidoGuardado"></span></h3>
+                    <p class="mb-3">Total: <strong>$<span id="totalPedidoGuardado"></span></strong></p>
+                    
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="verPedido()">
+                            <i class="bi bi-eye"></i> Ver / Imprimir
+                        </button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="cerrarYNuevaVenta()">
+                        Cerrar y Nueva Venta
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Lista de Suspendidos -->
+    <div class="modal fade" id="modalSuspendidos" tabindex="-1" style="z-index: 9999 !important;">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-clipboard-check"></i> Pedidos Suspendidos
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="listaSuspendidos">
+                        <div class="text-center text-muted py-4">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <p class="mt-2">Cargando suspendidos...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/venta-rapida-script.js?v=20251117_FIXED_CENTER"></script>
+</body>
+</html>

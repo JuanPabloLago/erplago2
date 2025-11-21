@@ -1,12 +1,9 @@
 // ========================================================================
 // VENTA RÁPIDA - ERP LAGO - JavaScript COMPLETO
-// CORRECCIONES APLICADAS:
-// - Línea 571: Limpia tbody cuando no hay items
-// - Línea 1461: Corrige fetch con paréntesis
-// - Líneas de template literals corregidas
+// Versión con overlay personalizado para suspendidos
 // ========================================================================
 
-const API_URL = 'http://72.60.148.18:3000/api';
+const API_URL = window.CONFIG?.API_BASE_URL || 'http://72.60.148.18:3000/api';
 let itemsVentaArray = [];
 let productos = [];
 let pagosRegistrados = [];
@@ -20,7 +17,6 @@ let tipoEntrega = 'retira';
 let direccionEntregaTemporal = null;
 let modalActualizarDireccion = null;
 let modalVentaGuardada = null;
-let modalSuspendidos = null;
 let pedidoGuardadoId = null;
 let accionPendiente = null;
 
@@ -57,7 +53,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     modalNuevoCliente = new bootstrap.Modal(document.getElementById('modalNuevoCliente'));
     modalActualizarDireccion = new bootstrap.Modal(document.getElementById('modalActualizarDireccion'));
     modalVentaGuardada = new bootstrap.Modal(document.getElementById('modalVentaGuardada'));
-    modalSuspendidos = new bootstrap.Modal(document.getElementById('modalSuspendidos'));
 
     document.getElementById('confirmarModalBtnSi').addEventListener('click', () => {
         if (confirmarModalRespuesta) confirmarModalRespuesta(true);
@@ -133,12 +128,11 @@ function manejarAtajosGlobales(event) {
     }
     else if (event.key === 'Escape') {
         event.preventDefault();
-        // Intentar cerrar modal suspendidos si está abierto
-        const modalElement = document.getElementById('modalSuspendidos');
-        if (modalElement && modalElement.classList.contains('show')) {
-            console.log('🔴 ESC presionado - Cerrando modal suspendidos');
-            modalSuspendidos.hide();
-            limpiarBackdrops();
+        
+        // Cerrar overlay de suspendidos si está abierto
+        const overlay = document.getElementById('overlayS');
+        if (overlay && overlay.style.display === 'block') {
+            cerrarSuspendidos();
             return;
         }
 
@@ -154,16 +148,6 @@ function manejarAtajosGlobales(event) {
             }
         }
     }
-}
-
-// Función para limpiar backdrops huérfanos
-function limpiarBackdrops() {
-    const backdrops = document.querySelectorAll('.modal-backdrop');
-    console.log('🧹 Limpiando', backdrops.length, 'backdrops');
-    backdrops.forEach(b => b.remove());
-    document.body.classList.remove('modal-open');
-    document.body.style.removeProperty('overflow');
-    document.body.style.removeProperty('padding-right');
 }
 
 function irACantidadUltimoItem() {
@@ -1157,196 +1141,54 @@ async function procesarSuspender() {
     }
 }
 
+// ============================================================================
+// FUNCIONES PARA SUSPENDIDOS - CON OVERLAY PERSONALIZADO
+// ============================================================================
+
 async function mostrarSuspendidos() {
-    console.log('🔍 Iniciando mostrarSuspendidos()');
-    try {
-        // LIMPIAR TODOS LOS BACKDROPS HUÉRFANOS
-        const backdrops = document.querySelectorAll('.modal-backdrop');
-        console.log('🧹 Backdrops encontrados:', backdrops.length);
-        backdrops.forEach(b => {
-            b.remove();
-            console.log('🗑️ Backdrop eliminado');
-        });
-
-        // Limpiar clase modal-open del body
-        document.body.classList.remove('modal-open');
-        document.body.style.removeProperty('overflow');
-        document.body.style.removeProperty('padding-right');
-        console.log('🧹 Body limpiado');
-
-        // Cerrar el modal si estaba abierto
-        try {
-            modalSuspendidos.hide();
-        } catch (e) {
-            console.log('⚠️ Error al cerrar modal anterior:', e.message);
-        }
-
-        // Esperar un momento antes de abrir
-        await new Promise(resolve => setTimeout(resolve, 200));
-
-        // Mostrar modal
-        modalSuspendidos.show();
-        console.log('📂 Modal mostrado');
-
-        // Forzar z-index y posición del modal
-        setTimeout(() => {
-            const modalElement = document.getElementById('modalSuspendidos');
-            if (modalElement) {
-                modalElement.style.zIndex = '9999';
-                modalElement.style.display = 'block';
-                modalElement.style.visibility = 'visible';
-                modalElement.style.opacity = '1';
-                modalElement.classList.add('show');
-                console.log('✅ z-index y display del modal ajustado');
-
-                // Forzar posición FIJA y CENTRADA del modal-dialog
-                const modalDialog = modalElement.querySelector('.modal-dialog');
-                console.log('🔍 modal-dialog encontrado:', modalDialog);
-                if (modalDialog) {
-                    modalDialog.style.cssText = `
-                        position: fixed !important;
-                        top: 50% !important;
-                        left: 50% !important;
-                        transform: translate(-50%, -50%) !important;
-                        width: 800px !important;
-                        max-width: 90% !important;
-                        min-height: 400px !important;
-                        z-index: 10000 !important;
-                    `;
-                    console.log('✅ Posición y tamaño del modal-dialog ajustados');
-                    const dialogStyles = window.getComputedStyle(modalDialog);
-                    console.log('📏 modal-dialog computed:', {
-                        width: dialogStyles.width,
-                        height: dialogStyles.height,
-                        display: dialogStyles.display,
-                        visibility: dialogStyles.visibility,
-                        opacity: dialogStyles.opacity,
-                        position: dialogStyles.position
-                    });
-                } else {
-                    console.error('❌ No se encontró .modal-dialog');
-                }
-
-                // Forzar tamaño del modal-content
-                const modalContent = modalElement.querySelector('.modal-content');
-                console.log('🔍 modal-content encontrado:', modalContent);
-                if (modalContent) {
-                    modalContent.style.cssText = `
-                        min-height: 400px !important;
-                        display: flex !important;
-                        flex-direction: column !important;
-                        background: white !important;
-                    `;
-                    console.log('✅ Tamaño del modal-content ajustado');
-                    const contentStyles = window.getComputedStyle(modalContent);
-                    console.log('📏 modal-content computed:', {
-                        width: contentStyles.width,
-                        height: contentStyles.height,
-                        display: contentStyles.display,
-                        visibility: contentStyles.visibility,
-                        opacity: contentStyles.opacity
-                    });
-                } else {
-                    console.error('❌ No se encontró .modal-content');
-                }
-
-                const rect = modalElement.getBoundingClientRect();
-                const dialogRect = modalDialog ? modalDialog.getBoundingClientRect() : null;
-
-                console.log('📏 Modal element computedStyle:', {
-                    display: window.getComputedStyle(modalElement).display,
-                    visibility: window.getComputedStyle(modalElement).visibility,
-                    opacity: window.getComputedStyle(modalElement).opacity,
-                    zIndex: window.getComputedStyle(modalElement).zIndex
-                });
-
-                console.log('📐 Modal position & size:', {
-                    top: rect.top,
-                    left: rect.left,
-                    width: rect.width,
-                    height: rect.height,
-                    bottom: rect.bottom,
-                    right: rect.right
-                });
-
-                if (dialogRect) {
-                    console.log('📐 Modal-dialog position & size:', {
-                        top: dialogRect.top,
-                        left: dialogRect.left,
-                        width: dialogRect.width,
-                        height: dialogRect.height
-                    });
-                }
-
-                console.log('🖥️ Viewport size:', {
-                    width: window.innerWidth,
-                    height: window.innerHeight
-                });
-            }
-            const backdrop = document.querySelector('.modal-backdrop');
-            if (backdrop) {
-                backdrop.style.zIndex = '9998';
-                console.log('✅ z-index del backdrop ajustado a 9998');
-            } else {
-                console.log('⚠️ No se encontró backdrop');
-            }
-        }, 100);
-
-        // Mostrar spinner mientras se carga
-        const listaSuspendidos = document.getElementById('listaSuspendidos');
-        listaSuspendidos.innerHTML = `
-            <div class="text-center text-muted py-4">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Cargando...</span>
+    console.log('🔍 Mostrando suspendidos...');
+    let overlay = document.getElementById('overlayS');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'overlayS';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);z-index:99999;display:none;';
+        document.body.appendChild(overlay);
+        overlay.innerHTML = `
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:8px;width:90%;max-width:900px;max-height:85vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+                <div style="padding:20px;border-bottom:1px solid #dee2e6;display:flex;justify-content:space-between;align-items:center;background:#17a2b8;color:white;border-radius:8px 8px 0 0;">
+                    <h5 style="margin:0;"><i class="bi bi-clipboard-check"></i> Pedidos Suspendidos</h5>
+                    <button onclick="cerrarSuspendidos()" class="btn btn-sm btn-light"><i class="bi bi-x-lg"></i></button>
                 </div>
-                <p class="mt-2">Cargando suspendidos...</p>
+                <div id="contenidoSuspendidos" style="padding:20px;"></div>
             </div>
         `;
-
-        const url = `${API_URL}/pedidos/suspendidos`;
-        console.log('🌐 Haciendo fetch a:', url);
-
-        const response = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
+    }
+    overlay.style.display = 'block';
+    const contenido = document.getElementById('contenidoSuspendidos');
+    contenido.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2">Cargando...</p></div>';
+    try {
+        const response = await fetch(`${API_URL}/pedidos/suspendidos`, {
+            headers: {'Authorization': `Bearer ${localStorage.getItem('authToken')}`}
         });
-
-        console.log('📡 Response status:', response.status);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ Error en response:', errorText);
-            throw new Error('Error al obtener suspendidos: ' + response.status);
-        }
-
+        if (!response.ok) throw new Error('Error');
         const suspendidos = await response.json();
-        console.log('✅ Suspendidos recibidos:', suspendidos.length, suspendidos);
-
+        console.log('✅', suspendidos.length, 'suspendidos');
         if (suspendidos.length === 0) {
-            console.log('⚠️ No hay suspendidos');
-            listaSuspendidos.innerHTML = `
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> No hay pedidos suspendidos
-                </div>
-            `;
+            contenido.innerHTML = '<div class="alert alert-info"><i class="bi bi-info-circle"></i> No hay pedidos suspendidos</div>';
             return;
         }
-
-        console.log('📝 Generando HTML para', suspendidos.length, 'suspendidos...');
         let html = '<div class="list-group">';
         suspendidos.forEach(s => {
-            const diasTranscurridos = Math.floor(s.dias_transcurridos);
-            const badgeClass = diasTranscurridos > 20 ? 'bg-danger' : 'bg-secondary';
+            const dias = Math.floor(s.dias_transcurridos);
+            const badge = dias > 20 ? 'bg-danger' : 'bg-secondary';
             html += `
-                <div class="list-group-item list-group-item-action">
+                <div class="list-group-item">
                     <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1">Pedido #${s.id_pedido} - ${s.cliente || 'Sin cliente'}</h6>
-                        <span class="badge ${badgeClass}">${diasTranscurridos} días</span>
+                        <h6>Pedido #${s.id_pedido} - ${s.cliente || 'Sin cliente'}</h6>
+                        <span class="badge ${badge}">${dias} días</span>
                     </div>
                     <p class="mb-1">Total: $${parseFloat(s.total).toFixed(2)}</p>
                     <small class="text-muted">${new Date(s.fecha_creacion).toLocaleDateString()}</small>
-                    ${s.observaciones ? `<br><small>${s.observaciones}</small>` : ''}
                     <div class="mt-2">
                         <button class="btn btn-sm btn-primary" onclick="cargarSuspendido(${s.id_pedido})">
                             <i class="bi bi-arrow-clockwise"></i> Recuperar
@@ -1359,78 +1201,93 @@ async function mostrarSuspendidos() {
             `;
         });
         html += '</div>';
-
-        // Limpiar completamente antes de insertar
-        listaSuspendidos.innerHTML = '';
-        // Insertar el nuevo contenido
-        listaSuspendidos.innerHTML = html;
-
-        console.log('✅ HTML generado e insertado correctamente');
-        console.log('📊 Contenido del div:', listaSuspendidos.innerHTML.substring(0, 200));
+        contenido.innerHTML = html;
     } catch (error) {
-        console.error('❌ Error en mostrarSuspendidos():', error);
-        const listaSuspendidos = document.getElementById('listaSuspendidos');
-        listaSuspendidos.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="bi bi-exclamation-triangle"></i> Error al cargar suspendidos: ${error.message}
-            </div>
-        `;
+        console.error('❌ Error:', error);
+        contenido.innerHTML = '<div class="alert alert-danger">Error al cargar suspendidos</div>';
     }
 }
 
 async function cargarSuspendido(id) {
     try {
-        const response = await fetch(`${API_URL}/pedidos/${id}/recuperar`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
-        });
-        if (!response.ok) throw new Error('Error al recuperar pedido');
-        const pedido = await response.json();
+        console.log('🔄 Cargando pedido suspendido #' + id);
+        
+        // 1. Cerrar overlay primero
+        cerrarSuspendidos();
+        
+        // 2. Limpiar todo
         itemsVentaArray = [];
         pagosRegistrados = [];
-        pedido.items.forEach(item => {
-            itemsVentaArray.push({
-                id_producto: item.id_producto,
-                sku: item.producto_sku,
-                nombre: item.producto_nombre,
-                cantidad: parseFloat(item.cantidad),
-                precio_lista: parseFloat(item.precio_unitario),
-                precio_unitario: parseFloat(item.precio_unitario),
-                descuento_porcentaje: parseFloat(item.porcentaje_descuento) || 0,
-                descuento_monto: 0
-            });
+        
+        // 3. Obtener datos del backend
+        const response = await fetch(`${API_URL}/pedidos/${id}/recuperar`, {
+            headers: {'Authorization': `Bearer ${localStorage.getItem('authToken')}`}
         });
-        if (pedido.descuento_general_porcentaje) {
-            document.getElementById('descuentoGeneralPorcentaje').value = pedido.descuento_general_porcentaje;
-        } else {
-            document.getElementById('descuentoGeneralPorcentaje').value = 0;
+        
+        if (!response.ok) throw new Error('Error al recuperar pedido');
+        const pedido = await response.json();
+        
+        console.log('✅ Datos recibidos:', pedido);
+        
+        // 4. Cargar items
+        if (pedido.items && pedido.items.length > 0) {
+            pedido.items.forEach(item => {
+                itemsVentaArray.push({
+                    id_producto: item.id_producto,
+                    sku: item.producto_sku,
+                    nombre: item.producto_nombre,
+                    cantidad: parseFloat(item.cantidad),
+                    precio_lista: parseFloat(item.precio_unitario),
+                    precio_unitario: parseFloat(item.precio_unitario),
+                    descuento_porcentaje: parseFloat(item.porcentaje_descuento) || 0,
+                    descuento_monto: 0
+                });
+            });
         }
-        if (pedido.descuento_general_monto) {
-            document.getElementById('descuentoGeneralMonto').value = pedido.descuento_general_monto;
-        } else {
-            document.getElementById('descuentoGeneralMonto').value = 0;
-        }
+        
+        // 5. Cargar descuentos (verificar que existan los elementos)
+        const elemDtoPorcentaje = document.getElementById('descuentoGeneralPorcentaje');
+        const elemDtoMonto = document.getElementById('descuentoGeneralMonto');
+        if (elemDtoPorcentaje) elemDtoPorcentaje.value = pedido.descuento_general_porcentaje || 0;
+        if (elemDtoMonto) elemDtoMonto.value = pedido.descuento_general_monto || 0;
+        
+        // 6. Cargar cliente (verificar que existan los elementos)
         if (pedido.id_cliente) {
-            document.getElementById('idCliente').value = pedido.id_cliente;
-            document.getElementById('clienteNombre').value = pedido.cliente_nombre || 'Cliente';
+            const elemIdCliente = document.getElementById('idCliente');
+            const elemNombreCliente = document.getElementById('clienteNombre');
+            if (elemIdCliente) elemIdCliente.value = pedido.id_cliente;
+            if (elemNombreCliente) elemNombreCliente.value = pedido.cliente_nombre || 'Cliente';
         }
-        document.getElementById('observaciones').value = pedido.observaciones || '';
+        
+        // 7. Cargar observaciones (verificar que exista el elemento)
+        const elemObservaciones = document.getElementById('observaciones');
+        if (elemObservaciones) elemObservaciones.value = pedido.observaciones || '';
+        
+        // 8. Actualizar UI
         mostrarItemsVenta();
         calcularTotal();
-        modalSuspendidos.hide();
+        
+        // 9. Mostrar confirmación
+        mostrarAlerta("✅ Pedido #" + id + " recuperado correctamente\n\nEl pedido fue eliminado de suspendidos.", "Éxito");
+        
+        // 10. Enfocar en el campo de código
         setTimeout(() => {
-            const backdrop = document.querySelector('.modal-backdrop');
-            if (backdrop) backdrop.remove();
-            document.body.classList.remove('modal-open');
-            document.body.style.removeProperty('overflow');
-            document.body.style.removeProperty('padding-right');
-        }, 300);
-        mostrarAlerta("✅ Pedido #" + id + " recuperado\n\nPodés modificarlo y guardarlo o suspenderlo nuevamente.", "Éxito");
+            const codigoInput = document.getElementById('codigoProducto');
+            if (codigoInput) codigoInput.focus();
+        }, 500);
+        
     } catch (error) {
-        console.error('Error:', error);
-        mostrarAlerta('❌ Error al recuperar pedido suspendido', 'Error');
+        console.error('❌ Error al recuperar pedido:', error);
+        mostrarAlerta('❌ Error al recuperar pedido: ' + error.message, 'Error');
     }
+}
+
+
+
+
+function cerrarSuspendidos() {
+    const overlay = document.getElementById('overlayS');
+    if (overlay) overlay.style.display = 'none';
 }
 
 async function eliminarSuspendido(id) {
@@ -1454,6 +1311,10 @@ async function eliminarSuspendido(id) {
         mostrarAlerta('❌ Error de conexión', 'Error');
     }
 }
+
+// ============================================================================
+// OTRAS FUNCIONES
+// ============================================================================
 
 function verPedido() {
     if (!pedidoGuardadoId) return;
@@ -1539,3 +1400,75 @@ mostrarItemsVenta = function() {
     originalMostrarItemsVenta();
     actualizarEstadoBotones();
 };
+
+// =======================================================================
+//                    PRODUCTOS MÁS VENDIDOS
+// =======================================================================
+
+let productosMasVendidosCache = [];
+
+async function cargarMasVendidos() {
+    try {
+        const response = await fetch(`${API_URL}/reportes/dashboard`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+        });
+        
+        if (!response.ok) throw new Error('Error al cargar productos más vendidos');
+        
+        const data = await response.json();
+        productosMasVendidosCache = data.top_productos || [];
+        
+        console.log('✅ Productos más vendidos cargados:', productosMasVendidosCache.length);
+        mostrarMasVendidos();
+    } catch (error) {
+        console.error('❌ Error al cargar productos más vendidos:', error);
+        // No mostrar error al usuario, solo log
+    }
+}
+
+function mostrarMasVendidos() {
+    const container = document.getElementById('productosMasVendidos');
+    const card = document.getElementById('cardMasVendidos');
+    
+    if (!container || !card) return;
+    
+    if (productosMasVendidosCache.length === 0) {
+        card.style.display = 'none';
+        return;
+    }
+    
+    // Tomar solo los primeros 8 productos
+    const productosAMostrar = productosMasVendidosCache.slice(0, 8);
+    
+    container.innerHTML = productosAMostrar.map(prod => `
+        <div class="producto-vendido-btn" onclick="agregarProductoRapido('${prod.sku}')">
+            <div class="sku">${prod.sku}</div>
+            <div class="nombre">${prod.nombre}</div>
+            <div class="badge-vendidos"><i class="bi bi-fire"></i> ${prod.veces_vendido}x vendido</div>
+        </div>
+    `).join('');
+    
+    card.style.display = 'block';
+}
+
+async function agregarProductoRapido(sku) {
+    // Simular que el usuario escribió el SKU y presionó Enter
+    const input = document.getElementById('codigoProducto');
+    if (input) {
+        input.value = sku;
+        await buscarProductoPorCodigo();
+        // Limpiar el input después de agregar
+        setTimeout(() => {
+            input.value = '';
+            input.focus();
+        }, 100);
+    }
+}
+
+// Cargar productos más vendidos al iniciar la página
+window.addEventListener('DOMContentLoaded', () => {
+    // Esperar 2 segundos para no interferir con la carga inicial
+    setTimeout(() => {
+        cargarMasVendidos();
+    }, 2000);
+});

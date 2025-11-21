@@ -12,6 +12,7 @@ const afipService = require("./afip/afip-service");
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const pdfGenerator = require('./pdf-generator');
+const cron = require('node-cron');
 
 
 
@@ -34,7 +35,19 @@ app.use(cors({
     credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static('frontend'));
+// Archivos estáticos con control de caché
+app.use(express.static('frontend', {
+    maxAge: 0, // Sin caché en desarrollo
+    etag: false,
+    setHeaders: (res, path) => {
+        // JS y CSS sin caché para desarrollo
+        if (path.endsWith('.js') || path.endsWith('.css')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        }
+    }
+}));
 
 // 4. CONEXIÓN A LA BASE DE DATOS
 const pool = new Pool({
@@ -137,6 +150,68 @@ app.post('/api/usuarios/login', loginLimiter, async (req, res) => {
 // GET - Búsqueda de clientes (debe ir ANTES de /:id)
 // GET - Búsqueda de clientes (debe ir ANTES de /:id)
 app.get('/api/clientes/buscar', verificarToken, async (req, res) => {
+
+// ========================================================================
+//                    ENDPOINT PÚBLICO - VER PEDIDO POR TOKEN
+// ========================================================================
+app.get('/api/pedido-publico/:token', async (req, res) => {
+    const token = req.params.token;
+    
+    try {
+        // Buscar pedido por token
+        const queryPedido = `
+            SELECT
+                p.*,
+                c.razon_social as cliente_nombre,
+                c.telefono as cliente_telefono,
+                c.domicilio as cliente_direccion,
+                c.email as cliente_email,
+                pe.nombre as estado_nombre,
+                e.razon_social as empresa_razon_social,
+                e.direccion as empresa_direccion,
+                e.telefono as empresa_telefono,
+                e.email as empresa_email
+            FROM pedidos p
+            LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
+            LEFT JOIN pedidoestados pe ON p.id_estado = pe.id_estado
+            LEFT JOIN empresas e ON p.id_empresa = e.id_empresa
+            WHERE p.token_publico = $1
+        `;
+        
+        const resultPedido = await pool.query(queryPedido, [token]);
+        
+        if (resultPedido.rows.length === 0) {
+            return res.status(404).json({ error: 'Pedido no encontrado o token inválido' });
+        }
+        
+        const pedido = resultPedido.rows[0];
+        
+        // Obtener items del pedido
+        const queryItems = `
+            SELECT
+                pi.*,
+                p.nombre as producto_nombre,
+                p.codigo as producto_codigo
+            FROM pedidoitems pi
+            LEFT JOIN productos p ON pi.id_producto = p.id_producto
+            WHERE pi.id_pedido = $1
+            ORDER BY pi.id_item
+        `;
+        
+        const resultItems = await pool.query(queryItems, [pedido.id_pedido]);
+        
+        res.json({
+            success: true,
+            pedido: pedido,
+            items: resultItems.rows
+        });
+        
+    } catch (error) {
+        console.error('❌ Error al obtener pedido público:', error);
+        res.status(500).json({ error: 'Error al obtener el pedido' });
+    }
+});
+
     const { q } = req.query;
     const id_empresa = parseInt(req.usuario.id_empresa, 10);
 
@@ -147,9 +222,9 @@ app.get('/api/clientes/buscar', verificarToken, async (req, res) => {
     try {
         const termino = `%${q.trim().toLowerCase()}%`;
         const searchQuery = `
-            SELECT c.id_cliente, c.razon_social, c.cuit_cuil, c.email, ci.nombre as condicion_iva
+            SELECT c.id_cliente, c.razon_social, c.cuit_cuil as cuit, c.domicilio as direccion, c.telefono, c.email, ci.nombre as condicion_iva
             FROM clientes c
-            JOIN condicionesiva ci ON c.id_condicion_iva = ci.id_condicion_iva
+            LEFT JOIN condicionesiva ci ON c.id_condicion_iva = ci.id_condicion_iva
             WHERE c.id_empresa = $1 AND c.activo = TRUE
               AND (LOWER(c.razon_social) LIKE $2 
                    OR c.cuit_cuil::text LIKE $2 
@@ -200,7 +275,7 @@ app.get('/api/clientes', verificarToken, async (req, res) => {
         const query = `
             SELECT c.*, ci.nombre as condicion_iva
             FROM clientes c
-            JOIN condicionesiva ci ON c.id_condicion_iva = ci.id_condicion_iva
+            LEFT JOIN condicionesiva ci ON c.id_condicion_iva = ci.id_condicion_iva
             WHERE c.id_empresa = $1 AND c.activo = TRUE
             ORDER BY c.razon_social`;
         const { rows } = await pool.query(query, [id_empresa]);
@@ -330,7 +405,7 @@ app.get('/api/proveedores/buscar', verificarToken, async (req, res) => {
             SELECT p.id_proveedor, p.razon_social, p.nombre_fantasia, p.cuit, 
                    p.email, p.telefono, p.rubro, ci.nombre as condicion_iva
             FROM proveedores p
-            JOIN condicionesiva ci ON p.id_condicion_iva = ci.id_condicion_iva
+            LEFT JOIN condicionesiva ci ON p.id_condicion_iva = ci.id_condicion_iva
             WHERE p.id_empresa = $1 AND p.activo = TRUE
               AND (LOWER(p.razon_social) LIKE $2 
                    OR LOWER(p.nombre_fantasia) LIKE $2
@@ -354,7 +429,7 @@ app.get('/api/proveedores', verificarToken, async (req, res) => {
         const query = `
             SELECT p.*, ci.nombre as condicion_iva
             FROM proveedores p
-            JOIN condicionesiva ci ON p.id_condicion_iva = ci.id_condicion_iva
+            LEFT JOIN condicionesiva ci ON p.id_condicion_iva = ci.id_condicion_iva
             WHERE p.id_empresa = $1 AND p.activo = TRUE
             ORDER BY p.razon_social`;
         const { rows } = await pool.query(query, [id_empresa]);
@@ -374,7 +449,7 @@ app.get('/api/proveedores/:id', verificarToken, async (req, res) => {
         const query = `
             SELECT p.*, ci.nombre as condicion_iva
             FROM proveedores p
-            JOIN condicionesiva ci ON p.id_condicion_iva = ci.id_condicion_iva
+            LEFT JOIN condicionesiva ci ON p.id_condicion_iva = ci.id_condicion_iva
             WHERE p.id_proveedor = $1 AND p.id_empresa = $2 AND p.activo = TRUE`;
         
         const { rows } = await pool.query(query, [id_proveedor, id_empresa]);
@@ -1704,13 +1779,26 @@ app.get('/api/productos/listar', verificarToken, async (req, res) => {
 
     try {
         const query = `
-            SELECT p.id_producto, p.sku, p.nombre, p.descripcion,
-                   COALESCE(i.stock_real, 0) as stock_real,
-                   (SELECT pr.precio FROM precios pr
-                    WHERE pr.id_producto = p.id_producto AND pr.id_lista_precio = $2
-                    LIMIT 1) as precio
+            SELECT 
+                p.id_producto, 
+                p.sku, 
+                p.nombre, 
+                p.descripcion,
+                p.id_categoria,
+                c.nombre as categoria,
+                COALESCE(i.stock_real, 0) as stock_real,
+                (SELECT pr.precio FROM precios pr
+                 WHERE pr.id_producto = p.id_producto AND pr.id_lista_precio = $2
+                 LIMIT 1) as precio,
+                (SELECT json_agg(json_build_object('codigo', pcb.codigo_barras))
+                 FROM productocodigosbarras pcb
+                 WHERE pcb.id_producto = p.id_producto) as codigos_barras,
+                (SELECT json_agg(json_build_object('id_lista', pr2.id_lista_precio, 'precio', pr2.precio))
+                 FROM precios pr2
+                 WHERE pr2.id_producto = p.id_producto) as precios_listas
             FROM productos p
             LEFT JOIN inventario i ON p.id_producto = i.id_producto AND i.id_empresa = $1
+            LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
             WHERE p.activo = TRUE
             ORDER BY p.nombre`;
 
@@ -1721,7 +1809,6 @@ app.get('/api/productos/listar', verificarToken, async (req, res) => {
         res.status(500).json({ error: 'Error al listar productos' });
     }
 });
-
 // GET - Listar todos los productos con stock de la empresa
 // NOTA: Los productos son compartidos entre empresas, pero el stock es por empresa
 app.post('/api/productos', verificarToken, async (req, res) => {
@@ -1903,7 +1990,7 @@ app.get('/api/clientes/buscar', verificarToken, async (req, res) => {
         const searchQuery = `
             SELECT c.id_cliente, c.razon_social, c.cuit_cuil, c.email, ci.nombre as condicion_iva
             FROM clientes c
-            JOIN condicionesiva ci ON c.id_condicion_iva = ci.id_condicion_iva
+            LEFT JOIN condicionesiva ci ON c.id_condicion_iva = ci.id_condicion_iva
             WHERE c.id_empresa = $1 AND c.activo = TRUE
               AND ${conditions.join(' AND ')}
             ORDER BY c.razon_social
@@ -2623,7 +2710,7 @@ app.get('/api/facturas/:id', verificarToken, async (req, res) => {
         e.direccion as empresa_direccion
       FROM facturas f
       JOIN clientes c ON f.id_cliente = c.id_cliente
-      JOIN condicionesiva ci ON c.id_condicion_iva = ci.id_condicion_iva
+      LEFT JOIN condicionesiva ci ON c.id_condicion_iva = ci.id_condicion_iva
       JOIN factura_tipos ft ON f.id_tipo_factura = ft.id_tipo_factura
       JOIN empresas e ON f.id_empresa = e.id_empresa
       WHERE f.id_factura = $1 AND f.id_empresa = $2`;
@@ -4050,8 +4137,8 @@ app.post('/api/notas', verificarToken, async (req, res) => {
             // Si es nota de crédito, devolver stock
             if (tipo_nota === 'credito' && item.id_producto) {
                 await client.query(
-                    'UPDATE productos SET stock = stock + $1 WHERE id_producto = $2',
-                    [cantidad, item.id_producto]
+                    'UPDATE inventario SET stock_actual = stock_actual + $1 WHERE id_producto = $2 AND id_empresa = $3',
+                    [cantidad, item.id_producto, id_empresa]
                 );
 
                 // Registrar movimiento
@@ -4091,7 +4178,7 @@ app.get('/api/notas/:id', verificarToken, async (req, res) => {
 
     try {
         const notaQuery = `
-            SELECT n.*, c.razon_social as cliente, c.cuit_cuil, c.direccion,
+            SELECT n.*, c.razon_social as cliente, c.cuit_cuil, c.domicilio as direccion,
                    u.username as usuario, f.numero_completo as factura_origen
             FROM notas_credito_debito n
             LEFT JOIN clientes c ON n.id_cliente = c.id_cliente
@@ -4410,7 +4497,7 @@ app.get('/api/presupuestos/:id', verificarToken, async (req, res) => {
 
     try {
         const presupuestoQuery = `
-            SELECT p.*, c.razon_social as cliente, c.cuit_cuil, c.direccion,
+            SELECT p.*, c.razon_social as cliente, c.cuit_cuil, c.domicilio as direccion,
                    u.username as usuario, e.razon_social as empresa
             FROM presupuestos p
             LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
@@ -4486,7 +4573,7 @@ app.get('/api/facturas/:id/pdf', verificarToken, async (req, res) => {
     try {
         // Obtener factura con todos los datos
         const facturaQuery = `
-            SELECT f.*, c.razon_social as cliente, c.cuit_cuil, c.direccion,
+            SELECT f.*, c.razon_social as cliente, c.cuit_cuil, c.domicilio as direccion,
                    ft.nombre as tipo_factura, ft.codigo as tipo_codigo,
                    e.razon_social as empresa, e.cuit as cuit_empresa,
                    e.direccion as direccion_empresa, e.telefono as telefono_empresa
@@ -4532,6 +4619,224 @@ app.get('/api/facturas/:id/pdf', verificarToken, async (req, res) => {
         res.status(500).json({ error: 'Error al generar PDF' });
     }
 });
+// ============================================
+// ENDPOINTS EMAIL Y WHATSAPP PARA FACTURAS
+// Agregar después del endpoint: app.get('/api/facturas/:id/pdf'...)
+// (después de la línea ~4533 en server.js)
+// ============================================
+
+// ===== POST - Enviar factura por email =====
+app.post('/api/facturas/:id/email', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_factura = parseInt(req.params.id, 10);
+    const { email_destino, asunto, mensaje } = req.body;
+
+    try {
+        // Obtener datos de la factura
+        const queryFactura = `
+            SELECT 
+                f.*,
+                c.razon_social as cliente_nombre,
+                c.domicilio as cliente_direccion,
+                c.cuit_cuil as cliente_cuit,
+                c.email as cliente_email,
+                tv.descripcion as tipo_venta_desc,
+                e.razon_social as empresa_razon_social,
+                e.nombre_fantasia as empresa_nombre_fantasia,
+                e.domicilio_fiscal as empresa_domicilio,
+                e.cuit as empresa_cuit,
+                e.telefono as empresa_telefono,
+                e.email as empresa_email
+            FROM facturas f
+            LEFT JOIN clientes c ON f.id_cliente = c.id_cliente
+            LEFT JOIN tiposventa tv ON f.id_tipo_venta = tv.id_tipo_venta
+            LEFT JOIN empresas e ON f.id_empresa = e.id_empresa
+            WHERE f.id_factura = $1 AND f.id_empresa = $2
+        `;
+
+        const resultFactura = await pool.query(queryFactura, [id_factura, id_empresa]);
+
+        if (resultFactura.rows.length === 0) {
+            return res.status(404).json({ error: 'Factura no encontrada' });
+        }
+
+        const factura = resultFactura.rows[0];
+
+        // Validar email destino
+        const emailFinal = email_destino || factura.cliente_email;
+        if (!emailFinal) {
+            return res.status(400).json({ error: 'El cliente no tiene email registrado. Proporcione un email destino.' });
+        }
+
+        // Obtener items de la factura
+        const queryItems = `
+            SELECT 
+                fi.*,
+                p.nombre as producto_nombre,
+                p.sku as producto_sku
+            FROM facturaitems fi
+            LEFT JOIN productos p ON fi.id_producto = p.id_producto
+            WHERE fi.id_factura = $1
+            ORDER BY fi.id_item ASC
+        `;
+
+        const resultItems = await pool.query(queryItems, [id_factura]);
+
+        const facturaData = {
+            ...factura,
+            items: resultItems.rows
+        };
+
+        // Generar PDF
+        pdfGenerator.generarFacturaPDF(facturaData, async (err, pdfBuffer) => {
+            if (err) {
+                console.error('❌ Error al generar PDF para email:', err);
+                return res.status(500).json({ error: 'Error al generar PDF' });
+            }
+
+            try {
+                // Calcular totales
+                const total = parseFloat(factura.total || 0).toFixed(2);
+                const subtotal = parseFloat(factura.subtotal || 0).toFixed(2);
+                const iva = parseFloat(factura.total_iva || 0).toFixed(2);
+
+                // Asunto por defecto
+                const asuntoFinal = asunto || `Factura ${factura.numero_completo} - ${factura.empresa_razon_social || 'ERP LAGO'}`;
+
+                // Mensaje por defecto
+                const mensajeHTML = mensaje || `
+                    <h2>Factura ${factura.numero_completo}</h2>
+                    <p>Estimado/a <strong>${factura.cliente_nombre || 'Cliente'}</strong>,</p>
+                    <p>Adjuntamos la factura electrónica correspondiente.</p>
+                    <p><strong>Fecha de emisión:</strong> ${new Date(factura.fecha_emision).toLocaleDateString('es-AR')}</p>
+                    ${factura.fecha_vencimiento ? `<p><strong>Fecha de vencimiento:</strong> ${new Date(factura.fecha_vencimiento).toLocaleDateString('es-AR')}</p>` : ''}
+                    ${factura.cae ? `<p><strong>CAE:</strong> ${factura.cae}</p>` : ''}
+                    ${factura.cae_vencimiento ? `<p><strong>Vencimiento CAE:</strong> ${new Date(factura.cae_vencimiento).toLocaleDateString('es-AR')}</p>` : ''}
+                    <hr>
+                    <p><strong>Subtotal:</strong> $${subtotal}</p>
+                    <p><strong>IVA:</strong> $${iva}</p>
+                    <p><strong>TOTAL:</strong> $${total}</p>
+                    ${factura.observaciones ? `<p><strong>Observaciones:</strong> ${factura.observaciones}</p>` : ''}
+                    <br>
+                    <p>Saludos cordiales,<br>
+                    ${factura.empresa_razon_social || 'ERP LAGO'}</p>
+                `;
+
+                // Enviar email
+                await generador.enviarEmail(
+                    emailFinal,
+                    asuntoFinal,
+                    mensajeHTML,
+                    [{
+                        filename: `factura_${factura.numero_completo}.pdf`,
+                        content: pdfBuffer
+                    }]
+                );
+
+                res.json({ 
+                    success: true, 
+                    message: 'Email enviado correctamente',
+                    destinatario: emailFinal
+                });
+
+            } catch (emailError) {
+                console.error('❌ Error al enviar email:', emailError);
+                res.status(500).json({ error: 'Error al enviar email: ' + emailError.message });
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error al enviar factura por email:', error.message);
+        res.status(500).json({ error: 'Error al enviar email de factura' });
+    }
+});
+
+// ===== GET - Generar link de WhatsApp para factura =====
+app.get('/api/facturas/:id/whatsapp', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_factura = parseInt(req.params.id, 10);
+
+    try {
+        // Obtener datos de la factura
+        const queryFactura = `
+            SELECT 
+                f.*,
+                c.razon_social as cliente_nombre,
+                c.telefono as cliente_telefono,
+                c.domicilio as cliente_direccion,
+                e.razon_social as empresa_razon_social
+            FROM facturas f
+            LEFT JOIN clientes c ON f.id_cliente = c.id_cliente
+            LEFT JOIN empresas e ON f.id_empresa = e.id_empresa
+            WHERE f.id_factura = $1 AND f.id_empresa = $2
+        `;
+
+        const resultFactura = await pool.query(queryFactura, [id_factura, id_empresa]);
+
+        if (resultFactura.rows.length === 0) {
+            return res.status(404).json({ error: 'Factura no encontrada' });
+        }
+
+        const factura = resultFactura.rows[0];
+
+        // Validar teléfono
+        if (!factura.cliente_telefono) {
+            return res.status(400).json({ 
+                error: 'El cliente no tiene teléfono registrado',
+                factura: {
+                    numero: factura.numero_completo,
+                    cliente: factura.cliente_nombre
+                }
+            });
+        }
+
+        // Formatear teléfono
+        let telefono = factura.cliente_telefono.replace(/\D/g, '');
+        if (!telefono.startsWith('54') && telefono.length === 10) {
+            telefono = '54' + telefono;
+        }
+
+        // Calcular totales
+        const total = parseFloat(factura.total || 0).toFixed(2);
+
+        // Crear mensaje de WhatsApp
+        const mensaje = `
+*Factura ${factura.numero_completo}*
+
+Hola ${factura.cliente_nombre || 'Cliente'}!
+
+Le enviamos su factura electrónica:
+
+📅 *Fecha de emisión:* ${new Date(factura.fecha_emision).toLocaleDateString('es-AR')}
+${factura.fecha_vencimiento ? `📆 *Vencimiento:* ${new Date(factura.fecha_vencimiento).toLocaleDateString('es-AR')}
+` : ''}${factura.cae ? `🔐 *CAE:* ${factura.cae}
+` : ''}💰 *Total:* $${total}
+
+${factura.observaciones ? `📝 *Observaciones:* ${factura.observaciones}
+
+` : ''}Puede descargar su factura desde:
+${req.protocol}://${req.get('host')}/api/facturas/${id_factura}/pdf
+
+Saludos,
+${factura.empresa_razon_social || 'ERP LAGO'}
+        `.trim();
+
+        // Generar link de WhatsApp
+        const whatsappLink = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
+
+        res.json({
+            success: true,
+            telefono: factura.cliente_telefono,
+            whatsapp_link: whatsappLink,
+            mensaje: mensaje
+        });
+
+    } catch (error) {
+        console.error('❌ Error al generar link de WhatsApp:', error.message);
+        res.status(500).json({ error: 'Error al generar link de WhatsApp' });
+    }
+});
+
 
 // GET - Generar PDF de nota de crédito/débito
 app.get('/api/notas/:id/pdf', verificarToken, async (req, res) => {
@@ -4540,7 +4845,7 @@ app.get('/api/notas/:id/pdf', verificarToken, async (req, res) => {
 
     try {
         const notaQuery = `
-            SELECT n.*, c.razon_social as cliente, c.cuit_cuil, c.direccion,
+            SELECT n.*, c.razon_social as cliente, c.cuit_cuil, c.domicilio as direccion,
                    f.numero_completo as factura_origen,
                    e.razon_social as empresa, e.cuit as cuit_empresa,
                    e.direccion as direccion_empresa, e.telefono as telefono_empresa
@@ -4586,7 +4891,228 @@ app.get('/api/notas/:id/pdf', verificarToken, async (req, res) => {
         res.status(500).json({ error: 'Error al generar PDF' });
     }
 });
+// ============================================
+// ENDPOINTS EMAIL Y WHATSAPP PARA NOTAS DE CRÉDITO/DÉBITO
+// Agregar después del endpoint: app.get('/api/notas/:id/pdf'...)
+// (después de la línea ~4585 en server.js)
+// ============================================
 
+// ===== POST - Enviar nota por email =====
+app.post('/api/notas/:id/email', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_nota = parseInt(req.params.id, 10);
+    const { email_destino, asunto, mensaje } = req.body;
+
+    try {
+        // Obtener datos de la nota
+        const queryNota = `
+            SELECT 
+                nc.*,
+                c.razon_social as cliente_nombre,
+                c.domicilio as cliente_direccion,
+                c.cuit_cuil as cliente_cuit,
+                c.email as cliente_email,
+                e.razon_social as empresa_razon_social,
+                e.nombre_fantasia as empresa_nombre_fantasia,
+                e.domicilio_fiscal as empresa_domicilio,
+                e.cuit as empresa_cuit,
+                e.telefono as empresa_telefono,
+                e.email as empresa_email
+            FROM notas_credito_debito nc
+            LEFT JOIN clientes c ON nc.id_cliente = c.id_cliente
+            LEFT JOIN empresas e ON nc.id_empresa = e.id_empresa
+            WHERE nc.id_nota = $1 AND nc.id_empresa = $2
+        `;
+
+        const resultNota = await pool.query(queryNota, [id_nota, id_empresa]);
+
+        if (resultNota.rows.length === 0) {
+            return res.status(404).json({ error: 'Nota no encontrada' });
+        }
+
+        const nota = resultNota.rows[0];
+
+        // Validar email destino
+        const emailFinal = email_destino || nota.cliente_email;
+        if (!emailFinal) {
+            return res.status(400).json({ error: 'El cliente no tiene email registrado. Proporcione un email destino.' });
+        }
+
+        // Determinar tipo de nota
+        const tipoNota = nota.tipo_comprobante === 'C' ? 'Nota de Crédito' : 'Nota de Débito';
+
+        // Obtener items de la nota
+        const queryItems = `
+            SELECT 
+                nci.*,
+                p.nombre as producto_nombre,
+                p.sku as producto_sku
+            FROM notaitems nci
+            LEFT JOIN productos p ON nci.id_producto = p.id_producto
+            WHERE nci.id_nota = $1
+            ORDER BY nci.id_item ASC
+        `;
+
+        const resultItems = await pool.query(queryItems, [id_nota]);
+
+        const notaData = {
+            ...nota,
+            items: resultItems.rows
+        };
+
+        // Generar PDF
+        pdfGenerator.generarNotaPDF(notaData, async (err, pdfBuffer) => {
+            if (err) {
+                console.error('❌ Error al generar PDF para email:', err);
+                return res.status(500).json({ error: 'Error al generar PDF' });
+            }
+
+            try {
+                // Calcular totales
+                const total = parseFloat(nota.total || 0).toFixed(2);
+                const subtotal = parseFloat(nota.subtotal || 0).toFixed(2);
+                const iva = parseFloat(nota.total_iva || 0).toFixed(2);
+
+                // Asunto por defecto
+                const asuntoFinal = asunto || `${tipoNota} ${nota.numero_completo} - ${nota.empresa_razon_social || 'ERP LAGO'}`;
+
+                // Mensaje por defecto
+                const mensajeHTML = mensaje || `
+                    <h2>${tipoNota} ${nota.numero_completo}</h2>
+                    <p>Estimado/a <strong>${nota.cliente_nombre || 'Cliente'}</strong>,</p>
+                    <p>Adjuntamos la ${tipoNota.toLowerCase()} electrónica correspondiente.</p>
+                    <p><strong>Fecha de emisión:</strong> ${new Date(nota.fecha_emision).toLocaleDateString('es-AR')}</p>
+                    ${nota.id_factura_origen ? `<p><strong>Factura relacionada:</strong> ID ${nota.id_factura_origen}</p>` : ''}
+                    ${nota.cae ? `<p><strong>CAE:</strong> ${nota.cae}</p>` : ''}
+                    ${nota.cae_vencimiento ? `<p><strong>Vencimiento CAE:</strong> ${new Date(nota.cae_vencimiento).toLocaleDateString('es-AR')}</p>` : ''}
+                    <hr>
+                    <p><strong>Subtotal:</strong> $${subtotal}</p>
+                    <p><strong>IVA:</strong> $${iva}</p>
+                    <p><strong>TOTAL:</strong> $${total}</p>
+                    ${nota.observaciones ? `<p><strong>Observaciones:</strong> ${nota.observaciones}</p>` : ''}
+                    <br>
+                    <p>Saludos cordiales,<br>
+                    ${nota.empresa_razon_social || 'ERP LAGO'}</p>
+                `;
+
+                // Enviar email
+                await generador.enviarEmail(
+                    emailFinal,
+                    asuntoFinal,
+                    mensajeHTML,
+                    [{
+                        filename: `${nota.tipo_comprobante === 'C' ? 'nota_credito' : 'nota_debito'}_${nota.numero_completo}.pdf`,
+                        content: pdfBuffer
+                    }]
+                );
+
+                res.json({ 
+                    success: true, 
+                    message: 'Email enviado correctamente',
+                    destinatario: emailFinal
+                });
+
+            } catch (emailError) {
+                console.error('❌ Error al enviar email:', emailError);
+                res.status(500).json({ error: 'Error al enviar email: ' + emailError.message });
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error al enviar nota por email:', error.message);
+        res.status(500).json({ error: 'Error al enviar email de nota' });
+    }
+});
+
+// ===== GET - Generar link de WhatsApp para nota =====
+app.get('/api/notas/:id/whatsapp', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_nota = parseInt(req.params.id, 10);
+
+    try {
+        // Obtener datos de la nota
+        const queryNota = `
+            SELECT 
+                nc.*,
+                c.razon_social as cliente_nombre,
+                c.telefono as cliente_telefono,
+                c.domicilio as cliente_direccion,
+                e.razon_social as empresa_razon_social
+            FROM notas_credito_debito nc
+            LEFT JOIN clientes c ON nc.id_cliente = c.id_cliente
+            LEFT JOIN empresas e ON nc.id_empresa = e.id_empresa
+            WHERE nc.id_nota = $1 AND nc.id_empresa = $2
+        `;
+
+        const resultNota = await pool.query(queryNota, [id_nota, id_empresa]);
+
+        if (resultNota.rows.length === 0) {
+            return res.status(404).json({ error: 'Nota no encontrada' });
+        }
+
+        const nota = resultNota.rows[0];
+
+        // Validar teléfono
+        if (!nota.cliente_telefono) {
+            return res.status(400).json({ 
+                error: 'El cliente no tiene teléfono registrado',
+                nota: {
+                    numero: nota.numero_completo,
+                    cliente: nota.cliente_nombre
+                }
+            });
+        }
+
+        // Formatear teléfono
+        let telefono = nota.cliente_telefono.replace(/\D/g, '');
+        if (!telefono.startsWith('54') && telefono.length === 10) {
+            telefono = '54' + telefono;
+        }
+
+        // Calcular totales
+        const total = parseFloat(nota.total || 0).toFixed(2);
+
+        // Determinar tipo de nota
+        const tipoNota = nota.tipo_comprobante === 'C' ? 'Nota de Crédito' : 'Nota de Débito';
+        const emoji = nota.tipo_comprobante === 'C' ? '↩️' : '📈';
+
+        // Crear mensaje de WhatsApp
+        const mensaje = `
+${emoji} *${tipoNota} ${nota.numero_completo}*
+
+Hola ${nota.cliente_nombre || 'Cliente'}!
+
+Le enviamos su ${tipoNota.toLowerCase()} electrónica:
+
+📅 *Fecha de emisión:* ${new Date(nota.fecha_emision).toLocaleDateString('es-AR')}
+${nota.id_factura_origen ? `📄 *Factura relacionada:* ID ${nota.id_factura_origen}
+` : ''}${nota.cae ? `🔐 *CAE:* ${nota.cae}
+` : ''}💰 *Total:* $${total}
+
+${nota.observaciones ? `📝 *Observaciones:* ${nota.observaciones}
+
+` : ''}Puede descargar su ${tipoNota.toLowerCase()} desde:
+${req.protocol}://${req.get('host')}/api/notas/${id_nota}/pdf
+
+Saludos,
+${nota.empresa_razon_social || 'ERP LAGO'}
+        `.trim();
+
+        // Generar link de WhatsApp
+        const whatsappLink = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
+
+        res.json({
+            success: true,
+            telefono: nota.cliente_telefono,
+            whatsapp_link: whatsappLink,
+            mensaje: mensaje
+        });
+
+    } catch (error) {
+        console.error('❌ Error al generar link de WhatsApp:', error.message);
+        res.status(500).json({ error: 'Error al generar link de WhatsApp' });
+    }
+});
 // GET - Generar PDF de remito
 app.get('/api/remitos/:id/pdf', verificarToken, async (req, res) => {
     const id_empresa = parseInt(req.usuario.id_empresa, 10);
@@ -4645,7 +5171,7 @@ app.get('/api/presupuestos/:id/pdf', verificarToken, async (req, res) => {
 
     try {
         const presupuestoQuery = `
-            SELECT p.*, c.razon_social as cliente, c.cuit_cuil, c.direccion,
+            SELECT p.*, c.razon_social as cliente, c.cuit_cuil, c.domicilio as direccion,
                    e.razon_social as empresa, e.cuit as cuit_empresa,
                    e.direccion as direccion_empresa, e.telefono as telefono_empresa
             FROM presupuestos p
@@ -4814,6 +5340,1261 @@ app.get('/api/libro-iva/resumen', verificarToken, async (req, res) => {
     }
 });
 
+
+// =======================================================================
+//                   MÓDULO DE CUENTA CORRIENTE Y COBRANZAS
+// =======================================================================
+
+// GET - Movimientos de cuenta corriente de un cliente
+app.get('/api/clientes/:id/cuenta-corriente', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_cliente = parseInt(req.params.id, 10);
+    const { fecha_desde, fecha_hasta } = req.query;
+
+    try {
+        let query = `
+            SELECT
+                cc.id_movimiento,
+                cc.fecha_movimiento,
+                cc.tipo_movimiento,
+                cc.debe,
+                cc.haber,
+                cc.saldo,
+                cc.concepto
+            FROM cuentas_corrientes cc
+            WHERE cc.id_cliente = $1 AND cc.id_empresa = $2`;
+
+        const params = [id_cliente, id_empresa];
+        let paramIndex = 3;
+
+        if (fecha_desde) {
+            query += ` AND cc.fecha_movimiento >= $${paramIndex}`;
+            params.push(fecha_desde);
+            paramIndex++;
+        }
+
+        if (fecha_hasta) {
+            query += ` AND cc.fecha_movimiento <= $${paramIndex}`;
+            params.push(fecha_hasta);
+            paramIndex++;
+        }
+
+        query += ` ORDER BY cc.fecha_movimiento DESC, cc.id_movimiento DESC`;
+
+        const { rows } = await pool.query(query, params);
+
+        const clienteRes = await pool.query(`
+            SELECT razon_social, cuit_cuil, limite_credito, saldo_actual
+            FROM clientes 
+            WHERE id_cliente = $1 AND id_empresa = $2`,
+            [id_cliente, id_empresa]
+        );
+
+        if (clienteRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente no encontrado' });
+        }
+
+        res.json({
+            cliente: clienteRes.rows[0],
+            movimientos: rows,
+            saldo_actual: clienteRes.rows[0].saldo_actual,
+            limite_credito: clienteRes.rows[0].limite_credito,
+            credito_disponible: parseFloat(clienteRes.rows[0].limite_credito || 0) - parseFloat(clienteRes.rows[0].saldo_actual || 0)
+        });
+
+    } catch (error) {
+        console.error('❌ Error al obtener cuenta corriente:', error.message);
+        res.status(500).json({ error: 'Error al obtener cuenta corriente' });
+    }
+});
+
+// GET - Saldo actual del cliente
+app.get('/api/clientes/:id/saldo', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_cliente = parseInt(req.params.id, 10);
+
+    try {
+        const query = `
+            SELECT 
+                c.razon_social,
+                c.saldo_actual,
+                c.limite_credito,
+                (c.limite_credito - c.saldo_actual) as credito_disponible,
+                COUNT(f.id_factura) as facturas_pendientes,
+                COALESCE(SUM(f.total - COALESCE(f.monto_pagado, 0)), 0) as total_pendiente
+            FROM clientes c
+            LEFT JOIN facturas f ON c.id_cliente = f.id_cliente 
+                AND f.estado = 'emitida' 
+                AND (f.total - COALESCE(f.monto_pagado, 0)) > 0
+            WHERE c.id_cliente = $1 AND c.id_empresa = $2
+            GROUP BY c.id_cliente`;
+
+        const { rows } = await pool.query(query, [id_cliente, id_empresa]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente no encontrado' });
+        }
+
+        res.json(rows[0]);
+
+    } catch (error) {
+        console.error('❌ Error al obtener saldo:', error.message);
+        res.status(500).json({ error: 'Error al obtener saldo' });
+    }
+});
+
+// GET - Facturas pendientes de un cliente
+app.get('/api/clientes/:id/facturas-pendientes', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_cliente = parseInt(req.params.id, 10);
+
+    try {
+        const query = `
+            SELECT 
+                f.id_factura,
+                f.numero_completo,
+                f.fecha_emision,
+                f.fecha_vencimiento,
+                f.total,
+                COALESCE(f.total - f.monto_pagado, f.total) as saldo_pendiente,
+                COALESCE(f.monto_pagado, 0) as pagado,
+                CASE 
+                    WHEN f.fecha_vencimiento < CURRENT_DATE THEN 
+                        CURRENT_DATE - f.fecha_vencimiento
+                    ELSE 0
+                END as dias_vencido,
+                CASE
+                    WHEN f.fecha_vencimiento < CURRENT_DATE THEN 'vencida'
+                    WHEN f.fecha_vencimiento = CURRENT_DATE THEN 'vence_hoy'
+                    ELSE 'vigente'
+                END as estado_vencimiento,
+                ft.codigo as tipo_factura
+            FROM facturas f
+            JOIN factura_tipos ft ON f.id_tipo_factura = ft.id_tipo_factura
+            WHERE f.id_cliente = $1 
+                AND f.id_empresa = $2
+                AND f.estado = 'emitida'
+                AND COALESCE(f.total - f.monto_pagado, f.total) > 0
+            ORDER BY f.fecha_vencimiento ASC`;
+
+        const { rows } = await pool.query(query, [id_cliente, id_empresa]);
+
+        const resumen = {
+            total_facturas: rows.length,
+            total_deuda: 0,
+            vencidas: 0,
+            vigentes: 0,
+            vence_hoy: 0
+        };
+
+        rows.forEach(factura => {
+            resumen.total_deuda += parseFloat(factura.saldo_pendiente);
+            if (factura.estado_vencimiento === 'vencida') resumen.vencidas++;
+            else if (factura.estado_vencimiento === 'vence_hoy') resumen.vence_hoy++;
+            else resumen.vigentes++;
+        });
+
+        res.json({ facturas: rows, resumen });
+
+    } catch (error) {
+        console.error('❌ Error al obtener facturas pendientes:', error.message);
+        res.status(500).json({ error: 'Error al obtener facturas pendientes' });
+    }
+});
+
+// GET - Reporte de aging
+app.get('/api/reportes/aging', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+
+    try {
+        const query = `
+            SELECT 
+                c.id_cliente, c.razon_social, c.cuit_cuil, c.telefono, c.email,
+                COUNT(f.id_factura) as cantidad_facturas,
+                COALESCE(SUM(f.total - COALESCE(f.monto_pagado, 0)), 0) as deuda_total,
+                COALESCE(SUM(CASE WHEN f.fecha_vencimiento >= CURRENT_DATE THEN f.total - COALESCE(f.monto_pagado, 0) ELSE 0 END), 0) as corriente,
+                COALESCE(SUM(CASE WHEN f.fecha_vencimiento < CURRENT_DATE AND f.fecha_vencimiento >= CURRENT_DATE - 30 THEN f.total - COALESCE(f.monto_pagado, 0) ELSE 0 END), 0) as vencido_1_30,
+                COALESCE(SUM(CASE WHEN f.fecha_vencimiento < CURRENT_DATE - 30 AND f.fecha_vencimiento >= CURRENT_DATE - 60 THEN f.total - COALESCE(f.monto_pagado, 0) ELSE 0 END), 0) as vencido_31_60,
+                COALESCE(SUM(CASE WHEN f.fecha_vencimiento < CURRENT_DATE - 60 AND f.fecha_vencimiento >= CURRENT_DATE - 90 THEN f.total - COALESCE(f.monto_pagado, 0) ELSE 0 END), 0) as vencido_61_90,
+                COALESCE(SUM(CASE WHEN f.fecha_vencimiento < CURRENT_DATE - 90 THEN f.total - COALESCE(f.monto_pagado, 0) ELSE 0 END), 0) as vencido_mas_90
+            FROM clientes c
+            LEFT JOIN facturas f ON c.id_cliente = f.id_cliente 
+                AND f.estado = 'emitida'
+                AND (f.total - COALESCE(f.monto_pagado, 0)) > 0
+            WHERE c.id_empresa = $1 AND c.activo = TRUE
+            GROUP BY c.id_cliente
+            HAVING COALESCE(SUM(f.total - COALESCE(f.monto_pagado, 0)), 0) > 0
+            ORDER BY deuda_total DESC`;
+
+        const { rows } = await pool.query(query, [id_empresa]);
+
+        const totales = {
+            total_clientes: rows.length,
+            deuda_total: 0,
+            corriente: 0,
+            vencido_1_30: 0,
+            vencido_31_60: 0,
+            vencido_61_90: 0,
+            vencido_mas_90: 0
+        };
+
+        rows.forEach(cliente => {
+            totales.deuda_total += parseFloat(cliente.deuda_total);
+            totales.corriente += parseFloat(cliente.corriente);
+            totales.vencido_1_30 += parseFloat(cliente.vencido_1_30);
+            totales.vencido_31_60 += parseFloat(cliente.vencido_31_60);
+            totales.vencido_61_90 += parseFloat(cliente.vencido_61_90);
+            totales.vencido_mas_90 += parseFloat(cliente.vencido_mas_90);
+        });
+
+        res.json({ clientes: rows, totales });
+
+    } catch (error) {
+        console.error('❌ Error aging:', error.message);
+        res.status(500).json({ error: 'Error al obtener aging' });
+    }
+});
+
+// GET - Facturas pendientes de cobro
+app.get('/api/cobranzas/pendientes', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const { solo_hoy, id_cliente } = req.query;
+
+    try {
+        let query = `
+            SELECT f.id_factura, f.numero_completo, f.fecha_emision, f.fecha_vencimiento,
+                   f.total, COALESCE(f.total - f.monto_pagado, f.total) as saldo_pendiente,
+                   c.id_cliente, c.razon_social, c.telefono, c.email
+            FROM facturas f
+            JOIN clientes c ON f.id_cliente = c.id_cliente
+            WHERE f.id_empresa = $1 AND f.estado = 'emitida'
+                AND COALESCE(f.total - f.monto_pagado, f.total) > 0`;
+
+        const params = [id_empresa];
+        let paramIndex = 2;
+
+        if (solo_hoy === 'true') {
+            query += ` AND f.fecha_vencimiento = CURRENT_DATE`;
+        }
+
+        if (id_cliente) { 
+            query += ` AND f.id_cliente = $${paramIndex}`;
+            params.push(parseInt(id_cliente));
+            paramIndex++;
+        }
+
+        query += ` ORDER BY f.fecha_vencimiento ASC`;
+
+        const { rows } = await pool.query(query, params);
+        res.json(rows);
+
+    } catch (error) {
+        console.error('❌ Error pendientes:', error.message);
+        res.status(500).json({ error: 'Error al obtener facturas pendientes' });
+    }
+});
+
+// POST - Aplicar pago a facturas
+app.post('/api/cobranzas/aplicar-pago', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const { id_recibo, aplicaciones } = req.body;
+
+    if (!id_recibo || !aplicaciones || aplicaciones.length === 0) {
+        return res.status(400).json({ error: 'Recibo y aplicaciones requeridos' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const reciboRes = await client.query(
+            'SELECT total_recibo, id_cliente FROM recibos WHERE id_recibo = $1 AND id_empresa = $2',
+            [id_recibo, id_empresa]
+        );
+
+        if (reciboRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Recibo no encontrado' });
+        }
+
+        const total_recibo = parseFloat(reciboRes.rows[0].total_recibo);
+        let total_aplicado = 0;
+
+        for (const aplicacion of aplicaciones) {
+            const { id_factura, monto_aplicado } = aplicacion;
+            const monto = parseFloat(monto_aplicado);
+
+            if (monto <= 0) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: 'Montos deben ser mayores a cero' });
+            }
+
+            // Verificar saldo pendiente de la factura
+            const facturaRes = await client.query(
+                'SELECT total, COALESCE(monto_pagado, 0) as pagado FROM facturas WHERE id_factura = $1',
+                [id_factura]
+            );
+
+            const saldo_pendiente = parseFloat(facturaRes.rows[0].total) - parseFloat(facturaRes.rows[0].pagado);
+
+            if (monto > saldo_pendiente + 0.01) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ 
+                    error: `Monto ${monto} supera saldo pendiente ${saldo_pendiente}` 
+                });
+            }
+
+            await client.query(
+                'INSERT INTO recibo_facturas (id_recibo, id_factura, monto_aplicado) VALUES ($1, $2, $3)',
+                [id_recibo, id_factura, monto]
+            );
+
+            await client.query(
+                'UPDATE facturas SET monto_pagado = COALESCE(monto_pagado, 0) + $1 WHERE id_factura = $2',
+                [monto, id_factura]
+            );
+
+            // Marcar como pagada si está totalmente cobrada
+            if (saldo_pendiente - monto <= 0.01) {
+                await client.query(
+                    'UPDATE facturas SET estado = $1 WHERE id_factura = $2',
+                    ['pagada', id_factura]
+                );
+            }
+
+            total_aplicado += monto;
+        }
+
+        if (total_aplicado > total_recibo + 0.01) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ 
+                error: `Total aplicado ${total_aplicado} supera total recibo ${total_recibo}` 
+            });
+        }
+
+        await client.query('COMMIT');
+        res.json({ 
+            message: 'Pago aplicado exitosamente', 
+            total_aplicado,
+            facturas_aplicadas: aplicaciones.length
+        });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('❌ Error aplicar pago:', error.message);
+        res.status(500).json({ error: 'Error al aplicar pago' });
+    } finally {
+        client.release();
+    }
+});
+
+// GET - Historial de cobranzas
+app.get('/api/cobranzas/historial', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const { fecha_desde, fecha_hasta, id_cliente } = req.query;
+
+    try {
+        let query = `
+            SELECT 
+                r.id_recibo, r.numero_completo, r.fecha_recibo, r.total_recibo,
+                c.razon_social as cliente, u.username as cobrador,
+                COUNT(rf.id_relacion) as facturas_aplicadas,
+                COALESCE(SUM(rf.monto_aplicado), 0) as monto_aplicado
+            FROM recibos r
+            LEFT JOIN clientes c ON r.id_cliente = c.id_cliente
+            JOIN usuarios u ON r.id_usuario = u.id_usuario
+            LEFT JOIN recibo_facturas rf ON r.id_recibo = rf.id_recibo
+            WHERE r.id_empresa = $1`;
+
+        const params = [id_empresa];
+        let paramIndex = 2;
+
+        if (fecha_desde) {
+            query += ` AND DATE(r.fecha_recibo) >= $${paramIndex}`;
+            params.push(fecha_desde);
+            paramIndex++;
+        }
+
+        if (fecha_hasta) {
+            query += ` AND DATE(r.fecha_recibo) <= $${paramIndex}`;
+            params.push(fecha_hasta);
+            paramIndex++;
+        }
+
+        if (id_cliente) {
+            query += ` AND r.id_cliente = $${paramIndex}`;
+            params.push(parseInt(id_cliente));
+            paramIndex++;
+        }
+
+        query += ` GROUP BY r.id_recibo, c.razon_social, u.username
+                   ORDER BY r.fecha_recibo DESC LIMIT 100`;
+
+        const { rows } = await pool.query(query, params);
+        res.json(rows);
+
+    } catch (error) {
+        console.error('❌ Error historial:', error.message);
+        res.status(500).json({ error: 'Error al obtener historial' });
+    }
+});
+
+
+// =======================================================================
+//                   MÓDULO DE CUENTA CORRIENTE Y COBRANZAS
+// =======================================================================
+
+// GET - Movimientos de cuenta corriente de un cliente
+app.get('/api/clientes/:id/cuenta-corriente', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_cliente = parseInt(req.params.id, 10);
+    const { fecha_desde, fecha_hasta } = req.query;
+
+    try {
+        let query = `
+            SELECT
+                cc.id_movimiento,
+                cc.fecha_movimiento,
+                cc.tipo_movimiento,
+                cc.debe,
+                cc.haber,
+                cc.saldo,
+                cc.concepto
+            FROM cuentas_corrientes cc
+            WHERE cc.id_cliente = $1 AND cc.id_empresa = $2`;
+
+        const params = [id_cliente, id_empresa];
+        let paramIndex = 3;
+
+        if (fecha_desde) {
+            query += ` AND cc.fecha_movimiento >= $${paramIndex}`;
+            params.push(fecha_desde);
+            paramIndex++;
+        }
+
+        if (fecha_hasta) {
+            query += ` AND cc.fecha_movimiento <= $${paramIndex}`;
+            params.push(fecha_hasta);
+            paramIndex++;
+        }
+
+        query += ` ORDER BY cc.fecha_movimiento DESC, cc.id_movimiento DESC`;
+
+        const { rows } = await pool.query(query, params);
+
+        const clienteRes = await pool.query(`
+            SELECT razon_social, cuit_cuil, limite_credito, saldo_actual
+            FROM clientes 
+            WHERE id_cliente = $1 AND id_empresa = $2`,
+            [id_cliente, id_empresa]
+        );
+
+        if (clienteRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente no encontrado' });
+        }
+
+        res.json({
+            cliente: clienteRes.rows[0],
+            movimientos: rows,
+            saldo_actual: clienteRes.rows[0].saldo_actual,
+            limite_credito: clienteRes.rows[0].limite_credito,
+            credito_disponible: parseFloat(clienteRes.rows[0].limite_credito || 0) - parseFloat(clienteRes.rows[0].saldo_actual || 0)
+        });
+
+    } catch (error) {
+        console.error('❌ Error al obtener cuenta corriente:', error.message);
+        res.status(500).json({ error: 'Error al obtener cuenta corriente' });
+    }
+});
+
+// GET - Saldo actual del cliente
+app.get('/api/clientes/:id/saldo', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_cliente = parseInt(req.params.id, 10);
+
+    try {
+        const query = `
+            SELECT 
+                c.razon_social,
+                c.saldo_actual,
+                c.limite_credito,
+                (c.limite_credito - c.saldo_actual) as credito_disponible,
+                COUNT(f.id_factura) as facturas_pendientes,
+                COALESCE(SUM(f.total - COALESCE(f.monto_pagado, 0)), 0) as total_pendiente
+            FROM clientes c
+            LEFT JOIN facturas f ON c.id_cliente = f.id_cliente 
+                AND f.estado = 'emitida' 
+                AND (f.total - COALESCE(f.monto_pagado, 0)) > 0
+            WHERE c.id_cliente = $1 AND c.id_empresa = $2
+            GROUP BY c.id_cliente`;
+
+        const { rows } = await pool.query(query, [id_cliente, id_empresa]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente no encontrado' });
+        }
+
+        res.json(rows[0]);
+
+    } catch (error) {
+        console.error('❌ Error al obtener saldo:', error.message);
+        res.status(500).json({ error: 'Error al obtener saldo' });
+    }
+});
+
+// GET - Facturas pendientes de un cliente
+app.get('/api/clientes/:id/facturas-pendientes', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_cliente = parseInt(req.params.id, 10);
+
+    try {
+        const query = `
+            SELECT 
+                f.id_factura,
+                f.numero_completo,
+                f.fecha_emision,
+                f.fecha_vencimiento,
+                f.total,
+                COALESCE(f.total - f.monto_pagado, f.total) as saldo_pendiente,
+                COALESCE(f.monto_pagado, 0) as pagado,
+                CASE 
+                    WHEN f.fecha_vencimiento < CURRENT_DATE THEN 
+                        CURRENT_DATE - f.fecha_vencimiento
+                    ELSE 0
+                END as dias_vencido,
+                CASE
+                    WHEN f.fecha_vencimiento < CURRENT_DATE THEN 'vencida'
+                    WHEN f.fecha_vencimiento = CURRENT_DATE THEN 'vence_hoy'
+                    ELSE 'vigente'
+                END as estado_vencimiento,
+                ft.codigo as tipo_factura
+            FROM facturas f
+            JOIN factura_tipos ft ON f.id_tipo_factura = ft.id_tipo_factura
+            WHERE f.id_cliente = $1 
+                AND f.id_empresa = $2
+                AND f.estado = 'emitida'
+                AND COALESCE(f.total - f.monto_pagado, f.total) > 0
+            ORDER BY f.fecha_vencimiento ASC`;
+
+        const { rows } = await pool.query(query, [id_cliente, id_empresa]);
+
+        const resumen = {
+            total_facturas: rows.length,
+            total_deuda: 0,
+            vencidas: 0,
+            vigentes: 0,
+            vence_hoy: 0
+        };
+
+        rows.forEach(factura => {
+            resumen.total_deuda += parseFloat(factura.saldo_pendiente);
+            if (factura.estado_vencimiento === 'vencida') resumen.vencidas++;
+            else if (factura.estado_vencimiento === 'vence_hoy') resumen.vence_hoy++;
+            else resumen.vigentes++;
+        });
+
+        res.json({ facturas: rows, resumen });
+
+    } catch (error) {
+        console.error('❌ Error al obtener facturas pendientes:', error.message);
+        res.status(500).json({ error: 'Error al obtener facturas pendientes' });
+    }
+});
+
+// GET - Reporte de aging
+app.get('/api/reportes/aging', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+
+    try {
+        const query = `
+            SELECT 
+                c.id_cliente, c.razon_social, c.cuit_cuil,
+                COALESCE(SUM(f.total - COALESCE(f.monto_pagado, 0)), 0) as deuda_total,
+                COALESCE(SUM(CASE WHEN f.fecha_vencimiento >= CURRENT_DATE THEN f.total - COALESCE(f.monto_pagado, 0) ELSE 0 END), 0) as corriente,
+                COALESCE(SUM(CASE WHEN f.fecha_vencimiento < CURRENT_DATE AND f.fecha_vencimiento >= CURRENT_DATE - 30 THEN f.total - COALESCE(f.monto_pagado, 0) ELSE 0 END), 0) as vencido_1_30,
+                COALESCE(SUM(CASE WHEN f.fecha_vencimiento < CURRENT_DATE - 30 AND f.fecha_vencimiento >= CURRENT_DATE - 60 THEN f.total - COALESCE(f.monto_pagado, 0) ELSE 0 END), 0) as vencido_31_60,
+                COALESCE(SUM(CASE WHEN f.fecha_vencimiento < CURRENT_DATE - 90 THEN f.total - COALESCE(f.monto_pagado, 0) ELSE 0 END), 0) as vencido_mas_90
+            FROM clientes c
+            LEFT JOIN facturas f ON c.id_cliente = f.id_cliente 
+                AND f.estado = 'emitida'
+                AND (f.total - COALESCE(f.monto_pagado, 0)) > 0
+            WHERE c.id_empresa = $1 AND c.activo = TRUE
+            GROUP BY c.id_cliente
+            HAVING COALESCE(SUM(f.total - COALESCE(f.monto_pagado, 0)), 0) > 0
+            ORDER BY deuda_total DESC`;
+
+        const { rows } = await pool.query(query, [id_empresa]);
+        res.json({ clientes: rows });
+
+    } catch (error) {
+        console.error('❌ Error aging:', error.message);
+        res.status(500).json({ error: 'Error al obtener aging' });
+    }
+});
+
+// GET - Facturas pendientes de cobro
+app.get('/api/cobranzas/pendientes', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const { solo_hoy, id_cliente } = req.query;
+
+    try {
+        let query = `
+            SELECT f.id_factura, f.numero_completo, f.fecha_emision, f.fecha_vencimiento,
+                   f.total, COALESCE(f.total - f.monto_pagado, f.total) as saldo_pendiente,
+                   c.id_cliente, c.razon_social
+            FROM facturas f
+            JOIN clientes c ON f.id_cliente = c.id_cliente
+            WHERE f.id_empresa = $1 AND f.estado = 'emitida'
+                AND COALESCE(f.total - f.monto_pagado, f.total) > 0`;
+
+        const params = [id_empresa];
+        if (solo_hoy === 'true') query += ` AND f.fecha_vencimiento = CURRENT_DATE`;
+        if (id_cliente) { query += ` AND f.id_cliente = $2`; params.push(id_cliente); }
+        query += ` ORDER BY f.fecha_vencimiento ASC`;
+
+        const { rows } = await pool.query(query, params);
+        res.json(rows);
+
+    } catch (error) {
+        console.error('❌ Error pendientes:', error.message);
+        res.status(500).json({ error: 'Error al obtener facturas pendientes' });
+    }
+});
+
+// POST - Aplicar pago a facturas
+app.post('/api/cobranzas/aplicar-pago', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const { id_recibo, aplicaciones } = req.body;
+
+    if (!id_recibo || !aplicaciones || aplicaciones.length === 0) {
+        return res.status(400).json({ error: 'Recibo y aplicaciones requeridos' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const reciboRes = await client.query(
+            'SELECT total_recibo, id_cliente FROM recibos WHERE id_recibo = $1 AND id_empresa = $2',
+            [id_recibo, id_empresa]
+        );
+
+        if (reciboRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Recibo no encontrado' });
+        }
+
+        let total_aplicado = 0;
+
+        for (const aplicacion of aplicaciones) {
+            const { id_factura, monto_aplicado } = aplicacion;
+            const monto = parseFloat(monto_aplicado);
+
+            await client.query(
+                'INSERT INTO recibo_facturas (id_recibo, id_factura, monto_aplicado) VALUES ($1, $2, $3)',
+                [id_recibo, id_factura, monto]
+            );
+
+            await client.query(
+                'UPDATE facturas SET monto_pagado = COALESCE(monto_pagado, 0) + $1 WHERE id_factura = $2',
+                [monto, id_factura]
+            );
+
+            total_aplicado += monto;
+        }
+
+        await client.query('COMMIT');
+        res.json({ message: 'Pago aplicado', total_aplicado });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('❌ Error aplicar pago:', error.message);
+        res.status(500).json({ error: 'Error al aplicar pago' });
+    } finally {
+        client.release();
+    }
+});
+
+
+// =======================================================================
+//                   ENDPOINTS DE RECIBOS Y COBRANZAS
+// =======================================================================
+
+// GET - Listar pedidos pendientes de cobro
+app.get('/api/pedidos/pendientes-cobro', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const { id_cliente } = req.query;
+
+    try {
+        let query = `
+            SELECT 
+                p.id_pedido,
+                p.id_cliente,
+                c.razon_social,
+                c.telefono,
+                c.email,
+                p.fecha_creacion,
+                p.total,
+                p.estado_entrega,
+                COALESCE(SUM(pg.monto), 0) as total_pagado,
+                (p.total - COALESCE(SUM(pg.monto), 0)) as saldo_pendiente
+            FROM pedidos p
+            JOIN clientes c ON p.id_cliente = c.id_cliente
+            LEFT JOIN pagos pg ON p.id_pedido = pg.id_pedido
+            WHERE p.id_empresa = $1`;
+        
+        const params = [id_empresa];
+        
+        if (id_cliente) {
+            query += ` AND p.id_cliente = $2`;
+            params.push(parseInt(id_cliente));
+        }
+        
+        query += `
+            GROUP BY p.id_pedido, p.id_cliente, c.razon_social, c.telefono, c.email, p.fecha_creacion, p.total, p.estado_entrega
+            HAVING (p.total - COALESCE(SUM(pg.monto), 0)) > 0
+            ORDER BY p.fecha_creacion DESC`;
+
+        const { rows } = await pool.query(query, params);
+        res.json(rows);
+
+    } catch (error) {
+        console.error('❌ Error al obtener pedidos pendientes:', error.message);
+        res.status(500).json({ error: 'Error al obtener pedidos pendientes' });
+    }
+});
+
+// POST - Crear recibo con formas de pago
+app.post('/api/recibos/crear', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_usuario = req.usuario.id_usuario;
+    const { id_cliente, id_turno, total_recibo, formas_pago, concepto, observaciones } = req.body;
+
+    if (!id_turno || !total_recibo || !formas_pago || formas_pago.length === 0) {
+        return res.status(400).json({ error: 'Faltan datos requeridos' });
+    }
+
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+
+        // Obtener el próximo número de recibo
+        const numeroRes = await client.query(`
+            SELECT COALESCE(MAX(numero_recibo), 0) + 1 as siguiente_numero
+            FROM recibos
+            WHERE id_empresa = $1`, [id_empresa]);
+        
+        const numero_recibo = numeroRes.rows[0].siguiente_numero;
+
+        // Crear el recibo
+        const reciboRes = await client.query(`
+            INSERT INTO recibos (
+                id_empresa, id_turno, id_cliente, id_usuario, 
+                numero_recibo, total_recibo, concepto, observaciones
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING id_recibo, numero_completo`, 
+            [id_empresa, id_turno, id_cliente || null, id_usuario, 
+             numero_recibo, total_recibo, concepto || null, observaciones || null]
+        );
+
+        const id_recibo = reciboRes.rows[0].id_recibo;
+        const numero_completo = reciboRes.rows[0].numero_completo;
+
+        // Insertar formas de pago (recibo_items)
+        for (const fp of formas_pago) {
+            await client.query(`
+                INSERT INTO recibo_items (
+                    id_recibo, id_forma_pago, id_moneda, monto_original, 
+                    cotizacion_usada, monto_convertido, id_tarjeta, cuotas, 
+                    interes_aplicado, monto_interes, monto_con_interes,
+                    id_banco, numero_referencia, fecha_acreditacion, observaciones
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+                [
+                    id_recibo,
+                    fp.id_forma_pago,
+                    fp.id_moneda || 1,
+                    fp.monto_original,
+                    fp.cotizacion_usada || 1,
+                    fp.monto_convertido || fp.monto_original,
+                    fp.id_tarjeta || null,
+                    fp.cuotas || 1,
+                    fp.interes_aplicado || 0,
+                    fp.monto_interes || 0,
+                    fp.monto_con_interes || fp.monto_original,
+                    fp.id_banco || null,
+                    fp.numero_referencia || null,
+                    fp.fecha_acreditacion || null,
+                    fp.observaciones || null
+                ]
+            );
+        }
+
+        await client.query('COMMIT');
+
+        res.json({
+            success: true,
+            id_recibo,
+            numero_completo,
+            message: 'Recibo creado exitosamente'
+        });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('❌ Error al crear recibo:', error.message);
+        res.status(500).json({ error: 'Error al crear recibo: ' + error.message });
+    } finally {
+        client.release();
+    }
+});
+
+// POST - Aplicar recibo a pedidos específicos
+app.post('/api/recibos/:id/aplicar-pedidos', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_recibo = parseInt(req.params.id);
+    const { aplicaciones } = req.body; // [{id_pedido, monto_aplicado}]
+
+    if (!aplicaciones || aplicaciones.length === 0) {
+        return res.status(400).json({ error: 'Debe especificar pedidos a aplicar' });
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        // Verificar que el recibo existe
+        const reciboRes = await client.query(`
+            SELECT total_recibo, id_cliente
+            FROM recibos
+            WHERE id_recibo = $1 AND id_empresa = $2`,
+            [id_recibo, id_empresa]
+        );
+
+        if (reciboRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Recibo no encontrado' });
+        }
+
+        const total_recibo = parseFloat(reciboRes.rows[0].total_recibo);
+        const id_cliente = reciboRes.rows[0].id_cliente;
+        let total_aplicado = 0;
+
+        // Procesar cada aplicación
+        for (const aplicacion of aplicaciones) {
+            const { id_pedido, monto_aplicado } = aplicacion;
+            const monto = parseFloat(monto_aplicado);
+
+            if (monto <= 0) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: 'Los montos deben ser mayores a cero' });
+            }
+
+            // Verificar saldo pendiente del pedido
+            const pedidoRes = await client.query(`
+                SELECT p.total, p.id_cliente,
+                       (p.total - COALESCE(SUM(pg.monto), 0)) as saldo_pendiente
+                FROM pedidos p
+                LEFT JOIN pagos pg ON p.id_pedido = pg.id_pedido
+                WHERE p.id_pedido = $1 AND p.id_empresa = $2
+                GROUP BY p.id_pedido`,
+                [id_pedido, id_empresa]
+            );
+
+            if (pedidoRes.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ error: `Pedido ${id_pedido} no encontrado` });
+            }
+
+            const saldo_pendiente = parseFloat(pedidoRes.rows[0].saldo_pendiente);
+
+            if (monto > saldo_pendiente + 0.01) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ 
+                    error: `Monto $${monto} supera saldo pendiente $${saldo_pendiente} del pedido ${id_pedido}` 
+                });
+            }
+
+            // Crear el pago
+            const pagoRes = await client.query(`
+                INSERT INTO pagos (
+                    id_pedido, id_metodo_pago, fecha_pago, monto, observaciones
+                )
+                VALUES ($1, 6, NOW(), $2, $3)
+                RETURNING id_pago`,
+                [id_pedido, monto, `Aplicado desde recibo #${id_recibo}`]
+            );
+
+            const id_pago = pagoRes.rows[0].id_pago;
+
+            // Vincular recibo con pago
+            await client.query(`
+                INSERT INTO recibopagos (id_recibo, id_pago)
+                VALUES ($1, $2)`,
+                [id_recibo, id_pago]
+            );
+
+            // Registrar en cuenta corriente (HABER - resta deuda)
+            await client.query(`
+                INSERT INTO cuentas_corrientes (
+                    id_empresa, id_cliente, id_pedido, tipo_movimiento,
+                    debe, haber, saldo, concepto
+                )
+                SELECT 
+                    $1, $2, $3, 'pago',
+                    0, $4,
+                    (SELECT COALESCE(MAX(saldo), 0) - $4 FROM cuentas_corrientes WHERE id_cliente = $2),
+                    'Pago recibo ' || r.numero_completo
+                FROM recibos r
+                WHERE r.id_recibo = $5`,
+                [id_empresa, id_cliente, id_pedido, monto, id_recibo]
+            );
+
+            total_aplicado += monto;
+        }
+
+        if (total_aplicado > total_recibo + 0.01) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ 
+                error: `Total aplicado ($${total_aplicado}) supera total del recibo ($${total_recibo})` 
+            });
+        }
+
+        // Si hay saldo a favor (pago mayor a deuda)
+        if (total_aplicado < total_recibo - 0.01) {
+            const saldo_favor = total_recibo - total_aplicado;
+            
+            // Registrar saldo a favor en cuenta corriente
+            await client.query(`
+                INSERT INTO cuentas_corrientes (
+                    id_empresa, id_cliente, tipo_movimiento,
+                    debe, haber, saldo, concepto
+                )
+                VALUES (
+                    $1, $2, 'pago',
+                    0, $3,
+                    (SELECT COALESCE(MAX(saldo), 0) - $3 FROM cuentas_corrientes WHERE id_cliente = $2),
+                    'Saldo a favor - Recibo no aplicado completamente'
+                )`,
+                [id_empresa, id_cliente, saldo_favor]
+            );
+        }
+
+        await client.query('COMMIT');
+
+        res.json({
+            success: true,
+            total_aplicado,
+            pedidos_aplicados: aplicaciones.length,
+            saldo_favor: total_recibo - total_aplicado
+        });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('❌ Error al aplicar recibo:', error.message);
+        res.status(500).json({ error: 'Error al aplicar recibo: ' + error.message });
+    } finally {
+        client.release();
+    }
+});
+
+
+// =======================================================================
+//                   ENDPOINTS DE GENERACIÓN DE DOCUMENTOS
+// =======================================================================
+
+const GeneradorDocumentosPDFKit = require('./modulos/generador-documentos-pdfkit');
+
+// Configuración del generador (ajustar según tu empresa)
+const generador = new GeneradorDocumentosPDFKit({
+    nombreEmpresa: 'LAGO - Ferretería Industrial',
+    email: {
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        auth: {
+            user: process.env.EMAIL_USER || '',
+            pass: process.env.EMAIL_PASS || ''
+        }
+    }
+});
+
+// POST - Generar PDF de recibo
+app.post('/api/recibos/:id/pdf', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_recibo = parseInt(req.params.id);
+
+    try {
+        // Obtener datos del recibo
+        const reciboRes = await pool.query(`
+            SELECT 
+                r.*,
+                c.razon_social as cliente_nombre,
+                c.cuit_cuil as cliente_cuit,
+                e.razon_social as empresa_nombre,
+                e.cuit as empresa_cuit,
+                e.domicilio_fiscal as empresa_direccion
+            FROM recibos r
+            JOIN clientes c ON r.id_cliente = c.id_cliente
+            JOIN empresas e ON r.id_empresa = e.id_empresa
+            WHERE r.id_recibo = $1 AND r.id_empresa = $2
+        `, [id_recibo, id_empresa]);
+
+        if (reciboRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Recibo no encontrado' });
+        }
+
+        const recibo = reciboRes.rows[0];
+
+        // Obtener pedidos aplicados
+        const pedidosRes = await pool.query(`
+            SELECT 
+                p.id_pedido,
+                p.fecha_creacion,
+                p.total,
+                pg.monto as monto_aplicado
+            FROM recibopagos rp
+            JOIN pagos pg ON rp.id_pago = pg.id_pago
+            JOIN pedidos p ON pg.id_pedido = p.id_pedido
+            WHERE rp.id_recibo = $1
+        `, [id_recibo]);
+
+        // Obtener formas de pago
+        const formasPagoRes = await pool.query(`
+            SELECT 
+                fp.nombre as forma_pago,
+                ri.monto_convertido as monto
+            FROM recibo_items ri
+            JOIN formas_pago fp ON ri.id_forma_pago = fp.id_forma_pago
+            WHERE ri.id_recibo = $1
+        `, [id_recibo]);
+
+        // Generar HTML
+        const filasDetalle = pedidosRes.rows.map(p => `
+            <tr>
+                <td>#${p.id_pedido}</td>
+                <td>${new Date(p.fecha_creacion).toLocaleDateString('es-AR')}</td>
+                <td style="text-align: right;">$${parseFloat(p.total).toFixed(2)}</td>
+                <td style="text-align: right;">-</td>
+                <td style="text-align: right;">$${parseFloat(p.monto_aplicado).toFixed(2)}</td>
+            </tr>
+        `).join('');
+
+        const filasFormasPago = formasPagoRes.rows.map(fp => `
+            <tr>
+                <td>${fp.forma_pago}</td>
+                <td style="text-align: right;">$${parseFloat(fp.monto).toFixed(2)}</td>
+            </tr>
+        `).join('');
+
+        // Generar QR con link al recibo
+        const urlRecibo = `${req.protocol}://${req.get('host')}/recibos/${id_recibo}`;
+        const qrCode = await generador.generarQR(urlRecibo);
+
+        const datos = {
+            nombreEmpresa: recibo.empresa_nombre,
+            cuitEmpresa: `CUIT: ${recibo.empresa_cuit}`,
+            direccionEmpresa: recibo.empresa_direccion,
+            telefonoEmpresa: '',
+            numeroRecibo: recibo.numero_completo,
+            fecha: new Date(recibo.fecha_creacion).toLocaleDateString('es-AR'),
+            hora: new Date(recibo.fecha_creacion).toLocaleTimeString('es-AR'),
+            cliente: recibo.cliente_nombre,
+            clienteCuit: recibo.cliente_cuit || 'N/A',
+            filasDetalle: filasDetalle || '<tr><td colspan="5">Cobro a cuenta - Sin aplicar a pedidos</td></tr>',
+            filasFormasPago: filasFormasPago,
+            totalCobrado: `$${parseFloat(recibo.total_recibo).toLocaleString('es-AR', {minimumFractionDigits: 2})}`,
+            qrCode: `<div class="qr-code"><img src="${qrCode}" alt="QR Code"></div>`,
+            fechaGeneracion: new Date().toLocaleString('es-AR')
+        };
+
+        const datosPDF = {
+            nombreEmpresa: recibo.empresa_nombre,
+            cuitEmpresa: 'CUIT: ' + recibo.empresa_cuit,
+            direccionEmpresa: recibo.empresa_direccion,
+            numeroRecibo: recibo.numero_completo,
+            fecha: new Date(recibo.fecha_creacion).toLocaleDateString('es-AR'),
+            hora: new Date(recibo.fecha_creacion).toLocaleTimeString('es-AR'),
+            cliente: recibo.cliente_nombre,
+            clienteCuit: recibo.cliente_cuit || 'N/A',
+            pedidos: pedidosRes.rows.map(p => ({
+                id_pedido: p.id_pedido,
+                fecha: new Date(p.fecha_creacion).toLocaleDateString('es-AR'),
+                total: parseFloat(p.total).toFixed(2),
+                pagado: '-',
+                aplicado: parseFloat(p.monto_aplicado).toFixed(2)
+            })),
+            formasPago: formasPagoRes.rows.map(fp => ({
+                forma: fp.forma_pago,
+                monto: parseFloat(fp.monto).toFixed(2)
+            })),
+            totalCobrado: '$' + parseFloat(recibo.total_recibo).toLocaleString('es-AR', {minimumFractionDigits: 2}),
+            qrCode: qrCode,
+            fechaGeneracion: new Date().toLocaleString('es-AR')
+        };
+
+        const pdfBuffer = await generador.generarPDFRecibo(datosPDF);
+        res.setHeader('Content-Disposition', `attachment; filename="recibo_${recibo.numero_completo}.pdf"`);
+        res.send(pdfBuffer);
+
+    } catch (error) {
+        console.error('❌ Error al generar PDF:', error);
+        res.status(500).json({ error: 'Error al generar PDF: ' + error.message });
+    }
+});
+
+// POST - Enviar recibo por email
+app.post('/api/recibos/:id/email', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_recibo = parseInt(req.params.id);
+    const { email_destino } = req.body;
+
+    if (!email_destino) {
+        return res.status(400).json({ error: 'Email destino requerido' });
+    }
+
+    try {
+        // Generar PDF (reutilizar código anterior)
+        const reciboRes = await pool.query(`
+            SELECT r.*, c.razon_social as cliente_nombre, c.cuit_cuil as cliente_cuit
+            FROM recibos r
+            JOIN clientes c ON r.id_cliente = c.id_cliente
+            WHERE r.id_recibo = $1 AND r.id_empresa = $2
+        `, [id_recibo, id_empresa]);
+
+        if (reciboRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Recibo no encontrado' });
+        }
+
+        const recibo = reciboRes.rows[0];
+
+        // Generar PDF (simplificado para el ejemplo)
+        const html = generador.generarHTMLSimple(
+            `Recibo ${recibo.numero_completo}`,
+            [{ Cliente: recibo.cliente_nombre, Total: `$${recibo.total_recibo}` }]
+        );
+        const pdfBuffer = await generador.generarPDF(html);
+
+        // Enviar email
+        await generador.enviarEmail(
+            email_destino,
+            `Recibo ${recibo.numero_completo} - ${recibo.cliente_nombre}`,
+            `<p>Adjunto encontrará el recibo de pago.</p>`,
+            [{
+                filename: `recibo_${recibo.numero_completo}.pdf`,
+                content: pdfBuffer
+            }]
+        );
+
+        res.json({ success: true, message: 'Email enviado correctamente' });
+
+    } catch (error) {
+        console.error('❌ Error al enviar email:', error);
+        res.status(500).json({ error: 'Error al enviar email: ' + error.message });
+    }
+});
+
+// GET - Generar link de WhatsApp
+app.get('/api/recibos/:id/whatsapp', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_recibo = parseInt(req.params.id);
+
+    try {
+        const reciboRes = await pool.query(`
+            SELECT r.*, c.razon_social as cliente_nombre, c.telefono as cliente_telefono
+            FROM recibos r
+            JOIN clientes c ON r.id_cliente = c.id_cliente
+            WHERE r.id_recibo = $1 AND r.id_empresa = $2
+        `, [id_recibo, id_empresa]);
+
+        if (reciboRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Recibo no encontrado' });
+        }
+
+        const recibo = reciboRes.rows[0];
+        const mensaje = `Hola ${recibo.cliente_nombre}!\n\nTe enviamos el recibo de pago N° ${recibo.numero_completo}\nMonto: $${parseFloat(recibo.total_recibo).toFixed(2)}\n\nGracias por tu pago!`;
+
+        const link = generador.generarLinkWhatsApp(
+            recibo.cliente_telefono || req.query.numero || '',
+            mensaje
+        );
+
+        res.json({ link, mensaje });
+
+    } catch (error) {
+        console.error('❌ Error al generar link WhatsApp:', error);
+        res.status(500).json({ error: 'Error al generar link: ' + error.message });
+    }
+});
+
+// POST - Exportar lista de recibos a Excel
+app.post('/api/recibos/exportar-excel', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const { fecha_desde, fecha_hasta } = req.body;
+
+    try {
+        let query = `
+            SELECT 
+                r.numero_completo,
+                r.fecha_creacion,
+                c.razon_social as cliente,
+                c.cuit,
+                r.total_recibo,
+                r.concepto
+            FROM recibos r
+            JOIN clientes c ON r.id_cliente = c.id_cliente
+            WHERE r.id_empresa = $1
+        `;
+
+        const params = [id_empresa];
+
+        if (fecha_desde) {
+            query += ` AND r.fecha_creacion >= $${params.length + 1}`;
+            params.push(fecha_desde);
+        }
+
+        if (fecha_hasta) {
+            query += ` AND r.fecha_creacion <= $${params.length + 1}`;
+            params.push(fecha_hasta);
+        }
+
+        query += ` ORDER BY r.fecha_creacion DESC`;
+
+        const result = await pool.query(query, params);
+
+        const datos = result.rows.map(r => ({
+            'Número': r.numero_completo,
+            'Fecha': new Date(r.fecha_creacion).toLocaleDateString('es-AR'),
+            'Cliente': r.cliente,
+            'CUIT': r.cuit,
+            'Total': parseFloat(r.total_recibo),
+            'Concepto': r.concepto || ''
+        }));
+
+        const excelBuffer = await generador.generarExcel(datos, {
+            nombreHoja: 'Recibos',
+            columnas: [
+                { header: 'Número', key: 'Número', width: 15 },
+                { header: 'Fecha', key: 'Fecha', width: 12 },
+                { header: 'Cliente', key: 'Cliente', width: 30 },
+                { header: 'CUIT', key: 'CUIT', width: 15 },
+                { header: 'Total', key: 'Total', width: 12 },
+                { header: 'Concepto', key: 'Concepto', width: 30 }
+            ]
+        });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="recibos.xlsx"');
+        res.send(excelBuffer);
+
+    } catch (error) {
+        console.error('❌ Error al exportar Excel:', error);
+        res.status(500).json({ error: 'Error al exportar: ' + error.message });
+    }
+});
+
 //                      GRACEFUL SHUTDOWN
 // =======================================================================
 process.on('SIGTERM', async () => {
@@ -4839,7 +6620,7 @@ process.on('SIGINT', async () => {
 app.post('/api/venta-rapida', verificarToken, async (req, res) => {
     const id_empresa = parseInt(req.usuario.id_empresa, 10);
     const id_usuario = req.usuario.id_usuario;
-    const { items, forma_pago, monto_recibido, observaciones } = req.body;
+    const { items, forma_pago, monto_recibido, observaciones, id_estado } = req.body;
 
     // Validaciones básicas
     if (!items || items.length === 0) {
@@ -4889,14 +6670,14 @@ app.post('/api/venta-rapida', verificarToken, async (req, res) => {
 
         // Crear pedido
         const pedidoQuery = `
-            INSERT INTO pedidos (id_empresa, id_cliente, id_usuario, id_estado, total, observaciones, fecha_creacion)
-            VALUES ($1, $2, $3, 1, $4, $5, now())
-            RETURNING id_pedido`;
-        
+INSERT INTO pedidos (id_empresa, id_cliente, id_usuario, id_estado, total, observaciones, fecha_creacion, token_publico)
+VALUES ($1, $2, $3, $4, $5, $6, now(), md5(random()::text || clock_timestamp()::text))
+RETURNING id_pedido, token_publico`;        
         const pedidoRes = await client.query(pedidoQuery, [
             id_empresa,
             id_cliente,
             id_usuario,
+            id_estado || 1,
             total,
             observaciones || 'Venta rápida - Mostrador'
         ]);
@@ -5038,12 +6819,6 @@ app.post('/api/venta-rapida', verificarToken, async (req, res) => {
     }
 });
 
-// VENTA RÁPIDA - AGREGADO AUTOMÁTICAMENTE
-// =======================================================================
-//                    VENTA RÁPIDA (ENDPOINT CORREGIDO)
-// =======================================================================
-app.post('/api/venta-rapida', verificarToken, async (req, res) => {
-
 // =======================================================================
 //                    ENDPOINT PARA OBTENER PERMISOS DEL USUARIO
 // =======================================================================
@@ -5139,6 +6914,369 @@ app.put('/api/admin/listas-precios/:id', verificarToken, async (req, res) => {
     }
 });
 
+
+// =======================================================================
+//         MÓDULO DE HISTORIAL DE PRECIOS
+// =======================================================================
+
+// GET - Obtener historial de un producto
+app.get('/api/productos/:id/historial-precios', verificarToken, async (req, res) => {
+    const id_producto = parseInt(req.params.id, 10);
+    const { meses = 6 } = req.query;
+
+    try {
+        const query = `
+            SELECT * FROM obtener_historial_producto(
+                $1, 
+                CURRENT_DATE - INTERVAL '${parseInt(meses)} months'
+            )`;
+        
+        const { rows } = await pool.query(query, [id_producto]);
+        
+        res.json({
+            id_producto,
+            total_cambios: rows.length,
+            historial: rows
+        });
+    } catch (error) {
+        console.error('❌ Error al obtener historial:', error.message);
+        res.status(500).json({ error: 'Error al obtener historial de precios' });
+    }
+});
+
+// GET - Ver últimos cambios de precios (todos los productos)
+app.get('/api/historial-precios/recientes', verificarToken, async (req, res) => {
+    const { limite = 50 } = req.query;
+
+    try {
+        const query = `
+            SELECT * FROM v_historial_precios_completo
+            LIMIT $1`;
+        
+        const { rows } = await pool.query(query, [parseInt(limite)]);
+        
+        res.json(rows);
+    } catch (error) {
+        console.error('❌ Error al obtener cambios recientes:', error.message);
+        res.status(500).json({ error: 'Error al obtener cambios recientes' });
+    }
+});
+
+// PUT - Actualizar precio (registra automáticamente en historial)
+app.put('/api/productos/:id/precio', verificarToken, async (req, res) => {
+    const id_producto = parseInt(req.params.id, 10);
+    const id_usuario = req.usuario.id_usuario;
+    const { id_lista_precio, precio_nuevo, motivo } = req.body;
+
+    if (!precio_nuevo || !id_lista_precio) {
+        return res.status(400).json({ error: 'Precio y lista de precios requeridos' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const precioAnterior = await client.query(
+            'SELECT precio FROM precios WHERE id_producto = $1 AND id_lista_precio = $2',
+            [id_producto, id_lista_precio]
+        );
+
+        const precio_viejo = precioAnterior.rows[0]?.precio || null;
+
+        await client.query(
+            'SELECT registrar_cambio_precio($1, $2, $3, $4, $5, $6, $7, $8)',
+            [
+                id_producto,
+                id_lista_precio,
+                precio_viejo,
+                precio_nuevo,
+                id_usuario,
+                motivo || 'Actualización manual',
+                'precio',
+                'manual'
+            ]
+        );
+
+        if (precio_viejo) {
+            await client.query(
+                'UPDATE precios SET precio = $1 WHERE id_producto = $2 AND id_lista_precio = $3',
+                [precio_nuevo, id_producto, id_lista_precio]
+            );
+        } else {
+            await client.query(
+                'INSERT INTO precios (id_producto, id_lista_precio, precio) VALUES ($1, $2, $3)',
+                [id_producto, id_lista_precio, precio_nuevo]
+            );
+        }
+
+        await client.query('COMMIT');
+
+        res.json({
+            message: 'Precio actualizado exitosamente',
+            precio_anterior: precio_viejo,
+            precio_nuevo: precio_nuevo,
+            variacion: precio_viejo ? ((precio_nuevo - precio_viejo) / precio_viejo * 100).toFixed(2) + '%' : 'N/A'
+        });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('❌ Error al actualizar precio:', error.message);
+        res.status(500).json({ error: 'Error al actualizar precio' });
+    } finally {
+        client.release();
+    }
+});
+
+// =======================================================================
+//         MÓDULO DE MULTI-MONEDA
+// =======================================================================
+
+// GET - Obtener cotización actual
+app.get('/api/cotizaciones/:codigo_moneda', verificarToken, async (req, res) => {
+    const { codigo_moneda } = req.params;
+
+    try {
+        const query = `
+            SELECT 
+                m.codigo,
+                m.nombre,
+                m.simbolo,
+                c.valor as cotizacion,
+                c.fecha_cotizacion,
+                c.hora_cotizacion
+            FROM cotizaciones c
+            JOIN monedas m ON c.id_moneda = m.id_moneda
+            WHERE m.codigo = $1
+            ORDER BY c.fecha_cotizacion DESC, c.hora_cotizacion DESC
+            LIMIT 1`;
+        
+        const { rows } = await pool.query(query, [codigo_moneda.toUpperCase()]);
+        
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'No hay cotización disponible' });
+        }
+        
+        res.json(rows[0]);
+    } catch (error) {
+        console.error('❌ Error al obtener cotización:', error.message);
+        res.status(500).json({ error: 'Error al obtener cotización' });
+    }
+});
+
+// POST - Actualizar cotización
+app.post('/api/cotizaciones', verificarToken, async (req, res) => {
+    const { codigo_moneda, valor } = req.body;
+
+    if (req.usuario.rol !== 'admin' && req.usuario.rol !== 'administrador') {
+        return res.status(403).json({ error: 'Solo administradores pueden actualizar cotizaciones' });
+    }
+
+    if (!codigo_moneda || !valor) {
+        return res.status(400).json({ error: 'Código de moneda y valor requeridos' });
+    }
+
+    try {
+        const query = `
+            INSERT INTO cotizaciones (id_moneda, valor, fecha_cotizacion, hora_cotizacion)
+            SELECT id_moneda, $2, CURRENT_DATE, CURRENT_TIME
+            FROM monedas WHERE codigo = $1
+            RETURNING *`;
+        
+        const { rows } = await pool.query(query, [codigo_moneda.toUpperCase(), valor]);
+        
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Moneda no encontrada' });
+        }
+        
+        res.json({
+            message: 'Cotización actualizada',
+            cotizacion: rows[0]
+        });
+    } catch (error) {
+        console.error('❌ Error al actualizar cotización:', error.message);
+        res.status(500).json({ error: 'Error al actualizar cotización' });
+    }
+});
+
+// GET - Convertir monto entre monedas
+app.get('/api/convertir-moneda', verificarToken, async (req, res) => {
+    const { monto, de, a } = req.query;
+
+    if (!monto || !de || !a) {
+        return res.status(400).json({ error: 'Parámetros monto, de y a son requeridos' });
+    }
+
+    try {
+        const result = await pool.query(
+            'SELECT convertir_moneda($1, $2, $3) as monto_convertido',
+            [parseFloat(monto), de.toUpperCase(), a.toUpperCase()]
+        );
+
+        res.json({
+            monto_original: parseFloat(monto),
+            moneda_origen: de.toUpperCase(),
+            moneda_destino: a.toUpperCase(),
+            monto_convertido: parseFloat(result.rows[0].monto_convertido)
+        });
+    } catch (error) {
+        console.error('❌ Error al convertir:', error.message);
+        res.status(500).json({ error: 'Error al convertir moneda' });
+    }
+});
+
+// =======================================================================
+//                    ENDPOINTS DE HISTORIAL DE PRECIOS
+// =======================================================================
+
+// GET - Historial de precios de un producto para un cliente
+app.get('/api/historial-precios/:id_producto/:id_cliente', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_producto = parseInt(req.params.id_producto, 10);
+    const id_cliente = parseInt(req.params.id_cliente, 10);
+    
+    try {
+        const query = `
+            SELECT * FROM vista_historial_precios
+            WHERE id_empresa = $1 AND id_producto = $2 AND id_cliente = $3
+            ORDER BY fecha DESC LIMIT 50`;
+        
+        const { rows } = await pool.query(query, [id_empresa, id_producto, id_cliente]);
+        res.json(rows);
+    } catch (error) {
+        console.error('Error al obtener historial:', error.message);
+        res.status(500).json({ error: 'Error al obtener historial de precios' });
+    }
+});
+
+
+// ========================================================================
+//              TAREA AUTOMÁTICA: LIMPIAR PEDIDOS SUSPENDIDOS VIEJOS
+// ========================================================================
+
+// Ejecutar cada día a las 2 AM
+cron.schedule('0 2 * * *', async () => {
+    try {
+        console.log('🧹 Ejecutando limpieza de pedidos suspendidos antiguos...');
+
+        // Obtener días configurados (por defecto 30)
+        const configRes = await pool.query(
+            "SELECT valor FROM configuracion_sistema WHERE clave = 'dias_retener_suspendidos'"
+        );
+        const diasRetener = parseInt(configRes.rows[0]?.valor || '30');
+
+        const query = `
+            DELETE FROM pedidos 
+            WHERE id_estado = 8 
+            AND fecha_creacion < NOW() - INTERVAL '${diasRetener} days'
+            RETURNING id_pedido
+        `;
+
+        const { rows } = await pool.query(query);
+
+        if (rows.length > 0) {
+            console.log(`✅ Eliminados ${rows.length} pedidos suspendidos antiguos`);
+        }
+    } catch (error) {
+        console.error('❌ Error en limpieza automática:', error.message);
+    }
+});
+
+
+
+
+
+
+
+// ENDPOINT: Crear presupuesto
+app.post('/api/presupuestos', verificarToken, async (req, res) => {
+    try {
+        const { id_cliente, items, fecha_vencimiento, condiciones_pago, observaciones } = req.body;
+        
+        if (!id_cliente || !items || items.length === 0) {
+            return res.status(400).json({ error: 'Cliente e items son requeridos' });
+        }
+
+        let subtotal = 0, totalIVA = 0;
+        for (const item of items) {
+            const precioUnit = parseFloat(item.precio_unitario || 0);
+            const cantidad = parseFloat(item.cantidad || 0);
+            const descuento = parseFloat(item.descuento_porcentaje || 0);
+            
+            const subtotalItem = precioUnit * cantidad;
+            const descuentoMonto = subtotalItem * (descuento / 100);
+            const neto = subtotalItem - descuentoMonto;
+            const iva = neto * 0.21;
+            
+            subtotal += neto;
+            totalIVA += iva;
+        }
+
+        const total = subtotal + totalIVA;
+
+        const presupRes = await pool.query(
+            `INSERT INTO presupuestos(id_empresa, id_cliente, id_usuario, subtotal, total_iva, total,
+                fecha_vencimiento, estado, condiciones_pago, observaciones)
+            VALUES (1, $1, $2, $3, $4, $5, $6, 'pendiente', $7, $8)
+            RETURNING id_presupuesto, numero_presupuesto`,
+            [id_cliente, req.usuario.id_usuario, subtotal, totalIVA, total,
+             fecha_vencimiento, condiciones_pago || '', observaciones || '']
+        );
+
+        const id_presupuesto = presupRes.rows[0].id_presupuesto;
+
+        for (const item of items) {
+            await pool.query(
+                `INSERT INTO presupuesto_items(id_presupuesto, id_producto, cantidad, precio_unitario, descuento_porcentaje)
+                VALUES ($1, $2, $3, $4, $5)`,
+                [id_presupuesto, item.id_producto, item.cantidad, item.precio_unitario, item.descuento_porcentaje || 0]
+            );
+        }
+
+        res.status(201).json({ message: 'Presupuesto creado', id_presupuesto, total });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ENDPOINT: Validar stock
+app.get('/api/productos/:id/stock', verificarToken, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT id_producto, nombre, sku, 
+                    COALESCE(i.cantidad, 0) as stock_actual,
+                    CASE WHEN COALESCE(i.cantidad, 0) <= 0 THEN 'SIN_STOCK'
+                         WHEN COALESCE(i.cantidad, 0) <= 10 THEN 'BAJO_STOCK'
+                         ELSE 'OK' END as estado
+            FROM productos p
+            LEFT JOIN inventario i ON p.id_producto = i.id_producto
+            WHERE p.id_producto = $1`,
+            [req.params.id]
+        );
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ENDPOINT: Historial de precios (ahora funciona porque la tabla existe)
+app.get('/api/productos/:id/historial-precios', verificarToken, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT id_historial, id_producto, precio_anterior, precio_nuevo, fecha_cambio,
+                    ROUND(((precio_nuevo - precio_anterior) / NULLIF(precio_anterior, 0) * 100)::numeric, 2) as porcentaje_cambio
+            FROM historial_precios_ventas
+            WHERE id_producto = $1
+            ORDER BY fecha_cambio DESC
+            LIMIT 50`,
+            [req.params.id]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
@@ -5157,7 +7295,6 @@ app.listen(PORT, '0.0.0.0', () => {
 // ======================================
 // SERVIR ARCHIVOS ESTÁTICOS (Frontend)
 // ======================================
-app.use(express.static('frontend'));
 
 // Ruta raíz redirige al login
 app.get('/', (req, res) => {
@@ -5271,93 +7408,560 @@ app.get('/api/pedidos/:id/ticket', verificarToken, async (req, res) => {
 // =======================================================================
 //                    VENTA RÁPIDA (SIMPLIFICADO)
 // =======================================================================
-app.post('/api/venta-rapida', verificarToken, async (req, res) => {
+app.get('/api/pedidos/suspendidos', verificarToken, async (req, res) => {
     const id_empresa = parseInt(req.usuario.id_empresa, 10);
-    const id_usuario = req.usuario.id_usuario;
-    const { items, observaciones } = req.body;
 
-    if (!items || items.length === 0) {
-        return res.status(400).json({ error: 'Debe incluir al menos un producto' });
-    }
-
-    const client = await pool.connect();
     try {
+        const query = `
+            SELECT 
+                p.id_pedido,
+                p.fecha_creacion,
+                c.razon_social as cliente,
+                p.total,
+                p.observaciones,
+                p.id_cliente,
+                EXTRACT(EPOCH FROM (NOW() - p.fecha_creacion)) / 86400 AS dias_transcurridos
+            FROM pedidos p
+            LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
+            WHERE p.id_empresa = $1 
+            AND p.id_estado = 8
+            ORDER BY p.fecha_creacion DESC
+            LIMIT 50
+        `;
+
+        const { rows } = await pool.query(query, [id_empresa]);
+
+        res.json(rows);
+    } catch (error) {
+        console.error('❌ Error al obtener pedidos suspendidos:', error.message);
+        res.status(500).json({ error: 'Error al obtener pedidos suspendidos' });
+    }
+});
+
+// GET - Recuperar pedido suspendido con sus items
+app.get('/api/pedidos/:id/recuperar', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_pedido = parseInt(req.params.id, 10);
+
+    let client;
+
+    try {
+        client = await pool.connect();
         await client.query('BEGIN');
 
-        let total = 0;
-        for (const item of items) {
-            total += parseFloat(item.cantidad) * parseFloat(item.precio_unitario);
+        // Obtener datos del pedido suspendido
+        const queryPedido = `
+            SELECT 
+                p.*,
+                c.razon_social as cliente_nombre,
+                c.domicilio as cliente_direccion,
+                pe.nombre as estado_nombre
+            FROM pedidos p
+            LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
+            LEFT JOIN pedidoestados pe ON p.id_estado = pe.id_estado
+            WHERE p.id_pedido = $1 
+            AND p.id_empresa = $2 
+            AND p.id_estado = 8
+        `;
+
+        const resultPedido = await client.query(queryPedido, [id_pedido, id_empresa]);
+
+        if (resultPedido.rows.length === 0) {
+            if (client) await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Pedido no encontrado o no está suspendido' });
         }
 
-        const configRes = await client.query(
-            'SELECT valor FROM configuraciones_empresa WHERE id_empresa = $1 AND clave = $2',
-            [id_empresa, 'permitir_stock_negativo']
+        const pedido = resultPedido.rows[0];
+
+        // Obtener items del pedido
+        const queryItems = `
+            SELECT 
+                pi.*,
+                p.nombre as producto_nombre,
+                p.sku as producto_sku,
+                pi.precio_unitario_congelado as precio_unitario
+            FROM pedidoitems pi
+            LEFT JOIN productos p ON pi.id_producto = p.id_producto
+            WHERE pi.id_pedido = $1
+            ORDER BY pi.id_item ASC
+        `;
+
+        const resultItems = await client.query(queryItems, [id_pedido]);
+
+        // 🔄 CAMBIAR ESTADO del pedido en lugar de eliminarlo (para mantener integridad referencial)
+        // Estado 99 = "Recuperado/Inactivo" - Ya no aparece en lista de suspendidos
+        await client.query(
+            'UPDATE pedidos SET id_estado = 99 WHERE id_pedido = $1 AND id_empresa = $2',
+            [id_pedido, id_empresa]
         );
-        const permitirStockNegativo = configRes.rows[0]?.valor === 'true';
-
-        const clienteRes = await client.query(
-            "SELECT id_cliente FROM clientes WHERE id_empresa = $1 AND razon_social ILIKE '%consumidor final%' LIMIT 1",
-            [id_empresa]
-        );
-        const id_cliente_final = clienteRes.rows[0]?.id_cliente;
-
-        const pedidoQuery = `
-            INSERT INTO pedidos (id_empresa, id_cliente, id_usuario, id_estado, total, observaciones, fecha_creacion)
-            VALUES ($1, $2, $3, 1, $4, $5, now())
-            RETURNING id_pedido`;
-        
-        const pedidoRes = await client.query(pedidoQuery, [
-            id_empresa, id_cliente_final, id_usuario, total, observaciones || 'Venta rápida'
-        ]);
-        const id_pedido = pedidoRes.rows[0].id_pedido;
-
-        for (const item of items) {
-            const cantidad = parseFloat(item.cantidad);
-            const precio_unitario = parseFloat(item.precio_unitario);
-
-            if (!permitirStockNegativo) {
-                const stockRes = await client.query(
-                    'SELECT stock_real FROM inventario WHERE id_empresa = $1 AND id_producto = $2',
-                    [id_empresa, item.id_producto]
-                );
-                const stockActual = stockRes.rows[0]?.stock_real || 0;
-                if (stockActual < cantidad) {
-                    await client.query('ROLLBACK');
-                    return res.status(409).json({ error: `Stock insuficiente para "${item.nombre}"` });
-                }
-            }
-
-            const subtotal = cantidad * precio_unitario;
-            const iva = subtotal * 0.21;
-            const total_linea = subtotal + iva;
-
-            await client.query(`
-                INSERT INTO pedidoitems (id_pedido, id_producto, cantidad, precio_unitario_congelado, porcentaje_descuento, iva_aplicado, monto_iva, total_linea)
-                VALUES ($1, $2, $3, $4, 0, 21.00, $5, $6)`,
-                [id_pedido, item.id_producto, cantidad, precio_unitario, iva, total_linea]
-            );
-
-            await client.query(`
-                INSERT INTO inventario (id_empresa, id_producto, stock_real)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (id_empresa, id_producto)
-                DO UPDATE SET stock_real = inventario.stock_real - $4`,
-                [id_empresa, item.id_producto, -cantidad, cantidad]
-            );
-        }
 
         await client.query('COMMIT');
-        res.status(201).json({ success: true, message: 'Venta guardada', id_pedido, total });
 
+        console.log(`✅ Pedido #${id_pedido} recuperado correctamente (estado cambiado a Recuperado)`);
+
+        // Construir respuesta completa
+        const pedidoCompleto = {
+            ...pedido,
+            items: resultItems.rows
+        };
+
+        res.json(pedidoCompleto);
+    } catch (error) {
+        if (client) await client.query('ROLLBACK');
+        console.error('❌ Error al recuperar pedido suspendido:', error.message);
+        res.status(500).json({ error: 'Error al recuperar pedido suspendido' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+
+// GET - Obtener pedido completo por ID (para ver-pedido.html)
+app.get('/api/pedidos/:id', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_pedido = parseInt(req.params.id, 10);
+
+    try {
+        // Obtener datos del pedido
+        const queryPedido = `
+            SELECT 
+                p.*,
+                c.razon_social as cliente_nombre,
+                c.domicilio as cliente_direccion,
+                c.cuit_cuil as cliente_cuit,
+                pe.nombre as estado_nombre,
+                u.username as usuario_nombre
+            FROM pedidos p
+            LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
+            LEFT JOIN pedidoestados pe ON p.id_estado = pe.id_estado
+            LEFT JOIN usuarios u ON p.id_usuario = u.id_usuario
+            WHERE p.id_pedido = $1 
+            AND p.id_empresa = $2
+        `;
+
+        const resultPedido = await pool.query(queryPedido, [id_pedido, id_empresa]);
+
+        if (resultPedido.rows.length === 0) {
+            return res.status(404).json({ error: 'Pedido no encontrado' });
+        }
+
+        const pedido = resultPedido.rows[0];
+
+        // Obtener items del pedido
+        const queryItems = `
+            SELECT 
+                pi.*,
+                p.nombre as producto_nombre,
+                p.sku as producto_sku
+            FROM pedidoitems pi
+            LEFT JOIN productos p ON pi.id_producto = p.id_producto
+            WHERE pi.id_pedido = $1
+            ORDER BY pi.id_item ASC
+        `;
+
+        const resultItems = await pool.query(queryItems, [id_pedido]);
+
+        // Construir respuesta completa
+        const pedidoCompleto = {
+            ...pedido,
+            items: resultItems.rows
+        };
+
+        res.json(pedidoCompleto);
+    } catch (error) {
+        console.error('❌ Error al obtener pedido:', error.message);
+        res.status(500).json({ error: 'Error al obtener pedido' });
+    }
+});
+// PUT - Confirmar pedido suspendido (convertir a estado Confirmado)
+app.put('/api/pedidos/:id/confirmar', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_pedido = parseInt(req.params.id, 10);
+
+    try {
+        // Verificar que el pedido esté suspendido
+        const queryVerificar = `
+            SELECT id_pedido, id_estado 
+            FROM pedidos 
+            WHERE id_pedido = $1 
+            AND id_empresa = $2 
+            AND id_estado = 8
+        `;
+
+        const { rows } = await pool.query(queryVerificar, [id_pedido, id_empresa]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Pedido suspendido no encontrado' });
+        }
+
+        // Actualizar estado a 'Confirmado' (id_estado = 2)
+        const queryActualizar = `
+            UPDATE pedidos 
+            SET id_estado = 2,
+                fecha_creacion = NOW()
+            WHERE id_pedido = $1
+            RETURNING *
+        `;
+
+        const result = await pool.query(queryActualizar, [id_pedido]);
+
+        res.json({ 
+            message: 'Pedido confirmado correctamente',
+            pedido: result.rows[0]
+        });
+    } catch (error) {
+        console.error('❌ Error al confirmar pedido:', error.message);
+        res.status(500).json({ error: 'Error al confirmar pedido' });
+    }
+});
+
+// DELETE - Eliminar pedido suspendido
+app.delete('/api/pedidos/suspendidos/:id', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_pedido = parseInt(req.params.id, 10);
+
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        
+        // Verificar que el pedido esté suspendido
+        const queryVerificar = `
+            SELECT id_pedido, id_estado 
+            FROM pedidos 
+            WHERE id_pedido = $1 
+            AND id_empresa = $2
+        `;
+
+        const { rows } = await client.query(queryVerificar, [id_pedido, id_empresa]);
+
+        if (rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Pedido no encontrado' });
+        }
+
+        if (rows[0].id_estado !== 8) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Solo se pueden eliminar pedidos suspendidos' });
+        }
+
+        // Eliminar items del pedido
+        await client.query('DELETE FROM pedidoitems WHERE id_pedido = $1', [id_pedido]);
+
+        // Eliminar el pedido
+        await client.query('DELETE FROM pedidos WHERE id_pedido = $1', [id_pedido]);
+
+        await client.query('COMMIT');
+        
+        res.json({ 
+            message: 'Pedido suspendido eliminado correctamente',
+            id_pedido: id_pedido
+        });
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Error en venta rápida:', error.message);
-        res.status(500).json({ error: 'Error al procesar venta' });
+        console.error('❌ Error al eliminar pedido suspendido:', error.message);
+        res.status(500).json({ error: 'Error al eliminar pedido suspendido' });
     } finally {
         client.release();
     }
 });
+// ============================================
+// ENDPOINTS PARA PEDIDOS: PDF, EMAIL, WHATSAPP
+// Agregar después de la línea 7082 en server.js
+// (después del DELETE /api/pedidos/suspendidos/:id)
+// ============================================
 
+// ===== GET - Generar PDF de pedido =====
+app.get('/api/pedidos/:id/pdf', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_pedido = parseInt(req.params.id, 10);
+
+    try {
+        // Obtener datos del pedido con información completa
+        const queryPedido = `
+            SELECT 
+                p.*,
+                c.razon_social as cliente_nombre,
+                c.domicilio as cliente_direccion,
+                c.cuit_cuil as cliente_cuit,
+                c.telefono as cliente_telefono,
+                c.email as cliente_email,
+                pe.nombre as estado_nombre,
+                u.username as usuario_nombre,
+                e.razon_social as empresa_razon_social,
+                e.nombre_fantasia as empresa_nombre_fantasia,
+                e.domicilio_fiscal as empresa_domicilio,
+                e.cuit as empresa_cuit,
+                e.telefono as empresa_telefono,
+                e.email as empresa_email
+            FROM pedidos p
+            LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
+            LEFT JOIN pedidoestados pe ON p.id_estado = pe.id_estado
+            LEFT JOIN usuarios u ON p.id_usuario = u.id_usuario
+            LEFT JOIN empresas e ON p.id_empresa = e.id_empresa
+            WHERE p.id_pedido = $1 AND p.id_empresa = $2
+        `;
+
+        const resultPedido = await pool.query(queryPedido, [id_pedido, id_empresa]);
+
+        if (resultPedido.rows.length === 0) {
+            return res.status(404).json({ error: 'Pedido no encontrado' });
+        }
+
+        const pedido = resultPedido.rows[0];
+
+        // Obtener items del pedido
+        const queryItems = `
+            SELECT 
+                pi.*,
+                p.nombre as producto_nombre,
+                p.sku as producto_sku
+            FROM pedidoitems pi
+            LEFT JOIN productos p ON pi.id_producto = p.id_producto
+            WHERE pi.id_pedido = $1
+            ORDER BY pi.id_item ASC
+        `;
+
+        const resultItems = await pool.query(queryItems, [id_pedido]);
+
+        // Construir datos completos para el PDF
+        const pedidoData = {
+            ...pedido,
+            items: resultItems.rows
+        };
+
+        // Generar PDF usando pdfGenerator
+        pdfGenerator.generarPedidoPDF(pedidoData, (err, pdfBuffer) => {
+            if (err) {
+                console.error('❌ Error al generar PDF de pedido:', err);
+                return res.status(500).json({ error: 'Error al generar PDF' });
+            }
+
+            // Enviar PDF
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=pedido_${id_pedido}.pdf`);
+            res.send(pdfBuffer);
+        });
+
+    } catch (error) {
+        console.error('❌ Error al generar PDF de pedido:', error.message);
+        res.status(500).json({ error: 'Error al generar PDF de pedido' });
+    }
+});
+
+// ===== POST - Enviar pedido por email =====
+app.post('/api/pedidos/:id/email', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_pedido = parseInt(req.params.id, 10);
+    const { email_destino, asunto, mensaje } = req.body;
+
+    try {
+        // Obtener datos del pedido
+        const queryPedido = `
+            SELECT 
+                p.*,
+                c.razon_social as cliente_nombre,
+                c.domicilio as cliente_direccion,
+                c.cuit_cuil as cliente_cuit,
+                c.email as cliente_email,
+                pe.nombre as estado_nombre,
+                e.razon_social as empresa_razon_social,
+                e.nombre_fantasia as empresa_nombre_fantasia,
+                e.domicilio_fiscal as empresa_domicilio,
+                e.cuit as empresa_cuit,
+                e.telefono as empresa_telefono,
+                e.email as empresa_email
+            FROM pedidos p
+            LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
+            LEFT JOIN pedidoestados pe ON p.id_estado = pe.id_estado
+            LEFT JOIN empresas e ON p.id_empresa = e.id_empresa
+            WHERE p.id_pedido = $1 AND p.id_empresa = $2
+        `;
+
+        const resultPedido = await pool.query(queryPedido, [id_pedido, id_empresa]);
+
+        if (resultPedido.rows.length === 0) {
+            return res.status(404).json({ error: 'Pedido no encontrado' });
+        }
+
+        const pedido = resultPedido.rows[0];
+
+        // Validar email destino
+        const emailFinal = email_destino || pedido.cliente_email;
+        if (!emailFinal) {
+            return res.status(400).json({ error: 'El cliente no tiene email registrado. Proporcione un email destino.' });
+        }
+
+        // Obtener items
+        const queryItems = `
+            SELECT 
+                pi.*,
+                p.nombre as producto_nombre,
+                p.sku as producto_sku
+            FROM pedidoitems pi
+            LEFT JOIN productos p ON pi.id_producto = p.id_producto
+            WHERE pi.id_pedido = $1
+            ORDER BY pi.id_item ASC
+        `;
+
+        const resultItems = await pool.query(queryItems, [id_pedido]);
+
+        const pedidoData = {
+            ...pedido,
+            items: resultItems.rows
+        };
+
+        // Generar PDF
+        pdfGenerator.generarPedidoPDF(pedidoData, async (err, pdfBuffer) => {
+            if (err) {
+                console.error('❌ Error al generar PDF para email:', err);
+                return res.status(500).json({ error: 'Error al generar PDF' });
+            }
+
+            try {
+                // Calcular total
+                const total = parseFloat(pedido.total || 0).toFixed(2);
+
+                // Asunto por defecto
+                const asuntoFinal = asunto || `Pedido #${id_pedido} - ${pedido.empresa_razon_social || 'ERP LAGO'}`;
+
+                // Mensaje por defecto
+                const mensajeHTML = mensaje || `
+                    <h2>Pedido #${id_pedido}</h2>
+                    <p>Estimado/a <strong>${pedido.cliente_nombre || 'Cliente'}</strong>,</p>
+                    <p>Adjuntamos el pedido solicitado.</p>
+                    <p><strong>Fecha:</strong> ${new Date(pedido.fecha_creacion).toLocaleDateString('es-AR')}</p>
+                    <p><strong>Estado:</strong> ${pedido.estado_nombre || 'Pendiente'}</p>
+                    <p><strong>Total:</strong> $${total}</p>
+                    ${pedido.observaciones ? `<p><strong>Observaciones:</strong> ${pedido.observaciones}</p>` : ''}
+                    <br>
+                    <p>Saludos cordiales,<br>
+                    ${pedido.empresa_razon_social || 'ERP LAGO'}</p>
+                `;
+
+                // Enviar email usando el generador
+                await generador.enviarEmail(
+                    emailFinal,
+                    asuntoFinal,
+                    mensajeHTML,
+                    [{
+                        filename: `pedido_${id_pedido}.pdf`,
+                        content: pdfBuffer
+                    }]
+                );
+
+                res.json({ 
+                    success: true, 
+                    message: 'Email enviado correctamente',
+                    destinatario: emailFinal
+                });
+
+            } catch (emailError) {
+                console.error('❌ Error al enviar email:', emailError);
+                res.status(500).json({ error: 'Error al enviar email: ' + emailError.message });
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error al enviar pedido por email:', error.message);
+        res.status(500).json({ error: 'Error al enviar email de pedido' });
+    }
+});
+
+// ===== GET - Generar link de WhatsApp para pedido =====
+app.get('/api/pedidos/:id/whatsapp', verificarToken, async (req, res) => {
+    const id_empresa = parseInt(req.usuario.id_empresa, 10);
+    const id_pedido = parseInt(req.params.id, 10);
+
+    try {
+        // Obtener datos del pedido
+        const queryPedido = `
+            SELECT 
+                p.*,
+                c.razon_social as cliente_nombre,
+                c.telefono as cliente_telefono,
+                c.domicilio as cliente_direccion,
+                pe.nombre as estado_nombre,
+                e.razon_social as empresa_razon_social
+            FROM pedidos p
+            LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
+            LEFT JOIN pedidoestados pe ON p.id_estado = pe.id_estado
+            LEFT JOIN empresas e ON p.id_empresa = e.id_empresa
+            WHERE p.id_pedido = $1 AND p.id_empresa = $2
+        `;
+
+        const resultPedido = await pool.query(queryPedido, [id_pedido, id_empresa]);
+
+        if (resultPedido.rows.length === 0) {
+            return res.status(404).json({ error: 'Pedido no encontrado' });
+        }
+
+        const pedido = resultPedido.rows[0];
+
+        // Validar teléfono
+        // Validar teléfono
+        if (!pedido.cliente_telefono) {
+            // No tiene teléfono - devolver info para que el frontend pida el número
+            return res.json({
+                success: true,
+                requiere_telefono: true,
+                pedido: {
+                    id: id_pedido,
+                    cliente: pedido.cliente_nombre,
+                    token_publico: pedido.token_publico,
+                    total: parseFloat(pedido.total || 0).toFixed(2)
+                }
+            });
+        }
+
+
+        // Formatear teléfono (eliminar espacios, guiones, etc)
+        let telefono = pedido.cliente_telefono.replace(/\D/g, '');
+        
+        // Agregar código de país si no lo tiene (Argentina: 54)
+        if (!telefono.startsWith('54') && telefono.length === 10) {
+            telefono = '54' + telefono;
+        }
+
+        // Calcular total
+        const total = parseFloat(pedido.total || 0).toFixed(2);
+
+        // Crear mensaje de WhatsApp
+        const mensaje = `
+*Pedido #${id_pedido}*
+
+Hola ${pedido.cliente_nombre || 'Cliente'}!
+
+Le enviamos el detalle de su pedido:
+
+📅 *Fecha:* ${new Date(pedido.fecha_creacion).toLocaleDateString('es-AR')}
+📊 *Estado:* ${pedido.estado_nombre || 'Pendiente'}
+💰 *Total:* $${total}
+
+${pedido.observaciones ? `📝 *Observaciones:* ${pedido.observaciones}
+
+` : ''}Para más detalles, puede visualizar su pedido en:
+${req.protocol}://${req.get('host')}/ver-pedido-publico.html?token=${pedido.token_publico}
+
+Saludos,
+${pedido.empresa_razon_social || 'ERP LAGO'}
+        `.trim();
+
+        // Generar link de WhatsApp
+        const whatsappLink = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
+
+        res.json({
+            success: true,
+            telefono: pedido.cliente_telefono,
+            whatsapp_link: whatsappLink,
+            mensaje: mensaje
+        });
+
+    } catch (error) {
+        console.error('❌ Error al generar link de WhatsApp:', error.message);
+        res.status(500).json({ error: 'Error al generar link de WhatsApp' });
+    }
+});
 
 // =======================================================================
 //                    ENDPOINT: VERIFICAR PERMISOS
@@ -5638,12 +8242,4 @@ app.delete('/api/admin/usuarios/:id', verificarToken, verificarAdmin, async (req
         console.error('Error al desactivar usuario:', error.message);
         res.status(500).json({ error: 'Error al desactivar usuario' });
     }
-});
-
-
-// =======================================================================
-//                    MÓDULO DE ADMINISTRACIÓN DE USUARIOS
-// =======================================================================
-
-// Middleware para verificar que es admin
 });

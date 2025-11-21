@@ -1,37 +1,82 @@
 #!/bin/bash
 set -e
 
-# Configuración
+# ========================================================================
+# BACKUP AUTOMÁTICO COMPLETO - ERP LAGO
+# Base de datos + Archivos del sistema
+# ========================================================================
+
 BACKUP_DIR="/root/mi_erp/backups"
-MAX_BACKUPS=15
+DB_BACKUP_DIR="$BACKUP_DIR/database"
+FILES_BACKUP_DIR="$BACKUP_DIR/files"
+MAX_BACKUPS=3
 DB_USER="juanpablo"
 DB_NAME="erplago"
-DB_PASSWORD="Huu3697debian@"  # Cámbiala después por seguridad
-TIMESTAMP=$(date +%Y%m%d_%H%M)
-BACKUP_FILE="$BACKUP_DIR/backup_erplago_$TIMESTAMP.dump"
+DB_PASSWORD="Huu3697debian@"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+APP_DIR="/root/mi_erp"
 
-# Crear directorio si no existe
-mkdir -p $BACKUP_DIR
+mkdir -p "$DB_BACKUP_DIR"
+mkdir -p "$FILES_BACKUP_DIR"
 
-# Hacer backup de la base de datos
-echo "$(date): Iniciando backup..." >> $BACKUP_DIR/backup.log
+echo "==========================================" | tee -a $BACKUP_DIR/backup.log
+echo "$(date): Iniciando backup completo..." | tee -a $BACKUP_DIR/backup.log
+echo "==========================================" | tee -a $BACKUP_DIR/backup.log
+
+# 1. BACKUP DE BASE DE DATOS
+DB_BACKUP_FILE="$DB_BACKUP_DIR/backup_erplago_$TIMESTAMP.dump"
+echo "$(date): Haciendo backup de BD..." | tee -a $BACKUP_DIR/backup.log
+
 export PGPASSWORD="$DB_PASSWORD"
-pg_dump -U $DB_USER -h localhost -d $DB_NAME -F c -b -f "$BACKUP_FILE" 2>&1 | tee -a $BACKUP_DIR/backup.log
+pg_dump -U $DB_USER -h localhost -d $DB_NAME -F c -b -f "$DB_BACKUP_FILE" 2>&1 | tee -a $BACKUP_DIR/backup.log
 unset PGPASSWORD
 
-# Comprimir el backup
-gzip "$BACKUP_FILE"
-BACKUP_FILE="${BACKUP_FILE}.gz"
+gzip "$DB_BACKUP_FILE"
+DB_BACKUP_FILE="${DB_BACKUP_FILE}.gz"
+DB_SIZE=$(du -h "$DB_BACKUP_FILE" | cut -f1)
+echo "$(date): BD completado - $DB_SIZE" | tee -a $BACKUP_DIR/backup.log
 
-# Calcular tamaño
-BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
-echo "$(date): Backup completado - $BACKUP_SIZE" >> $BACKUP_DIR/backup.log
+# 2. BACKUP DE ARCHIVOS
+FILES_BACKUP_FILE="$FILES_BACKUP_DIR/mi_erp_files_$TIMESTAMP.tar.gz"
+echo "$(date): Haciendo backup de archivos..." | tee -a $BACKUP_DIR/backup.log
 
-# Eliminar backups antiguos (mantener solo los últimos 15)
-cd $BACKUP_DIR
-ls -t backup_erplago_*.dump.gz | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -f
-echo "$(date): Limpieza completada. Backups actuales: $(ls -1 backup_erplago_*.dump.gz 2>/dev/null | wc -l)" >> $BACKUP_DIR/backup.log
+tar -czf "$FILES_BACKUP_FILE" \
+    --exclude="$APP_DIR/node_modules" \
+    --exclude="$APP_DIR/backups" \
+    --exclude="$APP_DIR/*.log" \
+    --exclude="$APP_DIR/.git" \
+    -C "$(dirname $APP_DIR)" \
+    "$(basename $APP_DIR)" 2>&1 | tee -a $BACKUP_DIR/backup.log
 
-# Mantener solo las últimas 100 líneas del log
-tail -n 100 $BACKUP_DIR/backup.log > $BACKUP_DIR/backup.log.tmp
-mv $BACKUP_DIR/backup.log.tmp $BACKUP_DIR/backup.log
+FILES_SIZE=$(du -h "$FILES_BACKUP_FILE" | cut -f1)
+echo "$(date): Archivos completado - $FILES_SIZE" | tee -a $BACKUP_DIR/backup.log
+
+# 3. BACKUP DEL .ENV
+if [ -f "$APP_DIR/.env" ]; then
+    cp "$APP_DIR/.env" "$FILES_BACKUP_DIR/.env_$TIMESTAMP"
+    chmod 600 "$FILES_BACKUP_DIR/.env_$TIMESTAMP"
+    echo "$(date): .env respaldado" | tee -a $BACKUP_DIR/backup.log
+fi
+
+# 4. LIMPIEZA
+echo "$(date): Limpiando backups antiguos..." | tee -a $BACKUP_DIR/backup.log
+
+cd "$DB_BACKUP_DIR"
+ls -t backup_erplago_*.dump.gz 2>/dev/null | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -f
+BD_COUNT=$(ls -1 backup_erplago_*.dump.gz 2>/dev/null | wc -l)
+
+cd "$FILES_BACKUP_DIR"
+ls -t mi_erp_files_*.tar.gz 2>/dev/null | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -f
+FILES_COUNT=$(ls -1 mi_erp_files_*.tar.gz 2>/dev/null | wc -l)
+
+ls -t .env_* 2>/dev/null | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -f
+
+TOTAL_SIZE=$(du -sh "$BACKUP_DIR" | cut -f1)
+echo "==========================================" | tee -a $BACKUP_DIR/backup.log
+echo "$(date): RESUMEN" | tee -a $BACKUP_DIR/backup.log
+echo "BD: $DB_SIZE | Archivos: $FILES_SIZE" | tee -a $BACKUP_DIR/backup.log
+echo "Total: $TOTAL_SIZE | Backups: BD=$BD_COUNT, Files=$FILES_COUNT" | tee -a $BACKUP_DIR/backup.log
+echo "==========================================" | tee -a $BACKUP_DIR/backup.log
+
+tail -n 200 "$BACKUP_DIR/backup.log" > "$BACKUP_DIR/backup.log.tmp"
+mv "$BACKUP_DIR/backup.log.tmp" "$BACKUP_DIR/backup.log"
