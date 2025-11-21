@@ -91,13 +91,6 @@ const verificarToken = (req, res, next) => {
     }
 };
 
-// =======================================================================
-//                    RUTAS MODULARES (AUTH) ✅
-// =======================================================================
-const routesModulares = require('./routes');
-app.use('/api', routesModulares);
-
-
 // ✅ RATE LIMITING PARA LOGIN
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos

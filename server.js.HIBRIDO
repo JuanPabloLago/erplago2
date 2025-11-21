@@ -69,6 +69,12 @@ pool.query('SELECT NOW()', (err, res) => {
     else console.log('✅ Conexión a la base de datos exitosa:', res.rows[0].now);
 });
 
+// =======================================================================
+//                    RUTAS MODULARES NUEVAS ✅
+// =======================================================================
+const routesModulares = require('./routes');
+app.use('/api', routesModulares);
+
 // 5. MIDDLEWARE DE AUTENTICACIÓN
 const verificarToken = (req, res, next) => {
     const bearerHeader = req.headers['authorization'];
@@ -90,13 +96,6 @@ const verificarToken = (req, res, next) => {
         res.status(401).json({ error: 'Token no proporcionado' });
     }
 };
-
-// =======================================================================
-//                    RUTAS MODULARES (AUTH) ✅
-// =======================================================================
-const routesModulares = require('./routes');
-app.use('/api', routesModulares);
-
 
 // ✅ RATE LIMITING PARA LOGIN
 const loginLimiter = rateLimit({
