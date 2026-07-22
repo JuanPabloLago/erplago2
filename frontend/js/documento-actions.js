@@ -8,7 +8,7 @@ const DocumentoActions = (function() {
     'use strict';
 
     // Configuración
-    const API_URL = 'http://72.60.148.18:3000/api';
+    const API_URL = window.CONFIG?.API_BASE_URL || '/api';
     let whatsappWindow = null; // Rastrear ventana de WhatsApp
 
     /**

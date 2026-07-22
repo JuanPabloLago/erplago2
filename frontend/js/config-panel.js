@@ -8,7 +8,7 @@
 const CONFIG = {
     API_URL: window.location.hostname === 'localhost' 
         ? 'http://localhost:3000/api' 
-        : 'http://72.60.148.18:3000/api'
+        : window.location.protocol + '//' + window.location.hostname + ':3000/api'
 };
 
 /**
@@ -40,7 +40,7 @@ async function cargarConfiguracion() {
             fetch(`${CONFIG.API_URL}/listas-precios`, {
                 headers: getAuthHeaders()
             }),
-            fetch(`${CONFIG.API_URL}/configuracion-usuario`, {
+            fetch(`${CONFIG.API_URL}/auth/configuracion`, {
                 headers: getAuthHeaders()
             })
         ]);
@@ -66,14 +66,15 @@ async function cargarConfiguracion() {
  * @param {boolean} permitir_venta_sin_stock - Permitir ventas sin stock
  * @returns {Promise<object|null>} Resultado de la operación
  */
-async function guardarConfiguracion(id_lista_precio, permitir_venta_sin_stock) {
+async function guardarConfiguracion(id_lista_precio, permitir_venta_sin_stock, permitir_cambiar_precio) {
     try {
-        const response = await fetch(`${CONFIG.API_URL}/configuracion-usuario`, {
+        const response = await fetch(`${CONFIG.API_URL}/auth/configuracion`, {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify({
                 id_lista_precio,
-                permitir_venta_sin_stock
+                permitir_venta_sin_stock,
+                permitir_cambiar_precio
             })
         });
         
@@ -163,6 +164,19 @@ function mostrarPanelConfiguracion() {
                             </div>
                         </div>
                         
+                        <!-- Modificar precios en venta -->
+                        <div class="mb-3" id="divCambiarPrecio">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="checkCambiarPrecio" role="switch">
+                                <label class="form-check-label fw-bold" for="checkCambiarPrecio">
+                                    <i class="bi bi-currency-dollar"></i> Permitir modificar precios en venta
+                                </label>
+                            </div>
+                            <div class="form-text">
+                                Si está activo, se podrá cambiar el precio unitario durante la venta
+                            </div>
+                        </div>
+
                         <!-- Nota informativa -->
                         <div class="alert alert-info d-flex align-items-center" role="alert">
                             <i class="bi bi-info-circle me-2 fs-4"></i>
@@ -287,6 +301,13 @@ function configurarVentaSinStock(config, permisos) {
     
     // Establecer valor actual
     checkVentaSinStock.checked = config.permitir_venta_sin_stock || false;
+
+    // Config cambiar precio
+    const checkCambiarPrecio = document.getElementById('checkCambiarPrecio');
+    if (checkCambiarPrecio) {
+        checkCambiarPrecio.checked = config.permitir_cambiar_precio || false;
+        checkCambiarPrecio.disabled = !(permisos.puede_vender_sin_stock);
+    }
     
     if (!permisos.puede_vender_sin_stock) {
         // Usuario NO puede modificar esta opción
@@ -429,7 +450,7 @@ setInterval(() => {
     const token = getAuthToken();
     if (!token && window.location.pathname !== '/login.html') {
         console.warn('⚠️ No hay token de autenticación');
-        window.location.href = 'login.html';
+        console.warn('Sin token - server-side redirigira');
     }
 }, 30000); // Cada 30 segundos
 

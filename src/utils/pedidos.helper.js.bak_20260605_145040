@@ -1,0 +1,1256 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * PEDIDOS HELPER — ERP LAGO
+ * Centralización de TODAS las escrituras a: pedidos, pedidoitems, borrador_items_log
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * REGLA: Ningún controller escribe directamente en estas tablas.
+ *        Todo pasa por este helper.
+ *
+ * CONSUMIDORES:
+ *   - borrador.controller.js    (venta rápida - ciclo borrador)
+ *   - pedidos.controller.js     (retiro inmediato, guardar p/entregar, suspender)
+ *   - despachos.controller.js   (actualizar cantidades remitidas/entregadas)
+ *   - facturacion.helper.js     (marcarPedidoFacturado — ya existente)
+ *
+ * TABLAS:
+ *   - pedidos           (INSERT, UPDATE)
+ *   - pedidoitems       (INSERT, UPDATE, DELETE)
+ *   - borrador_items_log (INSERT — auditoría)
+ *
+ * Fecha: 2026-02-21 | Fase 2
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+const logger = require('./logger');
+// F1.5: orquestador único de ajustes por forma de pago — invoca helpers especializados
+const recargosHelper = require('./recargos.helper');
+const ccClientesHelper = require('./cc-clientes.helper');
+const { guardEntry } = require('./db-guard.helper'); // D1: Validación multi-empresa
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONSTANTES
+// ═══════════════════════════════════════════════════════════════════════════
+
+const PEDIDO_ESTADOS = {
+    DESCARTADO: -2,
+    BORRADOR: -1,
+    COTIZACION: 0,
+    PENDIENTE: 1,
+    CONFIRMADO: 2,
+    FACTURADO: 3,
+    EN_PREPARACION: 4,
+    ENVIADO: 5,
+    ENTREGADO: 6,
+    CANCELADO: 7,
+    SUSPENDIDO: 8,
+    RECUPERADO: 99
+};
+
+const TIPOS_ENTREGA = {
+    RETIRO: 'retiro',
+    ENTREGA: 'entrega',
+    ENVIO: 'envio'
+};
+
+const LOG_ACCIONES = {
+    AGREGADO: 'AGREGADO',
+    MODIFICADO: 'MODIFICADO',
+    PRECIO_MODIFICADO: 'PRECIO_MODIFICADO',
+    ELIMINADO: 'ELIMINADO',
+    CANTIDAD_MODIFICADA: 'CANTIDAD_MODIFICADA'
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 1. CREAR PEDIDO
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Inserta un nuevo registro en la tabla pedidos.
+ * ÚNICO punto de INSERT INTO pedidos en todo el sistema.
+ *
+ * @param {Object} client - DB client (dentro de transacción)
+ * @param {Object} datos
+ * @param {number} datos.id_empresa - OBLIGATORIO
+ * @param {number} datos.id_usuario - OBLIGATORIO
+ * @param {number} datos.id_estado - OBLIGATORIO (usar PEDIDO_ESTADOS)
+ * @param {number} [datos.id_cliente] - null para borradores sin cliente
+ * @param {number} [datos.id_moneda=1] - 1=ARS
+ * @param {number} [datos.cotizacion] - cotización de moneda extranjera
+ * @param {string} [datos.tipo_entrega='retiro']
+ * @param {string} [datos.observaciones='']
+ * @param {string} [datos.domicilio_entrega]
+ * @param {string} [datos.fecha_entrega_pactada]
+ * @param {string} [datos.estado_entrega]
+ * @param {Object} [datos.totales] - {subtotal_sin_iva, descuento_monto, subtotal_con_descuento, total_iva, total_final}
+ * @param {number} [datos.descuento_general=0]
+ * @param {number} [datos.total_moneda_extranjera]
+ * @returns {Object} Pedido creado (RETURNING *)
+ */
+async function crearPedido(client, datos) {
+    guardEntry(client, datos, ['id_empresa', 'id_usuario', 'id_estado'], 'crearPedido');
+
+    const {
+        id_empresa,
+        id_usuario,
+        id_estado,
+        id_cliente = null,
+        id_moneda = 1,
+        cotizacion = null,
+        tipo_entrega = TIPOS_ENTREGA.RETIRO,
+        observaciones = '',
+        domicilio_entrega = null,
+        fecha_entrega_pactada = null,
+        estado_entrega = null,
+        totales = null,
+        descuento_general = 0,
+        total_moneda_extranjera = null
+    } = datos;
+
+    // Validaciones obligatorias
+    if (!id_empresa) throw new Error('pedidos.helper.crearPedido: id_empresa obligatorio');
+    if (!id_usuario) throw new Error('pedidos.helper.crearPedido: id_usuario obligatorio');
+    if (id_estado === undefined || id_estado === null) throw new Error('pedidos.helper.crearPedido: id_estado obligatorio');
+
+    // Totales: usar los proporcionados o defaults en 0
+    const t = totales || {};
+    const subtotal_sin_iva = parseFloat(t.subtotal_sin_iva) || 0;
+    const descuento_monto = parseFloat(t.descuento_monto) || 0;
+    const subtotal_con_descuento = parseFloat(t.subtotal_con_descuento) || subtotal_sin_iva;
+    const total_iva = parseFloat(t.total_iva) || 0;
+    const total_final = parseFloat(t.total_final) || 0;
+
+    const { rows } = await client.query(`
+        INSERT INTO pedidos (
+            id_empresa, id_cliente, id_estado, id_usuario,
+            subtotal_sin_iva, descuento_general, descuento_monto,
+            subtotal_con_descuento, total_iva, total_final, total,
+            observaciones, tipo_entrega,
+            domicilio_entrega, fecha_entrega_pactada,
+            id_moneda, cotizacion, total_moneda_extranjera,
+            estado_entrega
+        ) VALUES (
+            $1, $2, $3, $4,
+            $5, $6, $7,
+            $8, $9, $10, $11,
+            $12, $13,
+            $14, $15,
+            $16, $17, $18,
+            $19
+        ) RETURNING *
+    `, [
+        id_empresa,
+        id_cliente,
+        id_estado,
+        id_usuario,
+        subtotal_sin_iva,
+        descuento_general,
+        descuento_monto,
+        subtotal_con_descuento,
+        total_iva,
+        total_final,
+        total_final, // total = total_final (compatibilidad)
+        observaciones,
+        tipo_entrega,
+        domicilio_entrega,
+        fecha_entrega_pactada,
+        id_moneda,
+        cotizacion,
+        total_moneda_extranjera,
+        estado_entrega
+    ]);
+
+    const pedido = rows[0];
+    logger.info(`[pedidos.helper] Pedido #${pedido.id_pedido} creado | empresa=${id_empresa} estado=${id_estado} usuario=${id_usuario}`);
+
+    return pedido;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2. CREAR ITEMS (batch)
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Inserta uno o más items en pedidoitems.
+ * ÚNICO punto de INSERT INTO pedidoitems en todo el sistema.
+ *
+ * @param {Object} client - DB client
+ * @param {number} id_pedido
+ * @param {number} id_empresa
+ * @param {Array} items - [{id_producto, cantidad, descripcion_congelada, precio_unitario_congelado,
+ *                          porcentaje_descuento, monto_iva, total_linea, iva_aplicado, cantidad_entregada}]
+ * @returns {Array} Items creados con id_item
+ */
+async function crearItems(client, id_pedido, id_empresa, items) {
+    if (!id_pedido) throw new Error('pedidos.helper.crearItems: id_pedido obligatorio');
+    if (!id_empresa) throw new Error('pedidos.helper.crearItems: id_empresa obligatorio');
+    if (!items || items.length === 0) throw new Error('pedidos.helper.crearItems: items vacío');
+
+    const itemsCreados = [];
+
+    for (const item of items) {
+        const cantidad = parseFloat(item.cantidad) || 0;
+        const precio = parseFloat(item.precio_unitario_congelado) || 0;
+        const descuento = parseFloat(item.porcentaje_descuento) || 0;
+        // SOLID: el caller DEBE pasar iva_aplicado válido (incluye 0%). No hay fallback silencioso.
+        const iva_aplicado_raw = parseFloat(item.iva_aplicado);
+        if (!Number.isFinite(iva_aplicado_raw) || iva_aplicado_raw < 0) {
+            throw new Error(`pedidos.helper.crearItems: item id_producto=${item.id_producto} sin iva_aplicado válido (recibido: ${item.iva_aplicado})`);
+        }
+        const iva_aplicado = iva_aplicado_raw;
+        const cantidad_entregada = parseFloat(item.cantidad_entregada) || 0;
+        const cantidad_remitida = parseFloat(item.cantidad_remitida) || 0;
+
+        // Calcular IVA y total si no vienen pre-calculados
+        let monto_iva = parseFloat(item.monto_iva);
+        let total_linea = parseFloat(item.total_linea);
+
+        // precio_unitario_final = precio post-descuento item
+        const precio_final = Math.round(precio * (1 - descuento / 100) * 100) / 100;
+
+        if (isNaN(monto_iva) || isNaN(total_linea)) {
+            const subtotalNeto = precio_final * cantidad;
+            monto_iva = Math.round(subtotalNeto * (iva_aplicado / 100) * 100) / 100;
+            total_linea = Math.round((subtotalNeto + monto_iva) * 100) / 100;
+        }
+
+        const { rows } = await client.query(`
+            INSERT INTO pedidoitems (
+                id_pedido, id_producto, cantidad, id_empresa,
+                descripcion_congelada, precio_unitario_congelado,
+                porcentaje_descuento, monto_iva, total_linea, iva_aplicado,
+                cantidad_entregada, cantidad_remitida, precio_unitario_final
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            RETURNING *
+        `, [
+            id_pedido,
+            item.id_producto,
+            cantidad,
+            id_empresa,
+            item.descripcion_congelada || item.descripcion || '',
+            precio,
+            descuento,
+            monto_iva,
+            total_linea,
+            iva_aplicado,
+            cantidad_entregada,
+            cantidad_remitida,
+            precio_final
+        ]);
+
+        itemsCreados.push(rows[0]);
+    }
+
+    logger.info(`[pedidos.helper] ${itemsCreados.length} items creados en pedido #${id_pedido}`);
+    return itemsCreados;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3. ACTUALIZAR ITEM
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Actualiza campos de un item existente (cantidad, precio, descuento).
+ * Recalcula IVA y total_linea automáticamente.
+ *
+ * @param {Object} client
+ * @param {Object} datos
+ * @param {number} datos.id_item - OBLIGATORIO
+ * @param {number} datos.id_empresa - OBLIGATORIO (seguridad)
+ * @param {number} [datos.cantidad]
+ * @param {number} [datos.precio_unitario_congelado]
+ * @param {number} [datos.porcentaje_descuento]
+ * @returns {Object} Item actualizado
+ */
+async function actualizarItem(client, datos) {
+    // F5-2026-05-26: acepta monto_iva y total_linea precalculados (mismo contrato que crearItems).
+    // Backward compatible: si no vienen, recalcula como antes.
+    const { id_item, id_empresa, cantidad, precio_unitario_congelado, porcentaje_descuento,
+            monto_iva: montoIvaPrecalc, total_linea: totalLineaPrecalc } = datos;
+
+    if (!id_item) throw new Error('pedidos.helper.actualizarItem: id_item obligatorio');
+    if (!id_empresa) throw new Error('pedidos.helper.actualizarItem: id_empresa obligatorio');
+
+    // Obtener item actual
+    const { rows: [itemActual] } = await client.query(`
+        SELECT * FROM pedidoitems
+        WHERE id_item = $1 AND id_empresa = $2
+    `, [id_item, id_empresa]);
+
+    if (!itemActual) throw new Error(`pedidos.helper.actualizarItem: item ${id_item} no encontrado para empresa ${id_empresa}`);
+
+    // Determinar nuevos valores (o mantener actuales)
+    const nuevaCantidad = cantidad !== undefined ? parseFloat(cantidad) : parseFloat(itemActual.cantidad);
+    const nuevoPrecio = precio_unitario_congelado !== undefined ? parseFloat(precio_unitario_congelado) : parseFloat(itemActual.precio_unitario_congelado);
+    const nuevoDescuento = porcentaje_descuento !== undefined ? parseFloat(porcentaje_descuento) : parseFloat(itemActual.porcentaje_descuento) || 0;
+    const ivaRate = parseFloat(itemActual.iva_aplicado);
+
+    // F5-2026-05-26: si el caller pasó valores precalculados (modo BRUTO_ENTERO), usarlos.
+    // Si no, recalculo legacy.
+    let montoIva, totalLinea;
+    const _mip = parseFloat(montoIvaPrecalc);
+    const _tlp = parseFloat(totalLineaPrecalc);
+    if (Number.isFinite(_mip) && Number.isFinite(_tlp)) {
+        montoIva = _mip;
+        totalLinea = _tlp;
+    } else {
+        const subtotalBruto = nuevoPrecio * nuevaCantidad;
+        const descuentoMonto = Math.round(subtotalBruto * nuevoDescuento / 100 * 100) / 100;
+        const subtotalNeto = subtotalBruto - descuentoMonto;
+        montoIva = Math.round(subtotalNeto * (ivaRate / 100) * 100) / 100;
+        totalLinea = Math.round((subtotalNeto + montoIva) * 100) / 100;
+    }
+
+    const { rows: [itemActualizado] } = await client.query(`
+        UPDATE pedidoitems SET
+            cantidad = $1,
+            precio_unitario_congelado = $2, precio_unitario_final = $2,
+            porcentaje_descuento = $3,
+            monto_iva = $4,
+            total_linea = $5
+        WHERE id_item = $6 AND id_empresa = $7
+        RETURNING *
+    `, [nuevaCantidad, nuevoPrecio, nuevoDescuento, montoIva, totalLinea, id_item, id_empresa]);
+
+    return {
+        item: itemActualizado,
+        anterior: {
+            cantidad: parseFloat(itemActual.cantidad),
+            precio_unitario_congelado: parseFloat(itemActual.precio_unitario_congelado),
+            porcentaje_descuento: parseFloat(itemActual.porcentaje_descuento) || 0
+        }
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 4. ELIMINAR ITEM
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Elimina un item de pedidoitems.
+ *
+ * @param {Object} client
+ * @param {Object} datos
+ * @param {number} datos.id_item
+ * @param {number} datos.id_pedido - para verificación
+ * @param {number} datos.id_empresa - seguridad
+ * @returns {Object} Item eliminado (para auditoría)
+ */
+async function eliminarItem(client, datos) {
+    const { id_item, id_pedido, id_empresa } = datos;
+
+    if (!id_item) throw new Error('pedidos.helper.eliminarItem: id_item obligatorio');
+    if (!id_empresa) throw new Error('pedidos.helper.eliminarItem: id_empresa obligatorio');
+
+    // Obtener antes de eliminar (para auditoría)
+    const { rows: [item] } = await client.query(`
+        SELECT * FROM pedidoitems
+        WHERE id_item = $1 AND id_pedido = $2 AND id_empresa = $3
+    `, [id_item, id_pedido, id_empresa]);
+
+    if (!item) throw new Error(`pedidos.helper.eliminarItem: item ${id_item} no encontrado en pedido ${id_pedido}`);
+
+    await client.query(`
+        DELETE FROM pedidoitems WHERE id_item = $1 AND id_empresa = $2
+    `, [id_item, id_empresa]);
+
+    return item;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 5. CAMBIAR ESTADO
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Cambia el estado de un pedido.
+ * Usa lookup dinámico (NO hardcodea id_estado numéricos).
+ *
+ * @param {Object} client
+ * @param {Object} datos
+ * @param {number} datos.id_pedido
+ * @param {number} datos.id_empresa
+ * @param {number} datos.nuevo_estado - id_estado numérico (usar PEDIDO_ESTADOS)
+ * @param {Object} [datos.campos_extra] - campos adicionales a actualizar junto con el estado
+ * @returns {Object} Pedido actualizado
+ */
+async function cambiarEstado(client, datos) {
+    const { id_pedido, id_empresa, nuevo_estado, campos_extra = {} } = datos;
+
+    if (!id_pedido) throw new Error('pedidos.helper.cambiarEstado: id_pedido obligatorio');
+    if (!id_empresa) throw new Error('pedidos.helper.cambiarEstado: id_empresa obligatorio');
+    if (nuevo_estado === undefined) throw new Error('pedidos.helper.cambiarEstado: nuevo_estado obligatorio');
+
+    // Verificar que el estado existe
+    const { rows: estadoRows } = await client.query(
+        'SELECT nombre FROM pedidoestados WHERE id_estado = $1',
+        [nuevo_estado]
+    );
+    if (estadoRows.length === 0) throw new Error(`pedidos.helper.cambiarEstado: estado ${nuevo_estado} no existe`);
+
+    // Construir SET dinámico para campos_extra
+    const sets = ['id_estado = $1'];
+    const params = [nuevo_estado];
+    let idx = 2;
+
+    const camposPermitidos = [
+        'id_cliente', 'tipo_entrega', 'observaciones', 'descuento_general',
+        'estado_entrega', 'domicilio_entrega', 'notas_entrega'
+    ];
+
+    for (const [campo, valor] of Object.entries(campos_extra)) {
+        if (camposPermitidos.includes(campo)) {
+            sets.push(`${campo} = $${idx}`);
+            params.push(valor);
+            idx++;
+        }
+    }
+
+    params.push(id_pedido, id_empresa);
+
+    const { rows: [pedido] } = await client.query(`
+        UPDATE pedidos SET ${sets.join(', ')}
+        WHERE id_pedido = $${idx} AND id_empresa = $${idx + 1}
+        RETURNING *
+    `, params);
+
+    if (!pedido) throw new Error(`pedidos.helper.cambiarEstado: pedido ${id_pedido} no encontrado`);
+
+    logger.info(`[pedidos.helper] Pedido #${id_pedido} → estado ${nuevo_estado} (${estadoRows[0].nombre})`);
+    return pedido;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 6. RECALCULAR TOTALES (desde BD)
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Lee los items de BD, recalcula totales y actualiza el pedido.
+ * ÚNICA función que actualiza los campos de totales del pedido.
+ *
+ * @param {Object} client
+ * @param {number} id_pedido
+ * @param {number} [id_empresa] - si se proporciona, valida aislamiento
+ * @returns {Object} Totales calculados
+ */
+async function recalcularTotales(client, id_pedido, id_empresa) {
+    if (!id_pedido)  throw new Error('pedidos.helper.recalcularTotales: id_pedido obligatorio');
+    if (!id_empresa) throw new Error('pedidos.helper.recalcularTotales: id_empresa obligatorio (multi-empresa)');
+
+    const { rows } = await client.query(`
+        SELECT
+            COALESCE(SUM(total_linea - monto_iva), 0) as subtotal_sin_iva,
+            COALESCE(SUM(monto_iva), 0) as total_iva,
+            COALESCE(SUM(total_linea), 0) as total_final
+        FROM pedidoitems
+        WHERE id_pedido = $1 AND id_empresa = $2
+    `, [id_pedido, id_empresa]);
+
+    const { subtotal_sin_iva, total_iva, total_final } = rows[0];
+
+    const result = await client.query(`
+        UPDATE pedidos SET
+            subtotal_sin_iva = $1,
+            total_iva = $2,
+            total_final = $3,
+            total = $3,
+            descuento_monto = 0,
+            subtotal_con_descuento = $1
+        WHERE id_pedido = $4 AND id_empresa = $5
+        RETURNING subtotal_sin_iva, total_iva, total_final
+    `, [subtotal_sin_iva, total_iva, total_final, id_pedido, id_empresa]);
+
+    if (result.rows.length === 0) {
+        throw new Error(`pedidos.helper.recalcularTotales: pedido ${id_pedido} no encontrado en empresa ${id_empresa}`);
+    }
+
+    return {
+        subtotal_sin_iva: parseFloat(subtotal_sin_iva),
+        total_iva: parseFloat(total_iva),
+        total_final: parseFloat(total_final)
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 7. APLICAR DESCUENTO GENERAL
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Aplica un descuento general (%) al pedido.
+ * Recalcula totales con IVA proporcional al descuento.
+ *
+ * @param {Object} client
+ * @param {Object} datos
+ * @param {number} datos.id_pedido
+ * @param {number} datos.id_empresa
+ * @param {number} datos.descuento_general - porcentaje
+ * @returns {Object} Totales actualizados
+ */
+/**
+ * Recalcula precio_unitario_final, monto_iva y total_linea de TODOS los items
+ * de un pedido, aplicando las 3 capas de descuento guardadas en cada item.
+ * Luego actualiza header = SUM(items).
+ * @returns {{ subtotal_sin_iva, total_iva, total_final }}
+ */
+async function _recalcularItemsDesdeDescuentos(client, id_pedido, id_empresa) {
+    // Recalcular cada item: precio_final = congelado * (1-desc_item%) * (1-desc_gral%) * (1+desc_fp%)
+    await client.query(`
+        UPDATE pedidoitems SET
+            precio_unitario_final = ROUND(
+                precio_unitario_congelado
+                * (1 - COALESCE(porcentaje_descuento, 0) / 100)
+                * (1 - COALESCE(descuento_general_pct, 0) / 100)
+                * (1 + COALESCE(descuento_fp_pct, 0) / 100)
+            , 2),
+            monto_iva = ROUND(
+                ROUND(
+                    precio_unitario_congelado
+                    * (1 - COALESCE(porcentaje_descuento, 0) / 100)
+                    * (1 - COALESCE(descuento_general_pct, 0) / 100)
+                    * (1 + COALESCE(descuento_fp_pct, 0) / 100)
+                , 2) * cantidad * iva_aplicado / 100
+            , 2),
+            total_linea = ROUND(
+                ROUND(
+                    precio_unitario_congelado
+                    * (1 - COALESCE(porcentaje_descuento, 0) / 100)
+                    * (1 - COALESCE(descuento_general_pct, 0) / 100)
+                    * (1 + COALESCE(descuento_fp_pct, 0) / 100)
+                , 2) * cantidad
+                + ROUND(
+                    ROUND(
+                        precio_unitario_congelado
+                        * (1 - COALESCE(porcentaje_descuento, 0) / 100)
+                        * (1 - COALESCE(descuento_general_pct, 0) / 100)
+                        * (1 + COALESCE(descuento_fp_pct, 0) / 100)
+                    , 2) * cantidad * iva_aplicado / 100
+                , 2)
+            , 2)
+        WHERE id_pedido = $1 AND id_empresa = $2
+    `, [id_pedido, id_empresa]);
+
+    // Header = SUM(items)
+    const { rows: [totales] } = await client.query(`
+        SELECT
+            ROUND(SUM(precio_unitario_final * cantidad), 2) as subtotal_sin_iva,
+            ROUND(SUM(monto_iva), 2) as total_iva,
+            ROUND(SUM(total_linea), 2) as total_final
+        FROM pedidoitems WHERE id_pedido = $1 AND id_empresa = $2
+    `, [id_pedido, id_empresa]);
+
+    await client.query(`
+        UPDATE pedidos SET
+            subtotal_sin_iva = $1,
+            total_iva = $2,
+            total_final = $3,
+            total = $3
+        WHERE id_pedido = $4 AND id_empresa = $5
+    `, [totales.subtotal_sin_iva, totales.total_iva, totales.total_final, id_pedido, id_empresa]);
+
+    return {
+        subtotal_sin_iva: parseFloat(totales.subtotal_sin_iva),
+        total_iva: parseFloat(totales.total_iva),
+        total_final: parseFloat(totales.total_final)
+    };
+}
+
+async function aplicarDescuentoGeneral(client, datos) {
+    const { id_pedido, id_empresa, descuento_general } = datos;
+
+    if (!id_pedido) throw new Error('pedidos.helper.aplicarDescuentoGeneral: id_pedido obligatorio');
+    if (!id_empresa) throw new Error('pedidos.helper.aplicarDescuentoGeneral: id_empresa obligatorio');
+
+    const dto = parseFloat(descuento_general) || 0;
+
+    // Guardar % en cada item para trazabilidad
+    await client.query(
+        'UPDATE pedidoitems SET descuento_general_pct = $1 WHERE id_pedido = $2',
+        [dto, id_pedido]
+    );
+
+    // Recalcular items + header
+    const totales = await _recalcularItemsDesdeDescuentos(client, id_pedido, id_empresa);
+
+    // Actualizar campos informativos del header
+    const descMonto = totales.subtotal_sin_iva > 0
+        ? Math.round((totales.total_final / (1 - dto / 100) - totales.total_final) * 100) / 100
+        : 0;
+
+    await client.query(`
+        UPDATE pedidos SET
+            descuento_general = $1,
+            descuento_monto = $2,
+            subtotal_con_descuento = subtotal_sin_iva
+        WHERE id_pedido = $3 AND id_empresa = $4
+    `, [dto, Math.abs(descMonto), id_pedido, id_empresa]);
+
+    logger.info('[pedidos.helper] Desc general ' + dto + '% aplicado a items pedido #' + id_pedido);
+
+    return {
+        subtotal_sin_iva: totales.subtotal_sin_iva,
+        descuento_general: dto,
+        descuento_monto: Math.abs(descMonto),
+        total_iva: totales.total_iva,
+        total_final: totales.total_final
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8. APLICAR AJUSTE POR FORMA DE PAGO
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Aplica recargo/descuento por forma de pago al total del pedido.
+ * También registra en ajustes_forma_pago para trazabilidad.
+ *
+ * @param {Object} client
+ * @param {Object} datos
+ * @param {number} datos.id_pedido
+ * @param {number} datos.id_empresa
+ * @param {number} datos.id_forma_pago
+ * @param {number} datos.id_cliente
+ * @param {number} datos.id_usuario
+ * @param {number} datos.porcentaje - positivo=recargo, negativo=descuento
+ * @param {string} datos.nombre_forma_pago
+ * @returns {Object} Resultado del ajuste
+ */
+async function aplicarAjusteFormaPago(client, datos) {
+    /**
+     * F1.5 — ÚNICO punto de aplicación de ajustes por forma de pago en todo el sistema.
+     *
+     * Reemplaza a:
+     *   - recargosHelper.procesarAjusteFormaPago (eliminada en Fase C)
+     *   - El bloque de recargo dentro de ccClientesHelper.registrarVentaConPago (limpiado en Fase D)
+     *
+     * Garantiza la invariante fiscal Ley 23.349 art.10:
+     *   subtotal_sin_iva + total_iva = total_final
+     *   donde subtotal_sin_iva incluye el recargo prorrateado en items.
+     *
+     * Es IDEMPOTENTE: anula ajustes activos previos del pedido antes de aplicar el nuevo.
+     *
+     * @param {Object} datos
+     * @param {number} datos.id_pedido          - obligatorio
+     * @param {number} datos.id_empresa         - obligatorio
+     * @param {number} datos.id_forma_pago      - obligatorio
+     * @param {number} datos.id_cliente         - obligatorio (puede ser CF id=9)
+     * @param {number} datos.id_usuario         - obligatorio
+     * @param {number} datos.porcentaje         - obligatorio (negativo = descuento)
+     * @param {string} datos.nombre_forma_pago  - obligatorio
+     * @param {number} [datos.id_factura=null]  - si viene + factura tiene CAE → genera ND
+     * @param {number} [datos.id_pago=null]     - si viene → registra mov CC del recargo
+     * @param {boolean} [datos.es_contado=true] - controla HABER inmediato del recargo en CC
+     * @param {boolean} [datos.genera_nota_debito=null] - override del config
+     */
+    const {
+        id_pedido, id_empresa, id_forma_pago, id_cliente, id_usuario,
+        porcentaje, nombre_forma_pago,
+        id_factura = null, id_pago = null,
+        es_contado = true, genera_nota_debito = null
+    } = datos;
+
+    // Validaciones
+    if (!id_pedido || !id_empresa) throw new Error('pedidos.helper.aplicarAjusteFormaPago: id_pedido y id_empresa obligatorios');
+    if (!id_forma_pago) throw new Error('pedidos.helper.aplicarAjusteFormaPago: id_forma_pago obligatorio');
+    if (!id_usuario) throw new Error('pedidos.helper.aplicarAjusteFormaPago: id_usuario obligatorio');
+
+    const pct = parseFloat(porcentaje);
+    if (pct === 0 || isNaN(pct)) return null;
+
+    // Idempotencia: anular ajustes activos previos del mismo pedido
+    await client.query(
+        'UPDATE ajustes_forma_pago SET anulado = true WHERE id_pedido = $1 AND id_empresa = $2 AND anulado = false',
+        [id_pedido, id_empresa]
+    );
+
+    // Estado pre-ajuste
+    const { rows: [pedidoAntes] } = await client.query(
+        'SELECT total_final FROM pedidos WHERE id_pedido = $1 AND id_empresa = $2',
+        [id_pedido, id_empresa]
+    );
+    if (!pedidoAntes) throw new Error('pedidos.helper.aplicarAjusteFormaPago: pedido ' + id_pedido + ' no encontrado');
+    const totalAntes = parseFloat(pedidoAntes.total_final);
+
+    // Aplicar % a items + recalcular header
+    await client.query(
+        'UPDATE pedidoitems SET descuento_fp_pct = $1 WHERE id_pedido = $2',
+        [pct, id_pedido]
+    );
+    const totales = await _recalcularItemsDesdeDescuentos(client, id_pedido, id_empresa);
+
+    // Validar invariante fiscal (Ley 23.349 art.10)
+    const sumCheck = parseFloat(totales.subtotal_sin_iva) + parseFloat(totales.total_iva);
+    if (Math.abs(sumCheck - parseFloat(totales.total_final)) > 0.01) {
+        throw new Error(
+            'pedidos.helper.aplicarAjusteFormaPago: invariante fiscal violada en pedido ' + id_pedido +
+            '. subtotal(' + totales.subtotal_sin_iva + ') + iva(' + totales.total_iva + ') = ' + sumCheck +
+            ' != total_final(' + totales.total_final + ')'
+        );
+    }
+
+    const totalDespues = totales.total_final;
+    const montoAjuste = Math.round((totalDespues - totalAntes) * 100) / 100;
+    const tipo = pct > 0 ? 'recargo' : 'descuento';
+
+    // Campos informativos del header
+    await client.query(
+        'UPDATE pedidos SET descuento_fp_porcentaje = $1, descuento_fp_monto = $2, id_forma_pago_principal = $3 WHERE id_pedido = $4 AND id_empresa = $5',
+        [pct, Math.abs(montoAjuste), id_forma_pago, id_pedido, id_empresa]
+    );
+
+    // ¿Es Consumidor Final? (lookup una sola vez)
+    let esCF = false;
+    if (id_cliente) {
+        esCF = await ccClientesHelper.esConsumidorFinal(client, id_empresa, id_cliente);
+    }
+
+    // Generar Nota de Débito (solo recargo + id_factura + no CF + config dice que sí)
+    let notaDebito = null;
+    if (tipo === 'recargo' && id_factura && !esCF) {
+        const config = await recargosHelper.obtenerRecargo(client, id_empresa, id_forma_pago);
+        const debeGenerarND = genera_nota_debito !== null
+            ? genera_nota_debito
+            : (config && config.genera_nota_debito === true);
+        if (debeGenerarND) {
+            notaDebito = await recargosHelper.generarNotaDebito(client, {
+                id_empresa, id_cliente, id_usuario,
+                id_factura, id_pago, id_pedido,
+                total: Math.abs(montoAjuste),
+                motivo: 'Recargo ' + nombre_forma_pago + ' Pedido #' + id_pedido + ' (' + pct + '%)',
+                porcentaje: pct
+            });
+        }
+    }
+
+    // Registrar movimientos CC del recargo (solo recargo + id_pago + cliente no CF)
+    let movCC = null;
+    if (tipo === 'recargo' && id_pago && id_cliente && !esCF) {
+        const conceptoDebe = notaDebito
+            ? 'ND ' + notaDebito.numero_completo + ' Recargo ' + nombre_forma_pago + ' Pedido #' + id_pedido
+            : 'Recargo ' + nombre_forma_pago + ' Pedido #' + id_pedido + ' (' + pct + '%)';
+        const movDebe = await ccClientesHelper.registrarMovimiento(client, {
+            id_empresa, id_cliente,
+            monto: Math.abs(montoAjuste),
+            tipo: 'debe',
+            concepto: conceptoDebe,
+            id_pago,
+            id_nota: notaDebito ? notaDebito.id_nota : null
+        });
+        let movHaber = null;
+        if (es_contado) {
+            movHaber = await ccClientesHelper.registrarMovimiento(client, {
+                id_empresa, id_cliente,
+                monto: Math.abs(montoAjuste),
+                tipo: 'haber',
+                concepto: 'Pago Recargo Pedido #' + id_pedido + ' - ' + nombre_forma_pago,
+                id_pago,
+                id_nota: notaDebito ? notaDebito.id_nota : null
+            });
+        }
+        movCC = { debe: movDebe, haber: movHaber };
+    }
+
+    // Auditoría (única tabla, único formato)
+    const { rows: [ajuste] } = await client.query(
+        'INSERT INTO ajustes_forma_pago (id_empresa, id_pedido, id_factura, id_cliente, id_forma_pago, id_usuario, tipo, porcentaje_aplicado, monto_base, monto_ajuste, id_nota, descripcion) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id_ajuste',
+        [
+            id_empresa, id_pedido, id_factura, id_cliente, id_forma_pago, id_usuario,
+            tipo, pct, totalAntes, montoAjuste, notaDebito ? notaDebito.id_nota : null,
+            (tipo.charAt(0).toUpperCase() + tipo.slice(1)) + ' ' + nombre_forma_pago + ' (' + pct + '%)'
+        ]
+    );
+
+    logger.info('[pedidos.helper] aplicarAjusteFormaPago #' + id_pedido + ' | ' + tipo + ' ' + pct + '% | ' + totalAntes + ' -> ' + totalDespues +
+                (notaDebito ? ' | ND ' + notaDebito.numero_completo : '') +
+                (movCC ? ' | mov CC' : ''));
+
+    return {
+        tipo,
+        porcentaje: pct,
+        montoAjuste: Math.abs(montoAjuste),
+        totalAntes,
+        totalDespues,
+        nombreFP: nombre_forma_pago,
+        ajusteId: ajuste.id_ajuste,
+        notaDebitoId: notaDebito ? notaDebito.id_nota : null,
+        movCC
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9. ACTUALIZAR CAMPOS ESPECÍFICOS DEL PEDIDO
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Actualiza campos específicos del pedido sin tocar los totales.
+ * Whitelist de campos permitidos para seguridad.
+ *
+ * @param {Object} client
+ * @param {Object} datos
+ * @param {number} datos.id_pedido
+ * @param {number} datos.id_empresa
+ * @param {Object} datos.campos - {campo: valor}
+ * @returns {Object} Pedido actualizado
+ */
+async function actualizarCampos(client, datos) {
+    const { id_pedido, id_empresa, campos } = datos;
+
+    if (!id_pedido || !id_empresa) throw new Error('pedidos.helper.actualizarCampos: id_pedido y id_empresa obligatorios');
+    if (!campos || Object.keys(campos).length === 0) throw new Error('pedidos.helper.actualizarCampos: campos vacíos');
+
+    const camposPermitidos = [
+        'id_cliente', 'tipo_entrega', 'observaciones', 'descuento_general',
+        'estado_entrega', 'notas_entrega', 'domicilio_entrega',
+        'fecha_entrega_pactada', 'id_moneda', 'cotizacion',
+        'total_moneda_extranjera', 'valor_dolar_momento'
+    ];
+
+    const sets = [];
+    const params = [];
+    let idx = 1;
+
+    for (const [campo, valor] of Object.entries(campos)) {
+        if (camposPermitidos.includes(campo)) {
+            sets.push(`${campo} = $${idx}`);
+            params.push(valor);
+            idx++;
+        }
+    }
+
+    if (sets.length === 0) throw new Error('pedidos.helper.actualizarCampos: ningún campo válido');
+
+    params.push(id_pedido, id_empresa);
+
+    const { rows: [pedido] } = await client.query(`
+        UPDATE pedidos SET ${sets.join(', ')}
+        WHERE id_pedido = $${idx} AND id_empresa = $${idx + 1}
+        RETURNING *
+    `, params);
+
+    if (!pedido) throw new Error(`pedidos.helper.actualizarCampos: pedido ${id_pedido} no encontrado`);
+
+    return pedido;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 10. CANTIDADES DE DESPACHO
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Actualiza cantidad_remitida de un item (despachos).
+ *
+ * @param {Object} client
+ * @param {Object} datos
+ * @param {number} datos.id_item
+ * @param {number} datos.id_empresa
+ * @param {number} datos.cantidad_remitida - nueva cantidad total remitida (o delta si datos.delta=true)
+ * @param {boolean} [datos.delta=false] - true = sumar al valor actual
+ * @returns {Object} Item actualizado
+ */
+async function actualizarCantidadRemitida(client, datos) {
+    const { id_item, id_empresa, cantidad_remitida, delta = false } = datos;
+
+    if (!id_item || !id_empresa) throw new Error('pedidos.helper.actualizarCantidadRemitida: id_item y id_empresa obligatorios');
+
+    let query;
+    if (delta) {
+        query = `
+            UPDATE pedidoitems SET cantidad_remitida = COALESCE(cantidad_remitida, 0) + $1
+            WHERE id_item = $2 AND id_empresa = $3
+            RETURNING *
+        `;
+    } else {
+        query = `
+            UPDATE pedidoitems SET cantidad_remitida = $1
+            WHERE id_item = $2 AND id_empresa = $3
+            RETURNING *
+        `;
+    }
+
+    const { rows: [item] } = await client.query(query, [cantidad_remitida, id_item, id_empresa]);
+
+    if (!item) throw new Error(`pedidos.helper.actualizarCantidadRemitida: item ${id_item} no encontrado`);
+
+    return item;
+}
+
+/**
+ * Actualiza cantidad_entregada de un item (despachos).
+ *
+ * @param {Object} client
+ * @param {Object} datos
+ * @param {number} datos.id_item
+ * @param {number} datos.id_empresa
+ * @param {number} datos.cantidad_entregada - nueva cantidad total (o delta si datos.delta=true)
+ * @param {boolean} [datos.delta=false]
+ * @returns {Object} Item actualizado
+ */
+async function actualizarCantidadEntregada(client, datos) {
+    const { id_item, id_empresa, cantidad_entregada, delta = false } = datos;
+
+    if (!id_item || !id_empresa) throw new Error('pedidos.helper.actualizarCantidadEntregada: id_item y id_empresa obligatorios');
+
+    let query;
+    if (delta) {
+        query = `
+            UPDATE pedidoitems SET cantidad_entregada = COALESCE(cantidad_entregada, 0) + $1
+            WHERE id_item = $2 AND id_empresa = $3
+            RETURNING *
+        `;
+    } else {
+        query = `
+            UPDATE pedidoitems SET cantidad_entregada = $1
+            WHERE id_item = $2 AND id_empresa = $3
+            RETURNING *
+        `;
+    }
+
+    const { rows: [item] } = await client.query(query, [cantidad_entregada, id_item, id_empresa]);
+
+    if (!item) throw new Error(`pedidos.helper.actualizarCantidadEntregada: item ${id_item} no encontrado`);
+
+    return item;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 11. AUDIT LOG
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Registra una acción en borrador_items_log.
+ * ÚNICO punto de INSERT INTO borrador_items_log.
+ *
+ * @param {Object} client
+ * @param {Object} datos
+ * @param {number} datos.id_pedido
+ * @param {number} datos.id_item
+ * @param {number} datos.id_producto
+ * @param {string} datos.accion - 'AGREGADO', 'MODIFICADO', 'ELIMINADO', etc.
+ * @param {number} datos.cantidad
+ * @param {number} datos.precio_unitario
+ * @param {number} datos.id_usuario
+ * @param {number} [datos.cantidad_anterior]
+ * @param {number} [datos.precio_anterior]
+ * @param {number} [datos.id_usuario_autorizo]
+ * @param {string} [datos.motivo]
+ */
+async function registrarLogItem(client, datos) {
+    const {
+        id_pedido, id_item, id_producto, accion, id_empresa,
+        cantidad, precio_unitario, id_usuario,
+        cantidad_anterior = null, precio_anterior = null,
+        id_usuario_autorizo = null, motivo = null
+    } = datos;
+
+    await client.query(`
+        INSERT INTO borrador_items_log (
+            id_pedido, id_item, id_producto, accion, id_empresa,
+            cantidad, precio_unitario,
+            cantidad_anterior, precio_anterior,
+            id_usuario, id_usuario_autorizo, motivo
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    `, [
+        id_pedido, id_item, id_producto, accion, id_empresa,
+        cantidad, precio_unitario,
+        cantidad_anterior, precio_anterior,
+        id_usuario, id_usuario_autorizo, motivo
+    ]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 12. FUNCIONES DE LECTURA (helpers de consulta)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Obtiene un pedido completo con items.
+ * Reutilizable por cualquier controller.
+ *
+ * @param {Function} queryFn - pool.query o client.query
+ * @param {number} id_pedido
+ * @param {number} [id_empresa] - si se proporciona, filtra por empresa
+ * @returns {Object|null} Pedido con items
+ */
+async function obtenerPedidoCompleto(queryFn, id_pedido, id_empresa) {
+    let query = `
+        SELECT p.*,
+               c.razon_social as cliente_nombre
+        FROM pedidos p
+        LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
+        WHERE p.id_pedido = $1
+    `;
+    const params = [id_pedido];
+
+    if (id_empresa) {
+        query += ' AND p.id_empresa = $2';
+        params.push(id_empresa);
+    }
+
+    const pedidoRes = await queryFn(query, params);
+    if (pedidoRes.rows.length === 0) return null;
+
+    const itemsRes = await queryFn(`
+        SELECT pi.*,
+               pr.nombre as producto_nombre,
+               pr.sku as producto_codigo,
+               pr.url_imagen,
+               COALESCE(inv.stock_real, 0) as stock_actual
+        FROM pedidoitems pi
+        JOIN productos pr ON pi.id_producto = pr.id_producto
+        LEFT JOIN inventario inv ON pr.id_producto = inv.id_producto
+            AND inv.id_empresa = (SELECT id_empresa FROM pedidos WHERE id_pedido = $1)
+        WHERE pi.id_pedido = $1
+        ORDER BY pi.id_item ASC
+    `, [id_pedido]);
+
+    return {
+        ...pedidoRes.rows[0],
+        items: itemsRes.rows
+    };
+}
+
+/**
+ * Obtiene solo los items de un pedido.
+ *
+ * @param {Function} queryFn
+ * @param {number} id_pedido
+ * @returns {Array} Items
+ */
+async function obtenerItems(queryFn, id_pedido, id_empresa) {
+    const { rows } = await queryFn(`
+        SELECT pi.*, pr.nombre as producto_nombre, pr.sku
+        FROM pedidoitems pi
+        JOIN productos pr ON pi.id_producto = pr.id_producto
+        WHERE pi.id_pedido = $1 AND pi.id_empresa = $2
+        ORDER BY pi.id_item ASC
+    `, [id_pedido, id_empresa]);
+
+    return rows;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 13. CÁLCULO PURO (sin BD)
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Calcula totales a partir de un array de items.
+ * Función pura, sin acceso a BD.
+ * Respeta alícuota IVA por item (NO usa 21% flat).
+ *
+ * @param {Array} items - [{cantidad, precio_unitario, iva_aplicado, porcentaje_descuento, ...}]
+ * @param {number} [descuentoPorcentaje=0]
+ * @param {number} [descuentoMontoFijo=0]
+ * @returns {Object} {items: [...con monto_iva y total_linea], subtotal_sin_iva, descuento_monto, ...}
+ */
+function calcularTotalesItems(items, descuentoPorcentaje = 0, descuentoMontoFijo = 0) {
+    let subtotalSinIva = 0;
+    let totalIva = 0;
+
+    const itemsCalculados = items.map(item => {
+        const precioUnitario = parseFloat(item.precio_unitario || item.precio_unitario_congelado) || 0;
+        const cantidad = parseFloat(item.cantidad) || 0;
+        // SOLID: contrato estricto, sin fallback hardcodeado. Acepta 0% válido.
+        const alicuotaIvaRaw = parseFloat(item.iva_aplicado);
+        if (!Number.isFinite(alicuotaIvaRaw) || alicuotaIvaRaw < 0) {
+            throw new Error(`pedidos.helper.calcularTotalesItems: item id_producto=${item.id_producto} sin iva_aplicado válido (recibido: ${item.iva_aplicado})`);
+        }
+        const alicuotaIva = alicuotaIvaRaw;
+        const descuentoLinea = parseFloat(item.porcentaje_descuento) || 0;
+
+        const subtotalLineaSinIva = precioUnitario * cantidad;
+        const descuentoLineaMonto = subtotalLineaSinIva * (descuentoLinea / 100);
+        const subtotalLineaNeto = subtotalLineaSinIva - descuentoLineaMonto;
+        const montoIvaLinea = Math.round(subtotalLineaNeto * (alicuotaIva / 100) * 100) / 100;
+        const totalLinea = Math.round((subtotalLineaNeto + montoIvaLinea) * 100) / 100;
+
+        subtotalSinIva += subtotalLineaNeto;
+        totalIva += montoIvaLinea;
+
+        return {
+            ...item,
+            precio_unitario_congelado: precioUnitario,
+            monto_iva: montoIvaLinea,
+            total_linea: totalLinea,
+            iva_aplicado: alicuotaIva,
+            porcentaje_descuento: descuentoLinea
+        };
+    });
+
+    // Descuento general
+    const descuentoPorcentajeMonto = subtotalSinIva * (parseFloat(descuentoPorcentaje) / 100);
+    const descuentoMonto = descuentoPorcentajeMonto + parseFloat(descuentoMontoFijo || 0);
+    const subtotalConDescuento = subtotalSinIva - descuentoMonto;
+
+    // IVA proporcional (respeta alícuotas por item, no aplica 21% flat)
+    const proporcion = subtotalSinIva > 0 ? subtotalConDescuento / subtotalSinIva : 1;
+    const totalIvaFinal = Math.round(totalIva * proporcion * 100) / 100;
+    const totalFinal = Math.round((subtotalConDescuento + totalIvaFinal) * 100) / 100;
+
+    return {
+        items: itemsCalculados,
+        subtotal_sin_iva: Math.round(subtotalSinIva * 100) / 100,
+        descuento_monto: Math.round(descuentoMonto * 100) / 100,
+        subtotal_con_descuento: Math.round(subtotalConDescuento * 100) / 100,
+        total_iva: totalIvaFinal,
+        total_final: totalFinal,
+        total: totalFinal
+    };
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ASIGNAR NUMERO DE PEDIDO (atómico, al confirmar)
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Asigna nro_pedido secuencial por empresa.
+ * Se llama SOLO al confirmar borrador, NO al crear.
+ * FOR UPDATE bloquea la fila max para evitar duplicados concurrentes.
+ */
+async function asignarNumeroPedido(client, { id_pedido, id_empresa }) {
+    // CTE atómico: bloquea, calcula siguiente, actualiza en una sola query
+    const result = await client.query(`
+        WITH siguiente AS (
+            SELECT COALESCE(MAX(nro_pedido), 0) + 1 AS nro
+            FROM pedidos
+            WHERE id_empresa = $2
+        )
+        UPDATE pedidos
+        SET nro_pedido = siguiente.nro
+        FROM siguiente
+        WHERE id_pedido = $1 AND id_empresa = $2
+        RETURNING pedidos.nro_pedido
+    `, [id_pedido, id_empresa]);
+
+    if (result.rows.length === 0) {
+        throw new Error('No se pudo asignar número de pedido');
+    }
+    return result.rows[0].nro_pedido;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOG DE PEDIDO (auditoría acciones sobre el pedido)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const LOG_PEDIDO_ACCIONES = {
+    CONFIRMADO: 'CONFIRMADO',
+    PAGO_REGISTRADO: 'PAGO_REGISTRADO',
+    PAGO_CAMBIADO: 'PAGO_CAMBIADO',
+    PAGO_ANULADO: 'PAGO_ANULADO',
+    ESTADO_CAMBIADO: 'ESTADO_CAMBIADO',
+    ITEM_EDITADO: 'ITEM_EDITADO',
+    ITEM_ELIMINADO: 'ITEM_ELIMINADO',
+    ANULADO: 'ANULADO',
+    DESCUENTO_APLICADO: 'DESCUENTO_APLICADO',
+    CLIENTE_CAMBIADO: 'CLIENTE_CAMBIADO',
+    FORMA_PAGO_CAMBIADA: 'FORMA_PAGO_CAMBIADA',
+    RECUPERADO: 'RECUPERADO',
+    SUSPENDIDO: 'SUSPENDIDO',
+    COBRO_DESPACHO: 'COBRO_DESPACHO'
+};
+
+/**
+ * Registra una acción en pedidos_log.
+ * ÚNICO punto de INSERT INTO pedidos_log en todo el sistema.
+ */
+async function registrarLogPedido(client, datos) {
+    const {
+        id_pedido, id_empresa, id_usuario, accion,
+        detalle_antes = null, detalle_despues = null, ip_origen = null
+    } = datos;
+
+    await client.query(`
+        INSERT INTO pedidos_log
+            (id_pedido, id_empresa, id_usuario, accion, detalle_antes, detalle_despues, ip_origen)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [id_pedido, id_empresa, id_usuario, accion,
+        detalle_antes ? JSON.stringify(detalle_antes) : null,
+        detalle_despues ? JSON.stringify(detalle_despues) : null,
+        ip_origen]);
+}
+
+/**
+ * Obtiene historial unificado (pedidos_log + borrador_items_log).
+ * Para la vista del "ojo" en facturación.
+ */
+async function obtenerHistorialPedido(client, id_pedido, id_empresa) {
+    const result = await client.query(`
+        SELECT created_at AS fecha, accion, 
+               detalle_antes, detalle_despues,
+               u.nombre AS usuario, 'pedido' AS origen
+        FROM pedidos_log pl
+        JOIN usuarios u ON pl.id_usuario = u.id_usuario
+        WHERE pl.id_pedido = $1 AND pl.id_empresa = $2
+
+        UNION ALL
+
+        SELECT bil.created_at AS fecha, bil.accion,
+               jsonb_build_object('cantidad', bil.cantidad_anterior, 'precio', bil.precio_anterior, 'producto', p.nombre) AS detalle_antes,
+               jsonb_build_object('cantidad', bil.cantidad, 'precio', bil.precio_unitario, 'producto', p.nombre) AS detalle_despues,
+               u.nombre AS usuario, 'item' AS origen
+        FROM borrador_items_log bil
+        JOIN usuarios u ON bil.id_usuario = u.id_usuario
+        LEFT JOIN productos p ON bil.id_producto = p.id_producto
+        WHERE bil.id_pedido = $1 AND bil.id_empresa = $2
+
+        ORDER BY fecha DESC
+    `, [id_pedido, id_empresa]);
+
+    return result.rows;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REGISTRAR INTERÉS DE CUOTAS (C4 — centralizado)
+// Suma interés al total del pedido + registra en ajustes_forma_pago
+// ═══════════════════════════════════════════════════════════════════════════
+async function registrarInteresCuotas(client, datos) {
+    // F1.5: ahora delega al orquestador único aplicarAjusteFormaPago.
+    // Antes: hacía UPDATE total_final += interes SIN actualizar subtotal_sin_iva ni total_iva,
+    // dejando los pedidos drifteados (Ley 23.349 art.10 — base imponible IVA mal calculada).
+    // Ahora: el porcentaje se deriva del coeficiente de la terminal y se aplica con la fórmula
+    // multiplicativa correcta sobre items, recalculando subtotal + iva + total_final coherentes.
+    const { id_empresa, id_pedido, id_cliente, id_usuario, interes, calculo } = datos;
+
+    const recargoPct = Math.round((calculo.coeficiente - 1) * 10000) / 100;
+    const nombreFP = calculo.terminal_nombre + ' ' + calculo.cuotas + ' cuotas';
+
+    // id_forma_pago=2 mantiene compatibilidad con auditoría histórica (Posnet MercadoPago)
+    const resultado = await aplicarAjusteFormaPago(client, {
+        id_pedido, id_empresa,
+        id_forma_pago: 2,
+        id_cliente,
+        id_usuario,
+        porcentaje: recargoPct,
+        nombre_forma_pago: nombreFP
+    });
+
+    logger.info('[F1.5] registrarInteresCuotas pedido #' + id_pedido + ' delegado a aplicarAjusteFormaPago | ' + recargoPct + '% via ' + calculo.terminal_nombre);
+    return { interes, recargoPct, ajusteId: resultado ? resultado.ajusteId : null };
+}
+
+module.exports = {
+    // Constantes
+    PEDIDO_ESTADOS,
+    TIPOS_ENTREGA,
+    LOG_ACCIONES,
+    LOG_PEDIDO_ACCIONES,
+
+    // Escrituras - pedidos
+    crearPedido,
+    cambiarEstado,
+    recalcularTotales,
+    aplicarDescuentoGeneral,
+    aplicarAjusteFormaPago,
+    actualizarCampos,
+    asignarNumeroPedido,
+
+    // Escrituras - pedidoitems
+    crearItems,
+    actualizarItem,
+    eliminarItem,
+    actualizarCantidadRemitida,
+    actualizarCantidadEntregada,
+
+    // Auditoria
+    registrarLogItem,
+    registrarLogPedido,
+    obtenerHistorialPedido,
+
+    // Lectura
+    obtenerPedidoCompleto,
+    obtenerItems,
+
+    // Cuotas
+    registrarInteresCuotas,
+
+    // Calculo puro
+    calcularTotalesItems
+};

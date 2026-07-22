@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP LAGO - Backup</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/erp-lago-styles.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark px-3">
+        <span class="navbar-brand">
+            <i class="bi bi-database-gear"></i> Backup y Restauración
+        </span>
+    </nav>
+
+    <div class="container-fluid mt-3">
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+
+                <!-- Crear Backup -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <i class="bi bi-download"></i> Crear Backup
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">Genera un backup completo de la base de datos.</p>
+                        <button id="btnCrearBackup" class="btn btn-primary">
+                            <i class="bi bi-download"></i> Crear Backup Ahora
+                        </button>
+                        <div id="statusCrear" class="mt-2" style="display:none"></div>
+                    </div>
+                </div>
+
+                <!-- Lista de Backups -->
+                <div class="card mb-3">
+                    <div class="card-header bg-dark text-white">
+                        <i class="bi bi-archive"></i> Backups Disponibles
+                        <button id="btnRefrescar" class="btn btn-sm btn-outline-light float-end">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="loadingBackups" class="text-center p-3">
+                            <div class="spinner-border spinner-border-sm"></div> Cargando...
+                        </div>
+                        <table class="table table-striped table-hover mb-0" id="tablaBackups" style="display:none">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Tamaño</th>
+                                    <th>Fecha</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bodyBackups"></tbody>
+                        </table>
+                        <div id="sinBackups" class="text-center text-muted p-3" style="display:none">
+                            No hay backups disponibles
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/connection-indicator.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const API_BASE = window.CONFIG?.API_BASE_URL || '/api';
+
+        const btnCrear = document.getElementById('btnCrearBackup');
+        const btnRefrescar = document.getElementById('btnRefrescar');
+        const statusCrear = document.getElementById('statusCrear');
+        const tablaBackups = document.getElementById('tablaBackups');
+        const bodyBackups = document.getElementById('bodyBackups');
+        const loadingBackups = document.getElementById('loadingBackups');
+        const sinBackups = document.getElementById('sinBackups');
+
+        async function cargarBackups() {
+            loadingBackups.style.display = '';
+            tablaBackups.style.display = 'none';
+            sinBackups.style.display = 'none';
+            try {
+                const res = await fetch(`${API_BASE}/backup/listar`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                loadingBackups.style.display = 'none';
+                if (!data.backups || data.backups.length === 0) {
+                    sinBackups.style.display = '';
+                    return;
+                }
+                tablaBackups.style.display = '';
+                bodyBackups.innerHTML = '';
+                data.backups.forEach(b => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><i class="bi bi-file-earmark-zip"></i> ${b.nombre}</td>
+                        <td>${b.tamaño || '-'}</td>
+                        <td>${b.fecha || '-'}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-warning btn-restaurar" data-nombre="${b.nombre}">
+                                <i class="bi bi-arrow-counterclockwise"></i> Restaurar
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger btn-eliminar" data-nombre="${b.nombre}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>`;
+                    bodyBackups.appendChild(tr);
+                });
+
+                document.querySelectorAll('.btn-restaurar').forEach(btn => {
+                    btn.addEventListener('click', () => restaurarBackup(btn.dataset.nombre));
+                });
+                document.querySelectorAll('.btn-eliminar').forEach(btn => {
+                    btn.addEventListener('click', () => eliminarBackup(btn.dataset.nombre));
+                });
+            } catch (err) {
+                loadingBackups.innerHTML = `<span class="text-danger">Error: ${err.message}</span>`;
+            }
+        }
+
+        async function crearBackup() {
+            btnCrear.disabled = true;
+            statusCrear.style.display = '';
+            statusCrear.innerHTML = '<div class="spinner-border spinner-border-sm"></div> Creando backup...';
+            try {
+                const res = await fetch(`${API_BASE}/backup/crear`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    statusCrear.innerHTML = `<span class="text-success"><i class="bi bi-check-circle"></i> ${data.mensaje || 'Backup creado'}</span>`;
+                    cargarBackups();
+                } else {
+                    statusCrear.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> ${data.error || 'Error'}</span>`;
+                }
+            } catch (err) {
+                statusCrear.innerHTML = `<span class="text-danger">Error: ${err.message}</span>`;
+            }
+            btnCrear.disabled = false;
+        }
+
+        async function restaurarBackup(nombre) {
+            if (!confirm(`¿Restaurar backup "${nombre}"? Esto sobreescribirá la base de datos actual.`)) return;
+            try {
+                const res = await fetch(`${API_BASE}/backup/restaurar/${nombre}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                alert(data.mensaje || data.error || 'Completado');
+            } catch (err) { alert('Error: ' + err.message); }
+        }
+
+        async function eliminarBackup(nombre) {
+            if (!confirm(`¿Eliminar backup "${nombre}"?`)) return;
+            try {
+                const res = await fetch(`${API_BASE}/backup/${nombre}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                if (res.ok) cargarBackups();
+                else alert(data.error || 'Error');
+            } catch (err) { alert('Error: ' + err.message); }
+        }
+
+        btnCrear.addEventListener('click', crearBackup);
+        btnRefrescar.addEventListener('click', cargarBackups);
+
+        cargarBackups();
+    });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

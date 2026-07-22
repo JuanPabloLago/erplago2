@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script src="js/config.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listado de Pagos - ERP LAGO</title>
+    <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/erp-lago-styles.css">
+    <style>
+        .badge-aplicado { background: #198754; }
+        .badge-anulado { background: #dc3545; }
+        .badge-pendiente { background: #ffc107; color: #000; }
+        .pago-row.anulado { opacity: 0.6; background: #fff5f5; }
+        .detalle-panel { background: #f8f9fa; border-radius: 8px; padding: 16px; }
+        @media print { .no-print { display: none !important; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary no-print">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/"><i class="bi bi-building"></i> ERP LAGO</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/pagos-proveedores.html">Nuevo Pago</a>
+                <a class="nav-link" href="/cc-proveedores.html">CC Proveedores</a>
+                <a class="nav-link active" href="/pagos-proveedores-listado.html">Listado Pagos</a>
+                <a class="nav-link" href="#" onclick="logout()">Salir</a>
+            </div>
+        </div>
+    </nav>
+    <div class="container-fluid py-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0"><i class="bi bi-list-check"></i> Listado de Pagos a Proveedores</h4>
+            <a href="/pagos-proveedores.html" class="btn btn-success no-print"><i class="bi bi-plus-lg"></i> Nuevo Pago</a>
+        </div>
+        <!-- FILTROS -->
+        <div class="card mb-3 no-print">
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label mb-0 small">Proveedor</label>
+                        <input type="text" id="filtroProveedor" class="form-control form-control-sm" placeholder="Buscar proveedor...">
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label mb-0 small">Desde</label>
+                        <input type="date" id="filtroDesde" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label mb-0 small">Hasta</label>
+                        <input type="date" id="filtroHasta" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label mb-0 small">Estado</label>
+                        <select id="filtroEstado" class="form-select form-select-sm">
+                            <option value="">Todos</option>
+                            <option value="aplicado">Aplicados</option>
+                            <option value="anulado">Anulados</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-primary btn-sm" onclick="cargarPagos()"><i class="bi bi-search"></i> Buscar</button>
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="limpiarFiltros()">Limpiar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- TABLA -->
+        <div class="table-responsive">
+            <table class="table table-hover table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nº Pago</th>
+                        <th>Fecha</th>
+                        <th>Proveedor</th>
+                        <th>Formas de Pago</th>
+                        <th class="text-end">Monto</th>
+                        <th>Estado</th>
+                        <th class="text-center no-print">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyPagos">
+                    <tr><td colspan="7" class="text-center text-muted py-4">Cargando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div id="contadorPagos" class="text-muted small mb-3"></div>
+        <!-- DETALLE PAGO (modal) -->
+        <div class="modal fade" id="modalDetalle" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-receipt"></i> Detalle del Pago</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="modalDetalleBody">Cargando...</div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-danger" id="btnAnular" onclick="anularPago()"><i class="bi bi-x-circle"></i> Anular</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    const API_URL = window.CONFIG?.API_BASE_URL || '/api';
+    const TK = window.CONFIG?.TOKEN_KEY || 'authToken';
+    let pagoSeleccionado = null;
+    function hdr() { return { 'Authorization': 'Bearer ' + (localStorage.getItem(TK)||''), 'Content-Type': 'application/json' }; }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        cargarPagos();
+        ['filtroDesde','filtroHasta','filtroProveedor'].forEach(id => {
+            document.getElementById(id)?.addEventListener('keydown', e => { if (e.key==='Enter') cargarPagos(); });
+        });
+        document.getElementById('filtroEstado')?.addEventListener('change', () => cargarPagos());
+    });
+
+    async function cargarPagos() {
+        const params = new URLSearchParams();
+        const prov = document.getElementById('filtroProveedor').value;
+        const desde = document.getElementById('filtroDesde').value;
+        const hasta = document.getElementById('filtroHasta').value;
+        const estado = document.getElementById('filtroEstado').value;
+        if (desde) params.set('fecha_desde', desde);
+        if (hasta) params.set('fecha_hasta', hasta + 'T23:59:59');
+        params.set('limit', '100');
+
+        try {
+            const res = await fetch(API_URL + '/pagos-proveedores?' + params.toString(), { headers: hdr() });
+            if (!res.ok) throw new Error(res.status);
+            const json = await res.json();
+            let pagos = json.data || [];
+
+            // Filtro local por proveedor (texto) y estado
+            if (prov) pagos = pagos.filter(p => (p.proveedor||'').toLowerCase().includes(prov.toLowerCase()) || (p.proveedor_cuit||'').includes(prov));
+            if (estado) pagos = pagos.filter(p => p.estado === estado);
+
+            renderPagos(pagos);
+        } catch (e) {
+            console.error('Error:', e);
+            document.getElementById('tbodyPagos').innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">Error al cargar pagos</td></tr>';
+        }
+    }
+
+    function renderPagos(pagos) {
+        const tb = document.getElementById('tbodyPagos');
+        if (!pagos.length) { tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Sin pagos registrados</td></tr>'; document.getElementById('contadorPagos').textContent = ''; return; }
+
+        const total = pagos.filter(p=>p.estado!=='anulado').reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+        document.getElementById('contadorPagos').textContent = pagos.length + ' pago' + (pagos.length!==1?'s':'') + ' | Total vigente: ' + fm(total);
+
+        tb.innerHTML = pagos.map(p => {
+            const f = new Date(p.fecha_pago);
+            const formas = (p.formas_pago||[]).map(fp => fp.forma + ': ' + fm(fp.monto)).join(', ') || '-';
+            const badgeCls = p.estado === 'anulado' ? 'badge-anulado' : (p.estado === 'aplicado' ? 'badge-aplicado' : 'badge-pendiente');
+            const rowCls = p.estado === 'anulado' ? 'pago-row anulado' : '';
+            return '<tr class="' + rowCls + '" style="cursor:pointer" onclick="verDetalle(' + p.id_pago_proveedor + ')">'
+                + '<td><strong>#' + p.numero_pago + '</strong>' + (p.es_pago_a_cuenta ? ' <small class="text-info">(a cuenta)</small>' : '') + '</td>'
+                + '<td>' + f.toLocaleDateString('es-AR') + '<br><small class="text-muted">' + f.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}) + '</small></td>'
+                + '<td>' + esc(p.proveedor) + (p.proveedor_cuit ? '<br><small class="text-muted">' + esc(p.proveedor_cuit) + '</small>' : '') + '</td>'
+                + '<td><small>' + esc(formas) + '</small></td>'
+                + '<td class="text-end fw-bold">' + fm(p.monto) + '</td>'
+                + '<td><span class="badge ' + badgeCls + '">' + esc(p.estado) + '</span></td>'
+                + '<td class="text-center no-print"><button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation();verDetalle(' + p.id_pago_proveedor + ')"><i class="bi bi-eye"></i></button></td>'
+                + '</tr>';
+        }).join('');
+    }
+
+    async function verDetalle(id) {
+        pagoSeleccionado = id;
+        const modal = new bootstrap.Modal(document.getElementById('modalDetalle'));
+        document.getElementById('modalDetalleBody').innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary"></div></div>';
+        modal.show();
+        try {
+            const res = await fetch(API_URL + '/pagos-proveedores/' + id, { headers: hdr() });
+            if (!res.ok) throw new Error(res.status);
+            const json = await res.json();
+            const p = json.data;
+            const f = new Date(p.fecha_pago);
+
+            let html = '<div class="row mb-3">';
+            html += '<div class="col-md-6"><strong>Pago #' + p.numero_pago + '</strong><br>Fecha: ' + f.toLocaleDateString('es-AR') + ' ' + f.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}) + '<br>Estado: <span class="badge ' + (p.estado==='anulado'?'badge-anulado':'badge-aplicado') + '">' + esc(p.estado) + '</span></div>';
+            html += '<div class="col-md-6 text-end"><h3>' + fm(p.monto) + '</h3>' + esc(p.proveedor) + '<br><small class="text-muted">' + esc(p.proveedor_cuit||'') + '</small></div></div>';
+
+            if (p.formas_pago?.length) {
+                html += '<h6>Formas de Pago</h6><table class="table table-sm"><thead><tr><th>Forma</th><th>Banco</th><th>Moneda</th><th class="text-end">Monto</th></tr></thead><tbody>';
+                p.formas_pago.forEach(fp => {
+                    html += '<tr><td>' + esc(fp.forma_pago) + '</td><td>' + esc(fp.banco||'-') + '</td><td>' + esc(fp.moneda_codigo||'ARS') + '</td><td class="text-end">' + fm(fp.monto) + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            }
+
+            if (p.imputaciones?.length) {
+                html += '<h6>Facturas Imputadas</h6><table class="table table-sm"><thead><tr><th>Comprobante</th><th>Fecha</th><th class="text-end">Monto Imputado</th></tr></thead><tbody>';
+                p.imputaciones.forEach(imp => {
+                    html += '<tr><td>' + esc(imp.comprobante||'-') + (imp.id_comprobante ? ' <a href="/ver-comprobante-compra.html?id=' + imp.id_comprobante + '" class="text-primary" title="Ver comprobante"><i class="bi bi-search"></i></a>' : '') + '</td><td>' + (imp.fecha_emision ? new Date(imp.fecha_emision).toLocaleDateString('es-AR') : '-') + '</td><td class="text-end">' + fm(imp.monto_imputado) + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            }
+
+            if (p.observaciones) html += '<div class="mt-2"><small class="text-muted">Obs: ' + esc(p.observaciones) + '</small></div>';
+            if (p.usuario) html += '<div><small class="text-muted">Registrado por: ' + esc(p.usuario) + '</small></div>';
+
+            document.getElementById('modalDetalleBody').innerHTML = html;
+            document.getElementById('btnAnular').style.display = p.estado === 'anulado' ? 'none' : '';
+        } catch (e) {
+            document.getElementById('modalDetalleBody').innerHTML = '<div class="text-danger">Error al cargar detalle</div>';
+        }
+    }
+
+    async function anularPago() {
+        if (!pagoSeleccionado) return;
+        if (!confirm('¿Anular este pago? Se revertirán los saldos en CC y cuentas por pagar.')) return;
+        try {
+            const res = await fetch(API_URL + '/pagos-proveedores/' + pagoSeleccionado + '/anular', { method: 'PUT', headers: hdr() });
+            if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Error'); }
+            alert('Pago anulado correctamente');
+            bootstrap.Modal.getInstance(document.getElementById('modalDetalle'))?.hide();
+            cargarPagos();
+        } catch (e) { alert('Error al anular: ' + e.message); }
+    }
+
+    function limpiarFiltros() { ['filtroDesde','filtroHasta','filtroProveedor'].forEach(id=>document.getElementById(id).value=''); document.getElementById('filtroEstado').value=''; cargarPagos(); }
+    function logout() { localStorage.removeItem(TK); window.location.href = '/login.html'; }
+    function fm(v) { return '$' + (parseFloat(v)||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function esc(s) { if (!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+    </script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

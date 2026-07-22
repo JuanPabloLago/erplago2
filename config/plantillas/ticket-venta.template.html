@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Comprobante #{{pedido.id_pedido}}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        @page { size: A4; margin: 15mm; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+            background: #fff;
+        }
+        
+        .comprobante {
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* HEADER MODERNO */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #2c3e50;
+            margin-bottom: 20px;
+        }
+        
+        .empresa-info {
+            flex: 1;
+        }
+        
+        .empresa-nombre {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .empresa-fantasia {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-bottom: 10px;
+        }
+        
+        .empresa-datos {
+            font-size: 11px;
+            color: #555;
+            line-height: 1.6;
+        }
+        
+        .empresa-datos span {
+            display: block;
+        }
+        
+        .documento-info {
+            text-align: right;
+            min-width: 200px;
+        }
+        
+        .tipo-documento {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .numero-documento {
+            font-size: 28px;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+        
+        .fecha-documento {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        
+        /* BADGES DE ESTADO */
+        .estados-badges {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            justify-content: flex-end;
+        }
+        
+        .badge {
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .badge-retira {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+        }
+        
+        .badge-entrega {
+            background: #fff3e0;
+            color: #ef6c00;
+            border: 1px solid #ffcc80;
+        }
+        
+        .badge-pagado {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #90caf9;
+        }
+        
+        .badge-debe {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+        
+        .badge-parcial {
+            background: #fff8e1;
+            color: #f57f17;
+            border: 1px solid #ffe082;
+        }
+        
+        /* SECCIÓN CLIENTE */
+        .seccion {
+            margin-bottom: 20px;
+        }
+        
+        .seccion-titulo {
+            font-size: 11px;
+            font-weight: 600;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        .cliente-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .cliente-campo {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .cliente-campo.full {
+            grid-column: 1 / -1;
+        }
+        
+        .campo-label {
+            font-size: 10px;
+            color: #95a5a6;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+        
+        .campo-valor {
+            font-size: 13px;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+        
+        /* TABLA DE ITEMS */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        
+        .items-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .items-table th {
+            color: white;
+            padding: 12px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: left;
+        }
+        
+        .items-table th:first-child {
+            border-radius: 8px 0 0 0;
+        }
+        
+        .items-table th:last-child {
+            border-radius: 0 8px 0 0;
+            text-align: right;
+        }
+        
+        .items-table td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #ecf0f1;
+            font-size: 12px;
+        }
+        
+        .items-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .items-table .col-codigo {
+            width: 12%;
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .items-table .col-descripcion {
+            width: 40%;
+        }
+        
+        .items-table .col-cantidad {
+            width: 12%;
+            text-align: center;
+        }
+        
+        .items-table .col-precio {
+            width: 18%;
+            text-align: right;
+        }
+        
+        .items-table .col-subtotal {
+            width: 18%;
+            text-align: right;
+            font-weight: 600;
+        }
+        
+        .item-descuento {
+            color: #e74c3c;
+            font-size: 10px;
+        }
+        
+        /* TOTALES */
+        .totales-container {
+            display: flex;
+            justify-content: flex-end;
+        }
+        
+        .totales-box {
+            width: 300px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 15px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        .total-row.descuento {
+            color: #e74c3c;
+        }
+        
+        .total-row.iva {
+            color: #f39c12;
+        }
+        
+        .total-row.final {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            border: none;
+        }
+        
+        .total-label {
+            font-size: 12px;
+        }
+        
+        .total-valor {
+            font-weight: 600;
+        }
+        
+        /* PAGOS */
+        .pagos-section {
+            margin-top: 20px;
+        }
+        
+        .pagos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        
+        .pago-item {
+            background: #e8f5e9;
+            border: 1px solid #a5d6a7;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        .pago-item.pendiente {
+            background: #ffebee;
+            border-color: #ef9a9a;
+        }
+        
+        .pago-metodo {
+            font-size: 10px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+        
+        .pago-monto {
+            font-size: 14px;
+            font-weight: 700;
+            color: #2e7d32;
+        }
+        
+        .pago-item.pendiente .pago-monto {
+            color: #c62828;
+        }
+        
+        /* OBSERVACIONES */
+        .observaciones {
+            background: #fff9c4;
+            border-left: 4px solid #f9a825;
+            padding: 12px 15px;
+            border-radius: 0 8px 8px 0;
+            margin-top: 20px;
+        }
+        
+        .observaciones-titulo {
+            font-size: 11px;
+            font-weight: 600;
+            color: #f57f17;
+            margin-bottom: 5px;
+        }
+        
+        .observaciones-texto {
+            font-size: 12px;
+            color: #5d4037;
+        }
+        
+        /* FOOTER */
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px dashed #ecf0f1;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        
+        .footer-legal {
+            font-size: 10px;
+            color: #95a5a6;
+            max-width: 60%;
+        }
+        
+        .footer-qr {
+            text-align: right;
+        }
+        
+        .footer-gracias {
+            font-size: 14px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .footer-fecha {
+            font-size: 10px;
+            color: #95a5a6;
+        }
+        
+        /* PRINT */
+        @media print {
+            body { 
+                print-color-adjust: exact; 
+                -webkit-print-color-adjust: exact; 
+            }
+            .comprobante {
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="comprobante">
+        <!-- HEADER -->
+        <div class="header">
+            <div class="empresa-info">
+                <div class="empresa-nombre">{{empresa.razon_social}}</div>
+                {{#if empresa.nombre_fantasia}}
+                <div class="empresa-fantasia">{{empresa.nombre_fantasia}}</div>
+                {{/if}}
+                <div class="empresa-datos">
+                    <span>{{empresa.domicilio}}</span>
+                    <span><strong>CUIT:</strong> {{empresa.cuit}}</span>
+                    <span><strong>Cond. IVA:</strong> {{empresa.condicion_iva}}</span>
+                    {{#if empresa.telefono}}<span><strong>Tel:</strong> {{empresa.telefono}}</span>{{/if}}
+                </div>
+            </div>
+            <div class="documento-info">
+                <div class="tipo-documento">{{tipo_comprobante}}</div>
+                <div class="numero-documento">#{{pedido.id_pedido}}</div>
+                <div class="fecha-documento">{{pedido.fecha_formateada}}</div>
+                <div class="estados-badges">
+                    {{#if es_retiro}}
+                    <span class="badge badge-retira">🏪 Retira</span>
+                    {{else}}
+                    <span class="badge badge-entrega">🚚 Entrega</span>
+                    {{/if}}
+                    
+                    {{#if pagado_completo}}
+                    <span class="badge badge-pagado">✓ Pagado</span>
+                    {{else if tiene_pagos}}
+                    <span class="badge badge-parcial">◐ Parcial</span>
+                    {{else}}
+                    <span class="badge badge-debe">✗ Debe</span>
+                    {{/if}}
+                </div>
+            </div>
+        </div>
+        
+        <!-- CLIENTE -->
+        <div class="seccion">
+            <div class="seccion-titulo">Datos del Cliente</div>
+            <div class="cliente-card">
+                <div class="cliente-campo full">
+                    <span class="campo-label">Razón Social</span>
+                    <span class="campo-valor">{{cliente.razon_social}}</span>
+                </div>
+                <div class="cliente-campo">
+                    <span class="campo-label">CUIT/CUIL</span>
+                    <span class="campo-valor">{{cliente.cuit_cuil}}</span>
+                </div>
+                <div class="cliente-campo">
+                    <span class="campo-label">Condición IVA</span>
+                    <span class="campo-valor">{{cliente.condicion_iva}}</span>
+                </div>
+                {{#if cliente.domicilio}}
+                <div class="cliente-campo full">
+                    <span class="campo-label">Domicilio</span>
+                    <span class="campo-valor">{{cliente.domicilio}}</span>
+                </div>
+                {{/if}}
+                {{#if cliente.telefono}}
+                <div class="cliente-campo">
+                    <span class="campo-label">Teléfono</span>
+                    <span class="campo-valor">{{cliente.telefono}}</span>
+                </div>
+                {{/if}}
+            </div>
+        </div>
+        
+        <!-- ITEMS -->
+        <div class="seccion">
+            <div class="seccion-titulo">Detalle de Productos</div>
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Descripción</th>
+                        <th style="text-align:center">Cant.</th>
+                        <th style="text-align:right">P. Unit.</th>
+                        <th style="text-align:right">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{#each items}}
+                    <tr>
+                        <td class="col-codigo">{{this.sku}}</td>
+                        <td class="col-descripcion">
+                            {{this.descripcion}}
+                            {{#if this.descuento}}
+                            <div class="item-descuento">-{{this.descuento}}% dto</div>
+                            {{/if}}
+                        </td>
+                        <td class="col-cantidad">{{this.cantidad}}</td>
+                        <td class="col-precio">${{this.precio_unitario}}</td>
+                        <td class="col-subtotal">${{this.subtotal}}</td>
+                    </tr>
+                    {{/each}}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- TOTALES -->
+        <div class="totales-container">
+            <div class="totales-box">
+                <div class="total-row">
+                    <span class="total-label">Subtotal</span>
+                    <span class="total-valor">${{totales.subtotal}}</span>
+                </div>
+                {{#if totales.descuento}}
+                <div class="total-row descuento">
+                    <span class="total-label">Descuento</span>
+                    <span class="total-valor">-${{totales.descuento}}</span>
+                </div>
+                {{/if}}
+                <div class="total-row iva">
+                    <span class="total-label">IVA (21%)</span>
+                    <span class="total-valor">${{totales.iva}}</span>
+                </div>
+                <div class="total-row final">
+                    <span class="total-label">TOTAL</span>
+                    <span class="total-valor">${{totales.total}}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- PAGOS -->
+        {{#if pagos}}
+        <div class="seccion pagos-section">
+            <div class="seccion-titulo">Forma de Pago</div>
+            <div class="pagos-grid">
+                {{#each pagos}}
+                <div class="pago-item {{#if this.pendiente}}pendiente{{/if}}">
+                    <div class="pago-metodo">{{this.metodo}}</div>
+                    <div class="pago-monto">${{this.monto}}</div>
+                    {{#if this.monto_original}}<div style="font-size:9px;color:#888;">Base: ${{this.monto_original}}</div>{{/if}}
+                </div>
+                {{/each}}
+            </div>
+        </div>
+        {{/if}}
+        
+        <!-- OBSERVACIONES -->
+        {{#if observaciones}}
+        <div class="observaciones">
+            <div class="observaciones-titulo">📝 Observaciones</div>
+            <div class="observaciones-texto">{{observaciones}}</div>
+        </div>
+        {{/if}}
+        
+        <!-- FOOTER -->
+        <div class="footer">
+            <div class="footer-legal">
+                Documento no válido como factura. Comprobante interno de operación.<br>
+                {{empresa.razon_social}} - CUIT: {{empresa.cuit}}
+            </div>
+            <div class="footer-qr">
+                <div class="footer-gracias">¡Gracias por su compra!</div>
+                <div class="footer-fecha">Impreso: {{fecha_impresion}}</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,250 @@
+/**
+ * auth.js - Autenticación + Control de Acceso a Módulos + Menú Dinámico
+ * Ubicación: /root/mi_erp/frontend/js/auth.js
+ *
+ * v2: Grupos del menú vienen de BD (via API), cero hardcode
+ */
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VERIFICACIÓN DE AUTENTICACIÓN + MÓDULOS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Función principal - llamar al cargar cada página
+ * Retorna el perfil del usuario o false si no tiene acceso
+ */
+async function verificarAutenticacion() {
+    const token = localStorage.getItem('authToken');
+
+    if (!token) {
+        window.location.href = '/login.html';
+        return false;
+    }
+
+    try {
+        const API_BASE = window.CONFIG?.API_BASE_URL || '';
+        const resp = await fetch(`${API_BASE}/api/auth/perfil`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!resp.ok) {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('username');
+            window.location.href = '/login.html';
+            return false;
+        }
+
+        const perfil = await resp.json();
+
+        // Guardar info del usuario
+        localStorage.setItem('username', perfil.nombre || perfil.username);
+
+        // Mostrar nombre de usuario en header si existe el elemento
+        const userInfo = document.getElementById('userInfo');
+        if (userInfo) {
+            userInfo.textContent = perfil.nombre || perfil.username;
+        }
+
+        // Guardar módulos y grupos en sessionStorage para uso rápido
+        if (perfil.modulos) {
+            sessionStorage.setItem('modulos_permitidos', JSON.stringify(perfil.modulos));
+            sessionStorage.setItem('usuario_rol', perfil.rol);
+
+            if (perfil.grupos) {
+                sessionStorage.setItem('modulo_grupos', JSON.stringify(perfil.grupos));
+            }
+
+            // Verificar acceso a la página actual
+            const paginaActual = window.location.pathname;
+            const tieneAcceso = verificarAccesoPagina(perfil.modulos, paginaActual);
+
+            if (!tieneAcceso) {
+                const primerModulo = perfil.modulos[0];
+                if (primerModulo) {
+                    // Mostrar mensaje antes de redirigir
+                    const nombrePagina = paginaActual.replace('/', '').replace('.html', '');
+                    const toast = document.createElement('div');
+                    toast.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);z-index:99999;font-family:Arial';
+                    toast.innerHTML = `
+                        <div style="background:#fff;border-radius:12px;padding:40px;text-align:center;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+                            <i class="fas fa-ban" style="font-size:48px;color:#dc3545;margin-bottom:16px"></i>
+                            <h3 style="margin:0 0 8px;color:#333">Acceso denegado</h3>
+                            <p style="color:#666;margin:0 0 20px">No tenés permiso para acceder a <strong>${nombrePagina}</strong>.<br>Redirigiendo...</p>
+                            <div style="width:100%;height:4px;background:#e9ecef;border-radius:2px;overflow:hidden">
+                                <div style="width:0%;height:100%;background:#0d6efd;border-radius:2px;transition:width 1.5s linear" id="redirect-bar"></div>
+                            </div>
+                        </div>`;
+                    document.body.appendChild(toast);
+                    requestAnimationFrame(() => document.getElementById('redirect-bar').style.width = '100%');
+                    setTimeout(() => { window.location.href = primerModulo.url_frontend; }, 1800);
+                } else {
+                    document.body.innerHTML = `
+                        <div style="display:flex;align-items:center;justify-content:center;height:100vh;
+                                    font-family:Arial;color:#666;flex-direction:column">
+                            <i class="fas fa-lock" style="font-size:48px;margin-bottom:20px;color:#dc3545"></i>
+                            <h2>Sin acceso</h2>
+                            <p>Tu usuario no tiene módulos asignados. Contactá al administrador.</p>
+                            <button onclick="logout()" class="btn btn-outline-secondary mt-3">Cerrar sesión</button>
+                        </div>`;
+                }
+                return false;
+            }
+
+            // Renderizar menú dinámico (grupos desde BD)
+            renderizarMenu(perfil.modulos, perfil.grupos || [], paginaActual);
+
+            // Aplicar modo solo lectura si corresponde
+            aplicarSoloLectura(perfil.modulos, paginaActual);
+        }
+
+        return perfil;
+
+    } catch (error) {
+        console.error('Error verificando autenticación:', error);
+        return false;
+    }
+}
+
+/**
+ * Verifica si la página actual está en la lista de módulos permitidos
+ */
+function verificarAccesoPagina(modulos, paginaActual) {
+    const paginasLibres = ['/index.html', '/login.html', '/ver-pedido-publico.html',
+                           '/vista-previa.html', '/ver-pedido.html', '/'];
+
+    if (paginasLibres.includes(paginaActual)) return true;
+
+    return modulos.some(m => m.url_frontend === paginaActual);
+}
+
+/**
+ * Si el módulo actual es solo_lectura, deshabilita botones de acción
+ */
+function aplicarSoloLectura(modulos, paginaActual) {
+    const modulo = modulos.find(m => m.url_frontend === paginaActual);
+    if (!modulo || !modulo.solo_lectura) return;
+
+    document.body.classList.add('modulo-solo-lectura');
+
+    document.addEventListener('DOMContentLoaded', () => {
+        deshabilitarAccionesEscritura();
+    });
+
+    if (document.readyState !== 'loading') {
+        deshabilitarAccionesEscritura();
+    }
+}
+
+function deshabilitarAccionesEscritura() {
+    const selectoresEscritura = [
+        '[data-accion="crear"]', '[data-accion="editar"]', '[data-accion="eliminar"]',
+        '[data-accion="guardar"]', '[data-accion="anular"]',
+        '.btn-crear', '.btn-nuevo', '.btn-guardar', '.btn-eliminar', '.btn-anular',
+        '#btnCrear', '#btnNuevo', '#btnGuardar', '#btnEliminar', '#btnAnular'
+    ];
+
+    document.querySelectorAll(selectoresEscritura.join(', ')).forEach(btn => {
+        btn.disabled = true;
+        btn.title = '🔒 Solo lectura - sin permisos para modificar';
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MENÚ DINÁMICO (grupos desde BD)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Renderiza el sidebar/menú dinámicamente
+ * @param {Array} modulos - Módulos del usuario
+ * @param {Array} grupos - Grupos del menú desde BD [{codigo, nombre, icono, orden}]
+ * @param {string} paginaActual - pathname actual
+ */
+function renderizarMenu(modulos, grupos, paginaActual) {
+    const contenedor = document.getElementById('sidebar-menu');
+    if (!contenedor) return;
+
+    // Crear mapa de grupos para lookup rápido
+    const gruposMap = {};
+    grupos.forEach(g => { gruposMap[g.codigo] = g; });
+
+    // Agrupar módulos por grupo
+    const modulosPorGrupo = {};
+    modulos.forEach(m => {
+        if (!modulosPorGrupo[m.grupo]) modulosPorGrupo[m.grupo] = [];
+        modulosPorGrupo[m.grupo].push(m);
+    });
+
+    // Ordenar grupos según orden de BD
+    const gruposOrdenados = Object.keys(modulosPorGrupo).sort((a, b) => {
+        const ordenA = gruposMap[a]?.orden || 99;
+        const ordenB = gruposMap[b]?.orden || 99;
+        return ordenA - ordenB;
+    });
+
+    let html = '';
+    for (const codigoGrupo of gruposOrdenados) {
+        const items = modulosPorGrupo[codigoGrupo];
+        const config = gruposMap[codigoGrupo] || { nombre: codigoGrupo, icono: 'fa-folder' };
+
+        html += `<div class="menu-grupo">
+            <div class="menu-grupo-titulo">
+                <i class="fas ${config.icono}"></i> ${config.nombre}
+            </div>`;
+
+        for (const m of items) {
+            const activo = m.url_frontend === paginaActual ? 'active' : '';
+            const soloLectura = m.solo_lectura ? '<span class="badge-solo-lectura" title="Solo lectura">🔒</span>' : '';
+
+            html += `<a href="${m.url_frontend}" class="menu-item ${activo}">
+                <i class="fas ${m.icono}"></i>
+                <span>${m.nombre}</span>
+                ${soloLectura}
+            </a>`;
+        }
+
+        html += `</div>`;
+    }
+
+    contenedor.innerHTML = html;
+}
+
+/**
+ * Obtiene los módulos del usuario desde sessionStorage
+ */
+function obtenerModulosUsuario() {
+    const datos = sessionStorage.getItem('modulos_permitidos');
+    return datos ? JSON.parse(datos) : [];
+}
+
+/**
+ * Verifica si el usuario tiene acceso a un módulo específico (por código)
+ */
+function tieneAccesoAModulo(codigoModulo) {
+    const modulos = obtenerModulosUsuario();
+    return modulos.some(m => m.codigo === codigoModulo);
+}
+
+/**
+ * Verifica si un módulo es solo lectura para el usuario actual
+ */
+function esSoloLectura(codigoModulo) {
+    const modulos = obtenerModulosUsuario();
+    const modulo = modulos.find(m => m.codigo === codigoModulo);
+    return modulo ? modulo.solo_lectura : true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOGOUT
+// ═══════════════════════════════════════════════════════════════════════════
+function logout() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('username');
+    sessionStorage.removeItem('modulos_permitidos');
+    sessionStorage.removeItem('modulo_grupos');
+    sessionStorage.removeItem('usuario_rol');
+    window.location.href = '/login.html';
+}
+
+console.log('auth.js v2.0 cargado (módulos + grupos desde BD)');

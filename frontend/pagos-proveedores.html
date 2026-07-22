@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script src="js/config.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagos a Proveedores - ERP Lago</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="css/erp-lago-styles.css">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            --danger-gradient: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        }
+        
+        .page-header {
+            background: var(--primary-gradient);
+            padding: 1.5rem;
+            border-radius: 12px;
+            color: white;
+            margin-bottom: 1.5rem;
+        }
+        
+        .proveedor-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 1.5rem;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .proveedor-card:hover {
+            border-color: #11998e;
+        }
+        .proveedor-card.selected {
+            border-color: #11998e;
+            background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%);
+        }
+        
+        .saldo-badge {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .saldo-badge.deuda {
+            color: #dc3545;
+        }
+        .saldo-badge.favor {
+            color: #198754;
+        }
+        
+        .facturas-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }
+        .facturas-header {
+            background: #343a40;
+            color: white;
+            padding: 1rem 1.5rem;
+        }
+        
+        .factura-row {
+            display: flex;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+            transition: background 0.15s;
+        }
+        .factura-row:hover {
+            background: #f8f9fa;
+        }
+        .factura-row.selected {
+            background: #d1e7dd;
+        }
+        .factura-row.vencida {
+            border-left: 4px solid #dc3545;
+        }
+        .factura-row.proxima {
+            border-left: 4px solid #ffc107;
+        }
+        
+        .factura-check {
+            width: 24px;
+            height: 24px;
+            margin-right: 1rem;
+        }
+        
+        .monto-a-pagar {
+            width: 140px;
+            text-align: right;
+        }
+        
+        .formas-pago-container {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 1.5rem;
+        }
+        
+        .forma-pago-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+        .forma-pago-item .btn-remove {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+        }
+        
+        .cheque-cartera-item {
+            background: #fff3cd;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .cheque-cartera-item:hover {
+            background: #ffe69c;
+        }
+        .cheque-cartera-item.selected {
+            background: #d1e7dd;
+            border: 2px solid #198754;
+        }
+        
+        .resumen-panel {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 1.5rem;
+            position: sticky;
+            top: 1rem;
+        }
+        .resumen-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .resumen-row.total {
+            font-size: 1.25rem;
+            font-weight: 700;
+            border-bottom: none;
+            border-top: 2px solid #343a40;
+            margin-top: 0.5rem;
+            padding-top: 1rem;
+        }
+        .resumen-row.diferencia {
+            background: #fff3cd;
+            margin: 0.5rem -1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+        }
+        .resumen-row.diferencia.ok {
+            background: #d4edda;
+        }
+        
+        .actions-footer {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            padding: 1rem;
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.1);
+            border-radius: 12px 12px 0 0;
+            z-index: 100;
+        }
+        
+        .dias-vencida {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        .dias-vencida.vencida {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .dias-vencida.proxima {
+            background: #fff3cd;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary no-print"><div class="container-fluid"><a class="navbar-brand" href="/"><i class="bi bi-building"></i> ERP LAGO</a><div class="navbar-nav ms-auto"><a class="nav-link" href="/dashboard.html">Dashboard</a><a class="nav-link" href="/compras.html">Compras</a><a class="nav-link active" href="/pagos-proveedores.html">Pagos</a><a class="nav-link" href="/pagos-proveedores-listado.html">Ver Pagos</a><a class="nav-link" href="/cc-proveedores.html">CC Proveedores</a><a class="nav-link" href="#" onclick="logout()">Salir</a></div></div></nav>
+    <script src="js/connection-indicator.js"></script>
+    
+    <div class="container-fluid py-4">
+        <!-- Header -->
+        <div class="page-header">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h1 class="mb-0"><i class="bi bi-cash-stack"></i> Pagos a Proveedores</h1>
+                    <p class="mb-0 opacity-75">Registrar pagos e imputar a facturas</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <a href="compras.html" class="btn btn-outline-light me-2">
+                        <i class="bi bi-cart-plus"></i> Nueva Compra
+                    </a>
+                    <a href="pagos-proveedores-listado.html" class="btn btn-outline-light">
+                        <i class="bi bi-list-ul"></i> Ver Pagos
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Columna izquierda: Proveedor y Facturas -->
+            <div class="col-lg-8">
+                <!-- Selector de proveedor -->
+                <div class="formas-pago-container">
+                    <h5 class="mb-3"><i class="bi bi-truck"></i> Seleccionar Proveedor</h5>
+                    <div class="input-group mb-3">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" id="inputBuscarProveedor" class="form-control form-control-lg" 
+                               placeholder="Buscar proveedor con saldo pendiente..." autocomplete="off">
+                    </div>
+                    
+                    <div id="listaProveedores">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+                    
+                    <!-- Info del proveedor seleccionado -->
+                    <div id="proveedorSeleccionadoInfo" style="display: none;">
+                        <div class="alert alert-success mb-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong id="proveedorNombre">-</strong>
+                                    <br><small id="proveedorCuit">CUIT: -</small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="saldo-badge deuda" id="proveedorSaldoTotal">$0</div>
+                                    <small class="text-muted" id="proveedorFacturasCount">0 facturas</small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger ms-3" onclick="limpiarProveedor()">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- IMPUTACION POSTERIOR: saldo a favor disponible -->
+                <div id="seccion-saldo-favor" style="display:none;"></div>
+
+                <!-- Facturas pendientes -->
+                <div class="facturas-container" id="facturasContainer" style="display: none;">
+                    <div class="facturas-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-receipt"></i> Facturas Pendientes</span>
+                        <div>
+                            <button class="btn btn-sm btn-outline-light me-2" onclick="seleccionarTodas()">
+                                <i class="bi bi-check-all"></i> Seleccionar Todas
+                            </button>
+                            <button class="btn btn-sm btn-outline-light" onclick="deseleccionarTodas()">
+                                <i class="bi bi-x-lg"></i> Ninguna
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="listaFacturas">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+                    
+                    <div class="p-3 bg-light">
+                        <div class="form-check">
+                            <input type="checkbox" id="chkPagoACuenta" class="form-check-input" 
+                                   onchange="togglePagoACuenta()">
+                            <label class="form-check-label" for="chkPagoACuenta">
+                                <strong>Pago a cuenta</strong> (sin imputar a facturas específicas)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formas de pago -->
+                <div class="formas-pago-container" id="formasPagoContainer" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0"><i class="bi bi-credit-card"></i> Formas de Pago</h5>
+                        <button class="btn btn-primary btn-sm" onclick="agregarFormaPago()">
+                            <i class="bi bi-plus"></i> Agregar
+                        </button>
+                    </div>
+                    
+                    <div id="listaFormasPago">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna derecha: Resumen -->
+            <div class="col-lg-4">
+                <div class="resumen-panel" id="resumenPanel" style="display: none;">
+                    <h5 class="mb-3"><i class="bi bi-calculator"></i> Resumen del Pago</h5>
+                    
+                    <div class="resumen-row">
+                        <span>Facturas seleccionadas</span>
+                        <span id="resumenCantFacturas">0</span>
+                    </div>
+                    <div class="resumen-row">
+                        <span>Total a pagar</span>
+                        <span id="resumenTotalFacturas">$0,00</span>
+                    </div>
+                    <div class="resumen-row">
+                        <span>Total formas de pago</span>
+                        <span id="resumenTotalFormas">$0,00</span>
+                    </div>
+                    <div class="resumen-row diferencia" id="resumenDiferencia" style="display: none;">
+                        <span>Diferencia</span>
+                        <span id="resumenDiferenciaValor">$0,00</span>
+                    </div>
+                    <div class="resumen-row total">
+                        <span>TOTAL PAGO</span>
+                        <span id="resumenTotal">$0,00</span>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <label class="form-label">Observaciones</label>
+                        <textarea id="inputObservaciones" class="form-control" rows="2" 
+                                  placeholder="Notas del pago..."></textarea>
+                    </div>
+                    
+                    <div class="d-grid gap-2 mt-4">
+                        <button class="btn btn-success btn-lg" id="btnRegistrarPago" onclick="registrarPago()">
+                            <i class="bi bi-check-circle"></i> Registrar Pago
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Barra de acciones móvil -->
+        <div class="actions-footer d-lg-none">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>Total: </strong>
+                    <span id="totalMovil">$0,00</span>
+                </div>
+                <button class="btn btn-success" onclick="registrarPago()">
+                    <i class="bi bi-check-circle"></i> Pagar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Cheques de Terceros en Cartera -->
+    <div class="modal fade" id="modalChequesCartera" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="bi bi-wallet2"></i> Cheques en Cartera</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">Seleccione los cheques a endosar al proveedor</p>
+                    <div id="listaChequesCartera">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmarChequesSeleccionados()">
+                        Confirmar Selección
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Datos de Cheque Propio -->
+    <div class="modal fade" id="modalChequePropio" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" style="background: var(--primary-gradient); color: white;">
+                    <h5 class="modal-title"><i class="bi bi-pencil-square"></i> Datos del Cheque</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Banco</label>
+                        <select id="chequeBanco" class="form-select">
+                            <!-- Se llena dinámicamente -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Número de Cheque</label>
+                        <input type="text" id="chequeNumero" class="form-control" placeholder="Ej: 12345678">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Fecha de Vencimiento</label>
+                        <input type="date" id="chequeFechaVto" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Monto</label>
+                        <input type="number" id="chequeMonto" class="form-control text-end" step="0.01">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Beneficiario</label>
+                        <input type="text" id="chequeBeneficiario" class="form-control" 
+                               placeholder="Nombre del proveedor">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmarChequePropio()">
+                        Confirmar Cheque
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/creditos-proveedor-ui.js"></script>
+    <script src="js/pagos-proveedores.js"></script>
+</body>
+</html>

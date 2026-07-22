@@ -4,59 +4,149 @@
     <script src="js/config.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Administración de Usuarios - ERP LAGO</title>
+    <title>Gestión de Usuarios - ERP LAGO</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/erp-lago-styles.css">
     <style>
-        .gradient-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .permiso-badge { margin: 3px; font-size: 0.85rem; }
-        .permiso-activo { background-color: #28a745; }
-        .permiso-inactivo { background-color: #6c757d; }
+        .gradient-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-stat { border-left: 4px solid; }
+        .card-stat.activos { border-color: #28a745; }
+        .card-stat.inactivos { border-color: #dc3545; }
+        .card-stat.total { border-color: #007bff; }
+        .user-avatar { 
+            width: 40px; height: 40px; 
+            border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; color: white;
+        }
+        .rol-admin { background-color: #dc3545; }
+        .rol-administrador { background-color: #fd7e14; }
+        .rol-vendedor { background-color: #28a745; }
+        .rol-gerente { background-color: #007bff; }
+        .estado-activo { color: #28a745; }
+        .estado-inactivo { color: #dc3545; }
+        .estado-suspendido { color: #ffc107; }
+        .log-item { 
+            border-left: 3px solid #dee2e6; 
+            padding-left: 10px; 
+            margin-bottom: 10px;
+        }
+        .log-item.LOGIN { border-color: #28a745; }
+        .log-item.CREAR_USUARIO { border-color: #007bff; }
+        .log-item.EDITAR_USUARIO { border-color: #fd7e14; }
+        .log-item.DESACTIVAR_USUARIO { border-color: #dc3545; }
+        .log-item.RESET_PASSWORD { border-color: #6f42c1; }
+        .permiso-switch { margin-bottom: 8px; }
+        .nav-tabs .nav-link.active { font-weight: bold; }
+        .tabla-usuarios tr { cursor: pointer; }
+        .tabla-usuarios tr:hover { background-color: #f8f9fa; }
+        .tabla-usuarios tr.selected { background-color: #e3f2fd; }
     </style>
 </head>
-<body>
-    <script src="js/connection-indicator.js"></script>
-
-    <nav class="navbar navbar-dark gradient-primary">
+<body class="bg-light">
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-dark gradient-header">
         <div class="container-fluid">
             <a class="navbar-brand" href="dashboard.html">
-                <i class="bi bi-arrow-left-circle"></i> Volver al Dashboard
+                <i class="bi bi-arrow-left-circle me-2"></i>Volver
             </a>
-            <span class="navbar-text text-white">
-                <i class="bi bi-shield-lock"></i> ADMINISTRACIÓN DE USUARIOS Y PERMISOS
+            <span class="navbar-text text-white fs-5">
+                <i class="bi bi-people-fill me-2"></i>Gestión de Usuarios y Permisos
             </span>
             <span class="text-white">
-                <i class="bi bi-person-circle"></i> <span id="usuarioNombre"></span>
+                <i class="bi bi-person-circle me-1"></i>
+                <span id="usuarioActual">Cargando...</span>
             </span>
         </div>
     </nav>
 
-    <div class="container-fluid mt-4">
-        <div class="row">
-            <!-- USUARIOS -->
-            <div class="col-md-8">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-people"></i> Usuarios del Sistema</h5>
-                        <button class="btn btn-light btn-sm" onclick="mostrarModalNuevoUsuario()">
-                            <i class="bi bi-plus-circle"></i> Nuevo Usuario
+    <div class="container-fluid py-4">
+        <!-- ESTADÍSTICAS -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card card-stat total">
+                    <div class="card-body d-flex align-items-center">
+                        <i class="bi bi-people fs-1 text-primary me-3"></i>
+                        <div>
+                            <h3 class="mb-0" id="statTotal">0</h3>
+                            <small class="text-muted">Total Usuarios</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-stat activos">
+                    <div class="card-body d-flex align-items-center">
+                        <i class="bi bi-person-check fs-1 text-success me-3"></i>
+                        <div>
+                            <h3 class="mb-0" id="statActivos">0</h3>
+                            <small class="text-muted">Activos</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-stat inactivos">
+                    <div class="card-body d-flex align-items-center">
+                        <i class="bi bi-person-x fs-1 text-danger me-3"></i>
+                        <div>
+                            <h3 class="mb-0" id="statInactivos">0</h3>
+                            <small class="text-muted">Inactivos</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body d-flex align-items-center justify-content-center">
+                        <button class="btn btn-primary btn-lg" onclick="abrirModalNuevo()">
+                            <i class="bi bi-person-plus me-2"></i>Nuevo Usuario
                         </button>
                     </div>
-                    <div class="card-body">
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- LISTA DE USUARIOS -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h5 class="mb-0"><i class="bi bi-people me-2"></i>Usuarios</h5>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control" id="buscadorUsuarios" 
+                                           placeholder="Buscar por nombre o username..." onkeyup="filtrarUsuarios()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
+                            <table class="table table-hover tabla-usuarios mb-0">
+                                <thead class="table-light">
                                     <tr>
+                                        <th style="width:50px"></th>
                                         <th>Usuario</th>
-                                        <th>Email</th>
+                                        <th>Nombre</th>
                                         <th>Rol</th>
+                                        <th>Empresa</th>
                                         <th>Estado</th>
-                                        <th>Acciones</th>
+                                        <th>Último Login</th>
+                                        <th style="width:150px">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tablaUsuarios">
                                     <tr>
-                                        <td colspan="5" class="text-center">Cargando...</td>
+                                        <td colspan="8" class="text-center py-4">
+                                            <div class="spinner-border text-primary" role="status"></div>
+                                            <p class="mt-2 mb-0">Cargando usuarios...</p>
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -65,129 +155,257 @@
                 </div>
             </div>
 
-            <!-- PERMISOS POR ROL -->
-            <div class="col-md-4">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="mb-0"><i class="bi bi-key"></i> Permisos por Rol</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">Seleccionar Rol:</label>
-                            <select class="form-select" id="selectRol" onchange="cargarPermisosRol()">
-                                <option value="">-- Seleccionar --</option>
-                            </select>
-                        </div>
+            <!-- PANEL LATERAL -->
+            <div class="col-lg-4">
+                <!-- Tabs -->
+                <ul class="nav nav-tabs" id="panelTabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabPermisos">
+                            <i class="bi bi-key"></i> Permisos
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabLogs">
+                            <i class="bi bi-clock-history"></i> Actividad
+                        </button>
+                    </li>
+                </ul>
 
-                        <div id="listaPermisos">
-                            <p class="text-muted">Selecciona un rol para ver sus permisos</p>
+                <div class="tab-content">
+                    <!-- TAB PERMISOS -->
+                    <div class="tab-pane fade show active" id="tabPermisos">
+                        <div class="card border-top-0 rounded-top-0">
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Seleccionar Rol:</label>
+                                    <select class="form-select" id="selectRolPermisos" onchange="cargarPermisosRol(); cargarModulosRol(this.value)">
+                                        <option value="">-- Elegir rol --</option>
+                                    </select>
+                                </div>
+                                <div id="contenedorPermisos">
+                                    <p class="text-muted text-center">
+                                        <i class="bi bi-info-circle"></i> Seleccioná un rol para ver sus permisos
+                                    </p>
+                                </div>
+                                <hr>
+                                <div id="contenedorModulos">
+                                    <p class="text-muted text-center">
+                                        <i class="bi bi-grid-3x3-gap"></i> Los módulos se cargan al elegir un rol
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB LOGS -->
+                    <div class="tab-pane fade" id="tabLogs">
+                        <div class="card border-top-0 rounded-top-0">
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Filtrar por acción:</label>
+                                    <select class="form-select form-select-sm" id="filtroAccionLog" onchange="cargarLogs()">
+                                        <option value="">Todas las acciones</option>
+                                        <option value="LOGIN">Logins</option>
+                                        <option value="CREAR_USUARIO">Creación usuarios</option>
+                                        <option value="EDITAR_USUARIO">Edición usuarios</option>
+                                        <option value="DESACTIVAR_USUARIO">Desactivación</option>
+                                        <option value="RESET_PASSWORD">Reset passwords</option>
+                                        <option value="CAMBIAR_PERMISO">Cambios permisos</option>
+                                    </select>
+                                </div>
+                                <div id="contenedorLogs" style="max-height: 400px; overflow-y: auto;">
+                                    <p class="text-muted text-center">
+                                        <div class="spinner-border spinner-border-sm"></div> Cargando...
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="card shadow-sm mt-3">
+                <!-- INFO RÁPIDA -->
+                <div class="card mt-3">
                     <div class="card-header bg-info text-white">
-                        <h5 class="mb-0"><i class="bi bi-info-circle"></i> Información</h5>
+                        <i class="bi bi-lightbulb"></i> Información
                     </div>
-                    <div class="card-body">
-                        <h6>Roles disponibles:</h6>
-                        <ul class="small">
-                            <li><strong>admin/administrador:</strong> Acceso total</li>
-                            <li><strong>gerente:</strong> Gestión de ventas y reportes</li>
-                            <li><strong>vendedor:</strong> Solo ventas</li>
+                    <div class="card-body small">
+                        <p class="mb-2"><strong>Roles:</strong></p>
+                        <ul class="mb-2">
+                            <li><span class="badge bg-danger">admin</span> Acceso total a todo el sistema</li>
+                            <li><span class="badge bg-warning text-dark">administrador</span> Gestión de su empresa</li>
+                            <li><span class="badge bg-success">vendedor</span> Solo punto de venta</li>
                         </ul>
-                        
-                        <h6 class="mt-3">Permisos:</h6>
-                        <ul class="small">
-                            <li><strong>cambiar_lista_precios:</strong> Cambiar precios en ventas</li>
-                            <li><strong>venta_sin_stock:</strong> Vender sin stock</li>
-                            <li><strong>ver_costos:</strong> Ver costos de productos</li>
-                            <li><strong>modificar_precios:</strong> Editar precios</li>
-                        </ul>
+                        <p class="mb-0 text-muted">
+                            <i class="bi bi-shield-check"></i> Los permisos se asignan por rol
+                        </p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal Nuevo Usuario -->
-    <div class="modal fade" id="modalNuevoUsuario" tabindex="-1">
-        <div class="modal-dialog">
+    <!-- MODAL NUEVO/EDITAR USUARIO -->
+    <div class="modal fade" id="modalUsuario" tabindex="-1">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title"><i class="bi bi-person-plus"></i> Nuevo Usuario</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <div class="modal-header" id="modalUsuarioHeader">
+                    <h5 class="modal-title" id="modalUsuarioTitulo">
+                        <i class="bi bi-person-plus"></i> Nuevo Usuario
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Usuario *</label>
-                        <input type="text" class="form-control" id="nuevoUsername" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control" id="nuevoEmail">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Contraseña *</label>
-                        <input type="password" class="form-control" id="nuevoPassword" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Rol *</label>
-                        <select class="form-select" id="nuevoRol" required>
-                            <option value="">-- Seleccionar --</option>
-                        </select>
-                    </div>
+                    <form id="formUsuario">
+                        <input type="hidden" id="usuarioId">
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Username <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                    <input type="text" class="form-control" id="usuarioUsername" required 
+                                           pattern="[a-zA-Z0-9_]+" title="Solo letras, números y guiones bajos">
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Nombre completo</label>
+                                <input type="text" class="form-control" id="usuarioNombre">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Email</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                    <input type="email" class="form-control" id="usuarioEmail">
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3" id="campoPassword">
+                                <label class="form-label">Contraseña <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                    <input type="password" class="form-control" id="usuarioPassword" minlength="4">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('usuarioPassword')">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted" id="passwordHelp">Mínimo 4 caracteres</small>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Rol <span class="text-danger">*</span></label>
+                                <select class="form-select" id="usuarioRol" required>
+                                    <option value="">-- Seleccionar --</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3" id="campoEmpresa">
+                                <label class="form-label">Empresa</label>
+                                <select class="form-select" id="usuarioEmpresa">
+                                    <option value="">-- Seleccionar --</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3" id="campoDeposito">
+                                <label class="form-label">Depósito <span class="text-danger">*</span></label>
+                                <select class="form-select" id="usuarioDeposito">
+                                    <option value="">-- Seleccionar --</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3" id="campoEstado" style="display:none;">
+                                <label class="form-label">Estado</label>
+                                <select class="form-select" id="usuarioEstado">
+                                    <option value="activo">Activo</option>
+                                    <option value="inactivo">Inactivo</option>
+                                    <option value="suspendido">Suspendido</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="crearUsuario()">
-                        <i class="bi bi-save"></i> Crear Usuario
+                    <button type="button" class="btn btn-primary" id="btnGuardarUsuario" onclick="guardarUsuario()">
+                        <i class="bi bi-check-lg"></i> Guardar
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal Editar Usuario -->
-    <div class="modal fade" id="modalEditarUsuario" tabindex="-1">
+    <!-- MODAL RESET PASSWORD -->
+    <div class="modal fade" id="modalResetPassword" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header bg-warning">
-                    <h5 class="modal-title"><i class="bi bi-pencil"></i> Editar Usuario</h5>
+                    <h5 class="modal-title"><i class="bi bi-key"></i> Resetear Contraseña</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" id="editarIdUsuario">
+                    <input type="hidden" id="resetPasswordUserId">
+                    <p>Vas a resetear la contraseña de: <strong id="resetPasswordUsername"></strong></p>
                     <div class="mb-3">
-                        <label class="form-label">Usuario *</label>
-                        <input type="text" class="form-control" id="editarUsername" required>
+                        <label class="form-label">Nueva Contraseña</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="resetPasswordNueva" minlength="4" required>
+                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('resetPasswordNueva')">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control" id="editarEmail">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Rol *</label>
-                        <select class="form-select" id="editarRol" required>
-                            <option value="">-- Seleccionar --</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Estado *</label>
-                        <select class="form-select" id="editarEstado" required>
-                            <option value="activo">Activo</option>
-                            <option value="inactivo">Inactivo</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Nueva Contraseña (dejar vacío para mantener)</label>
-                        <input type="password" class="form-control" id="editarPassword">
+                        <label class="form-label">Confirmar Contraseña</label>
+                        <input type="password" class="form-control" id="resetPasswordConfirmar" minlength="4" required>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-warning" onclick="actualizarUsuario()">
-                        <i class="bi bi-save"></i> Guardar Cambios
+                    <button type="button" class="btn btn-warning" onclick="ejecutarResetPassword()">
+                        <i class="bi bi-check-lg"></i> Resetear
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL LOGS USUARIO -->
+    <div class="modal fade" id="modalLogsUsuario" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="bi bi-clock-history"></i> Historial de Actividad</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 id="logsUsuarioTitulo">Usuario: </h6>
+                    <div id="contenedorLogsUsuario" style="max-height: 400px; overflow-y: auto;">
+                        <p class="text-center">Cargando...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIRMAR DESACTIVAR -->
+    <div class="modal fade" id="modalConfirmarDesactivar" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Confirmar Desactivación</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="desactivarUserId">
+                    <p>¿Estás seguro que querés desactivar al usuario <strong id="desactivarUsername"></strong>?</p>
+                    <p class="text-muted small">El usuario no podrá iniciar sesión pero sus datos se conservan.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" onclick="ejecutarDesactivar()">
+                        <i class="bi bi-person-x"></i> Desactivar
                     </button>
                 </div>
             </div>
@@ -196,10 +414,16 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const API_URL = 'http://72.60.148.18:3000/api';
+        // =========================================================================
+        // VARIABLES GLOBALES
+        // =========================================================================
         let usuarios = [];
-        let roles = [];
+        let formData = { roles: [], empresas: [], permisos: [] };
+        const API_URL = (window.CONFIG && window.CONFIG.API_BASE_URL) || '/api';
 
+        // =========================================================================
+        // INICIALIZACIÓN
+        // =========================================================================
         document.addEventListener('DOMContentLoaded', async () => {
             const token = localStorage.getItem('authToken');
             if (!token) {
@@ -207,278 +431,554 @@
                 return;
             }
 
-            document.getElementById('usuarioNombre').textContent = localStorage.getItem('username') || 'Admin';
+            // Mostrar usuario actual
+            try {
+                const perfil = await fetchAPI('/auth/perfil');
+                document.getElementById('usuarioActual').textContent = perfil.username;
+            } catch (e) {
+                console.error('Error al obtener perfil');
+            }
 
-            await cargarRoles();
+            await cargarFormData();
+            await cargarDepositos();
             await cargarUsuarios();
+            cargarLogs();
         });
 
-        async function cargarRoles() {
+        // =========================================================================
+        // FETCH HELPER
+        // =========================================================================
+        async function fetchAPI(url, options = {}) {
+            const token = localStorage.getItem('authToken');
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            };
+
+            const response = await fetch(API_URL + url, { ...defaultOptions, ...options });
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Error en la petición');
+            }
+
+            return data;
+        }
+
+        // =========================================================================
+        // CARGAR DATOS
+        // =========================================================================
+        async function cargarFormData() {
             try {
-                const response = await fetch(`${API_URL}/admin/roles`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                formData = await fetchAPI('/admin/usuarios/form-data');
+                
+                // Llenar selects de roles
+                const selectsRol = ['usuarioRol', 'selectRolPermisos'];
+                selectsRol.forEach(id => {
+                    const select = document.getElementById(id);
+                    if (!select) return;
+                    const currentVal = select.value;
+                    select.innerHTML = '<option value="">-- Seleccionar --</option>';
+                    formData.roles.forEach(rol => {
+                        select.innerHTML += `<option value="${rol}">${rol}</option>`;
+                    });
+                    select.value = currentVal;
                 });
 
-                if (!response.ok) {
-                    if (response.status === 403) {
-                        alert('No tienes permisos de administrador');
-                        window.location.href = 'dashboard.html';
-                        return;
-                    }
-                    throw new Error('Error al cargar roles');
+                // Llenar select de empresas
+                const selectEmpresa = document.getElementById('usuarioEmpresa');
+                selectEmpresa.innerHTML = '<option value="">-- Seleccionar --</option>';
+                formData.empresas.forEach(e => {
+                    selectEmpresa.innerHTML += `<option value="${e.id_empresa}">${e.razon_social}</option>`;
+                });
+
+                // Si solo hay una empresa, ocultamos el selector
+                if (formData.empresas.length === 1) {
+                    document.getElementById('campoEmpresa').style.display = 'none';
                 }
 
-                roles = await response.json();
-
-                const selectRol = document.getElementById('selectRol');
-                const nuevoRol = document.getElementById('nuevoRol');
-                const editarRol = document.getElementById('editarRol');
-
-                const opcionesRoles = roles.map(r => `<option value="${r}">${r}</option>`).join('');
-
-                selectRol.innerHTML += opcionesRoles;
-                nuevoRol.innerHTML += opcionesRoles;
-                editarRol.innerHTML += opcionesRoles;
-
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error al cargar roles');
+                console.error('Error cargando form data:', error);
+            }
+        }
+
+        // ═══ DEPÓSITOS ═══
+        let depositos = [];
+        async function cargarDepositos() {
+            try {
+                const data = await fetchAPI('/depositos?activo=true');
+                depositos = data.data || [];
+                const select = document.getElementById('usuarioDeposito');
+                select.innerHTML = '<option value="">-- Seleccionar --</option>' +
+                    depositos.map(d => `<option value="${d.id_deposito}">${d.nombre} ${d.es_principal ? '⭐' : ''}</option>`).join('');
+            } catch (e) {
+                console.error('Error cargando depósitos:', e);
             }
         }
 
         async function cargarUsuarios() {
             try {
-                const response = await fetch(`${API_URL}/admin/usuarios`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-                });
-
-                if (!response.ok) throw new Error('Error al cargar usuarios');
-
-                usuarios = await response.json();
-
-                const tbody = document.getElementById('tablaUsuarios');
-                tbody.innerHTML = usuarios.map(u => `
-                    <tr>
-                        <td><strong>${u.username}</strong></td>
-                        <td>${u.email || '-'}</td>
-                        <td><span class="badge bg-info">${u.rol}</span></td>
-                        <td>
-                            <span class="badge ${u.estado === 'activo' ? 'bg-success' : 'bg-secondary'}">
-                                ${u.estado}
-                            </span>
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-warning" onclick="mostrarModalEditarUsuario(${u.id_usuario})">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            ${u.estado === 'activo' ? `
-                            <button class="btn btn-sm btn-danger" onclick="desactivarUsuario(${u.id_usuario}, '${u.username}')">
-                                <i class="bi bi-x-circle"></i>
-                            </button>
-                            ` : ''}
-                        </td>
-                    </tr>
-                `).join('');
-
+                usuarios = await fetchAPI('/admin/usuarios');
+                renderizarUsuarios();
+                actualizarEstadisticas();
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error al cargar usuarios');
+                console.error('Error cargando usuarios:', error);
+                document.getElementById('tablaUsuarios').innerHTML = `
+                    <tr><td colspan="8" class="text-center text-danger py-4">
+                        <i class="bi bi-exclamation-triangle"></i> Error al cargar usuarios
+                    </td></tr>`;
             }
         }
 
-        async function cargarPermisosRol() {
-            const rol = document.getElementById('selectRol').value;
-            if (!rol) {
-                document.getElementById('listaPermisos').innerHTML = '<p class="text-muted">Selecciona un rol</p>';
+        function renderizarUsuarios(lista = usuarios) {
+            const tbody = document.getElementById('tablaUsuarios');
+            
+            if (lista.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No hay usuarios</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = lista.map(u => {
+                const iniciales = (u.nombre || u.username).substring(0, 2).toUpperCase();
+                const rolClass = `rol-${u.rol.toLowerCase()}`;
+                const estadoClass = `estado-${u.estado}`;
+                const ultimoLogin = u.ultimo_login 
+                    ? new Date(u.ultimo_login).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })
+                    : 'Nunca';
+
+                return `
+                    <tr>
+                        <td>
+                            <div class="user-avatar ${rolClass}">${iniciales}</div>
+                        </td>
+                        <td><strong>${u.username}</strong></td>
+                        <td>${u.nombre || '-'}</td>
+                        <td><span class="badge bg-secondary">${u.rol}</span></td>
+                        <td><small>${u.empresa_nombre || '-'}</small></td>
+                        <td><span class="${estadoClass}"><i class="bi bi-circle-fill"></i> ${u.estado}</span></td>
+                        <td><small>${ultimoLogin}</small></td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" onclick="abrirModalEditar(${u.id_usuario})" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-outline-warning" onclick="abrirModalResetPassword(${u.id_usuario})" title="Resetear contraseña">
+                                    <i class="bi bi-key"></i>
+                                </button>
+                                <button class="btn btn-outline-info" onclick="verLogsUsuario(${u.id_usuario})" title="Ver actividad">
+                                    <i class="bi bi-clock-history"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="confirmarDesactivar(${u.id_usuario})" title="Desactivar" ${u.estado === 'inactivo' ? 'disabled' : ''}>
+                                    <i class="bi bi-person-x"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function actualizarEstadisticas() {
+            document.getElementById('statTotal').textContent = usuarios.length;
+            document.getElementById('statActivos').textContent = usuarios.filter(u => u.estado === 'activo').length;
+            document.getElementById('statInactivos').textContent = usuarios.filter(u => u.estado !== 'activo').length;
+        }
+
+        function filtrarUsuarios() {
+            const busqueda = document.getElementById('buscadorUsuarios').value.toLowerCase();
+            const filtrados = usuarios.filter(u => 
+                u.username.toLowerCase().includes(busqueda) ||
+                (u.nombre && u.nombre.toLowerCase().includes(busqueda)) ||
+                (u.email && u.email.toLowerCase().includes(busqueda))
+            );
+            renderizarUsuarios(filtrados);
+        }
+
+        // =========================================================================
+        // MODAL NUEVO/EDITAR
+        // =========================================================================
+        function abrirModalNuevo() {
+            document.getElementById('usuarioId').value = '';
+            document.getElementById('formUsuario').reset();
+            document.getElementById('modalUsuarioTitulo').innerHTML = '<i class="bi bi-person-plus"></i> Nuevo Usuario';
+            document.getElementById('modalUsuarioHeader').className = 'modal-header bg-primary text-white';
+            document.getElementById('campoPassword').style.display = 'block';
+            document.getElementById('usuarioPassword').required = true;
+            document.getElementById('campoEstado').style.display = 'none';
+            
+            // Preseleccionar empresa si solo hay una
+            if (formData.empresas.length === 1) {
+                document.getElementById('usuarioEmpresa').value = formData.empresas[0].id_empresa;
+            }
+
+            // Preseleccionar depósito principal
+            const principal = depositos.find(d => d.es_principal);
+            if (principal) {
+                document.getElementById('usuarioDeposito').value = principal.id_deposito;
+            }
+
+            new bootstrap.Modal(document.getElementById('modalUsuario')).show();
+        }
+
+        async function abrirModalEditar(id) {
+            const usuario = usuarios.find(u => u.id_usuario === id);
+            if (!usuario) return;
+
+            document.getElementById('usuarioId').value = usuario.id_usuario;
+            document.getElementById('usuarioUsername').value = usuario.username;
+            document.getElementById('usuarioNombre').value = usuario.nombre || '';
+            document.getElementById('usuarioEmail').value = usuario.email || '';
+            document.getElementById('usuarioRol').value = usuario.rol;
+            document.getElementById('usuarioEmpresa').value = usuario.id_empresa || '';
+            document.getElementById('usuarioDeposito').value = usuario.id_deposito || '';
+            document.getElementById('usuarioEstado').value = usuario.estado;
+            document.getElementById('usuarioPassword').value = '';
+
+            document.getElementById('modalUsuarioTitulo').innerHTML = '<i class="bi bi-pencil"></i> Editar Usuario';
+            document.getElementById('modalUsuarioHeader').className = 'modal-header bg-warning';
+            document.getElementById('campoPassword').style.display = 'none';
+            document.getElementById('usuarioPassword').required = false;
+            document.getElementById('campoEstado').style.display = 'block';
+
+            new bootstrap.Modal(document.getElementById('modalUsuario')).show();
+        }
+
+        async function guardarUsuario() {
+            const id = document.getElementById('usuarioId').value;
+            const datos = {
+                username: document.getElementById('usuarioUsername').value.trim(),
+                nombre: document.getElementById('usuarioNombre').value.trim(),
+                email: document.getElementById('usuarioEmail').value.trim() || null,
+                rol: document.getElementById('usuarioRol').value,
+                id_empresa: document.getElementById('usuarioEmpresa').value || null,
+                id_deposito: document.getElementById('usuarioDeposito').value || null
+            };
+
+            if (!datos.username || !datos.rol) {
+                alert('Username y Rol son requeridos');
                 return;
             }
 
             try {
-                const response = await fetch(`${API_URL}/admin/permisos/${rol}`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                if (id) {
+                    // Editar
+                    datos.estado = document.getElementById('usuarioEstado').value;
+                    await fetchAPI(`/admin/usuarios/${id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify(datos)
+                    });
+                    alert('✅ Usuario actualizado');
+                } else {
+                    // Crear
+                    datos.password = document.getElementById('usuarioPassword').value;
+                    if (!datos.password || datos.password.length < 4) {
+                        alert('La contraseña debe tener al menos 4 caracteres');
+                        return;
+                    }
+                    await fetchAPI('/admin/usuarios', {
+                        method: 'POST',
+                        body: JSON.stringify(datos)
+                    });
+                    alert('✅ Usuario creado');
+                }
+
+                bootstrap.Modal.getInstance(document.getElementById('modalUsuario')).hide();
+                await cargarUsuarios();
+
+            } catch (error) {
+                alert('❌ ' + error.message);
+            }
+        }
+
+        // =========================================================================
+        // RESET PASSWORD
+        // =========================================================================
+        function abrirModalResetPassword(id) {
+            const usuario = usuarios.find(u => u.id_usuario === id);
+            if (!usuario) return;
+
+            document.getElementById('resetPasswordUserId').value = id;
+            document.getElementById('resetPasswordUsername').textContent = usuario.username;
+            document.getElementById('resetPasswordNueva').value = '';
+            document.getElementById('resetPasswordConfirmar').value = '';
+
+            new bootstrap.Modal(document.getElementById('modalResetPassword')).show();
+        }
+
+        async function ejecutarResetPassword() {
+            const id = document.getElementById('resetPasswordUserId').value;
+            const nueva = document.getElementById('resetPasswordNueva').value;
+            const confirmar = document.getElementById('resetPasswordConfirmar').value;
+
+            if (nueva !== confirmar) {
+                alert('Las contraseñas no coinciden');
+                return;
+            }
+
+            if (nueva.length < 4) {
+                alert('La contraseña debe tener al menos 4 caracteres');
+                return;
+            }
+
+            try {
+                await fetchAPI(`/admin/usuarios/${id}/reset-password`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ nueva_password: nueva })
                 });
+                alert('✅ Contraseña reseteada exitosamente');
+                bootstrap.Modal.getInstance(document.getElementById('modalResetPassword')).hide();
+            } catch (error) {
+                alert('❌ ' + error.message);
+            }
+        }
 
-                if (!response.ok) throw new Error('Error al cargar permisos');
+        // =========================================================================
+        // DESACTIVAR USUARIO
+        // =========================================================================
+        function confirmarDesactivar(id) {
+            const usuario = usuarios.find(u => u.id_usuario === id);
+            if (!usuario) return;
 
-                const permisos = await response.json();
+            document.getElementById('desactivarUserId').value = id;
+            document.getElementById('desactivarUsername').textContent = usuario.username;
 
-                const container = document.getElementById('listaPermisos');
-                container.innerHTML = '<h6 class="mb-3">Permisos de ' + rol + ':</h6>';
+            new bootstrap.Modal(document.getElementById('modalConfirmarDesactivar')).show();
+        }
 
-                permisos.forEach(p => {
-                    container.innerHTML += `
-                        <div class="form-check form-switch mb-2">
-                            <input class="form-check-input" type="checkbox" 
-                                   id="permiso_${p.permiso}"
-                                   ${p.activo ? 'checked' : ''}
+        async function ejecutarDesactivar() {
+            const id = document.getElementById('desactivarUserId').value;
+
+            try {
+                await fetchAPI(`/admin/usuarios/${id}`, { method: 'DELETE' });
+                alert('✅ Usuario desactivado');
+                bootstrap.Modal.getInstance(document.getElementById('modalConfirmarDesactivar')).hide();
+                await cargarUsuarios();
+            } catch (error) {
+                alert('❌ ' + error.message);
+            }
+        }
+
+        // =========================================================================
+        // PERMISOS POR ROL
+        // =========================================================================
+        async function cargarPermisosRol() {
+            const rol = document.getElementById('selectRolPermisos').value;
+            const contenedor = document.getElementById('contenedorPermisos');
+
+            if (!rol) {
+                contenedor.innerHTML = '<p class="text-muted text-center"><i class="bi bi-info-circle"></i> Seleccioná un rol</p>';
+                document.getElementById('contenedorModulos').innerHTML = '<p class="text-muted text-center"><i class="bi bi-grid-3x3-gap"></i> Los módulos se cargan al elegir un rol</p>';
+                return;
+            }
+
+            try {
+                contenedor.innerHTML = '<p class="text-center"><div class="spinner-border spinner-border-sm"></div></p>';
+                const permisos = await fetchAPI(`/admin/permisos/${rol}`);
+
+                if (permisos.length === 0) {
+                    contenedor.innerHTML = '<p class="text-muted">Este rol no tiene permisos configurados</p>';
+                    return;
+                }
+
+                contenedor.innerHTML = `
+                    <h6 class="mb-3">Permisos de <span class="badge bg-secondary">${rol}</span>:</h6>
+                    ${permisos.map(p => `
+                        <div class="form-check form-switch permiso-switch">
+                            <input class="form-check-input" type="checkbox" id="perm_${p.permiso}" 
+                                   ${p.activo ? 'checked' : ''} 
                                    onchange="togglePermiso('${rol}', '${p.permiso}', this.checked)">
-                            <label class="form-check-label" for="permiso_${p.permiso}">
-                                <strong>${p.permiso}</strong><br>
-                                <small class="text-muted">${p.descripcion}</small>
+                            <label class="form-check-label" for="perm_${p.permiso}">
+                                <strong>${p.permiso}</strong>
+                                ${p.descripcion ? `<br><small class="text-muted">${p.descripcion}</small>` : ''}
                             </label>
                         </div>
-                    `;
+                    `).join('')}
+                `;
+
+            } catch (error) {
+                contenedor.innerHTML = `<p class="text-danger"><i class="bi bi-exclamation-triangle"></i> ${error.message}</p>`;
+            }
+        }
+
+        // =========================================================================
+        // MÓDULOS POR ROL
+        // =========================================================================
+        async function cargarModulosRol(rol) {
+            const contenedor = document.getElementById('contenedorModulos');
+            if (!rol) {
+                contenedor.innerHTML = '<p class="text-muted text-center"><i class="bi bi-grid-3x3-gap"></i> Los módulos se cargan al elegir un rol</p>';
+                return;
+            }
+            if (rol === 'admin') {
+                contenedor.innerHTML = '<p class="text-success text-center"><i class="bi bi-shield-check"></i> <strong>admin</strong> tiene acceso a todos los módulos</p>';
+                return;
+            }
+            try {
+                contenedor.innerHTML = '<p class="text-center"><div class="spinner-border spinner-border-sm"></div></p>';
+                const modulosRol = await fetchAPI(`/admin/modulos/rol/${rol}`);
+                const todosModulos = await fetchAPI('/admin/modulos');
+
+                contenedor.innerHTML = `
+                    <h6 class="mb-2"><i class="bi bi-grid-3x3-gap"></i> Módulos de <span class="badge bg-secondary">${rol}</span>:</h6>
+                    <div class="small text-muted mb-2">Activá los módulos a los que puede acceder este rol</div>
+                    ${todosModulos.map(m => {
+                        const asignado = modulosRol.find(rm => rm.id_modulo === m.id_modulo);
+                        const puedeVer = asignado ? asignado.puede_ver : false;
+                        const soloLectura = asignado ? asignado.solo_lectura : false;
+                        return `
+                        <div class="d-flex align-items-center justify-content-between py-1 border-bottom" style="font-size:0.85rem;">
+                            <div class="form-check form-switch mb-0 flex-grow-1">
+                                <input class="form-check-input modulo-check" type="checkbox" 
+                                       id="mod_${m.id_modulo}" data-id="${m.id_modulo}"
+                                       ${puedeVer ? 'checked' : ''}>
+                                <label class="form-check-label" for="mod_${m.id_modulo}">${m.nombre}</label>
+                            </div>
+                            <div class="form-check mb-0 ms-2" title="Solo lectura" style="min-width:70px;">
+                                <input class="form-check-input modulo-ro" type="checkbox"
+                                       id="ro_${m.id_modulo}" data-id="${m.id_modulo}"
+                                       ${soloLectura ? 'checked' : ''} ${!puedeVer ? 'disabled' : ''}>
+                                <label class="form-check-label small text-muted" for="ro_${m.id_modulo}">S/L</label>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                    <button class="btn btn-primary btn-sm w-100 mt-3" onclick="guardarModulosRol('${rol}')">
+                        <i class="bi bi-check-lg"></i> Guardar Módulos
+                    </button>
+                    <div class="text-muted small mt-1 text-center">S/L = Solo Lectura</div>
+                `;
+
+                // Al toglear un módulo, habilitar/deshabilitar su checkbox de solo lectura
+                contenedor.querySelectorAll('.modulo-check').forEach(chk => {
+                    chk.addEventListener('change', function() {
+                        const roChk = document.getElementById('ro_' + this.dataset.id);
+                        if (roChk) {
+                            roChk.disabled = !this.checked;
+                            if (!this.checked) roChk.checked = false;
+                        }
+                    });
                 });
 
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error al cargar permisos');
+                contenedor.innerHTML = `<p class="text-danger"><i class="bi bi-exclamation-triangle"></i> ${error.message}</p>`;
+            }
+        }
+
+        async function guardarModulosRol(rol) {
+            const checks = document.querySelectorAll('.modulo-check');
+            const modulos = [];
+            checks.forEach(chk => {
+                const id_modulo = parseInt(chk.dataset.id);
+                const puede_ver = chk.checked;
+                const roChk = document.getElementById('ro_' + id_modulo);
+                const solo_lectura = roChk ? roChk.checked : false;
+                modulos.push({ id_modulo, puede_ver, solo_lectura });
+            });
+
+            try {
+                await fetchAPI(`/admin/modulos/rol/${rol}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ modulos })
+                });
+                alert('✅ Módulos actualizados para rol: ' + rol);
+            } catch (error) {
+                alert('❌ ' + error.message);
             }
         }
 
         async function togglePermiso(rol, permiso, activo) {
             try {
-                const response = await fetch(`${API_URL}/admin/permisos/${rol}/${permiso}`, {
+                await fetchAPI(`/admin/permisos/${rol}/${permiso}`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    },
                     body: JSON.stringify({ activo })
                 });
-
-                if (!response.ok) throw new Error('Error al actualizar permiso');
-
-                const result = await response.json();
-                alert('✅ ' + result.message);
-
             } catch (error) {
-                console.error('Error:', error);
-                alert('❌ Error al actualizar permiso');
-                cargarPermisosRol();
+                alert('❌ ' + error.message);
+                cargarPermisosRol(); // Recargar para revertir
             }
         }
 
-        function mostrarModalNuevoUsuario() {
-            const modal = new bootstrap.Modal(document.getElementById('modalNuevoUsuario'));
-            document.getElementById('nuevoUsername').value = '';
-            document.getElementById('nuevoEmail').value = '';
-            document.getElementById('nuevoPassword').value = '';
-            document.getElementById('nuevoRol').value = '';
-            modal.show();
-        }
-
-        async function crearUsuario() {
-            const username = document.getElementById('nuevoUsername').value;
-            const email = document.getElementById('nuevoEmail').value;
-            const password = document.getElementById('nuevoPassword').value;
-            const rol = document.getElementById('nuevoRol').value;
-
-            if (!username || !password || !rol) {
-                alert('Completa los campos requeridos');
-                return;
-            }
+        // =========================================================================
+        // LOGS
+        // =========================================================================
+        async function cargarLogs() {
+            const contenedor = document.getElementById('contenedorLogs');
+            const accion = document.getElementById('filtroAccionLog').value;
 
             try {
-                const response = await fetch(`${API_URL}/admin/usuarios`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    },
-                    body: JSON.stringify({ username, email, password, rol })
-                });
+                const params = new URLSearchParams({ limite: 50 });
+                if (accion) params.append('accion', accion);
 
-                const result = await response.json();
-
-                if (!response.ok) {
-                    alert('❌ ' + result.error);
+                const logs = await fetchAPI(`/admin/logs?${params}`);
+                
+                if (logs.length === 0) {
+                    contenedor.innerHTML = '<p class="text-muted text-center">No hay registros</p>';
                     return;
                 }
 
-                alert('✅ ' + result.message);
-                bootstrap.Modal.getInstance(document.getElementById('modalNuevoUsuario')).hide();
-                await cargarUsuarios();
+                contenedor.innerHTML = logs.map(l => {
+                    const fecha = new Date(l.fecha_evento).toLocaleString('es-AR', { 
+                        dateStyle: 'short', timeStyle: 'short' 
+                    });
+                    return `
+                        <div class="log-item ${l.accion}">
+                            <small class="text-muted">${fecha}</small>
+                            <div><strong>${l.username || 'Sistema'}</strong> - ${l.accion}</div>
+                            <small class="text-muted">${l.detalle || ''}</small>
+                        </div>
+                    `;
+                }).join('');
 
             } catch (error) {
-                console.error('Error:', error);
-                alert('❌ Error al crear usuario');
+                contenedor.innerHTML = `<p class="text-danger">${error.message}</p>`;
             }
         }
 
-        function mostrarModalEditarUsuario(id) {
+        async function verLogsUsuario(id) {
             const usuario = usuarios.find(u => u.id_usuario === id);
             if (!usuario) return;
 
-            document.getElementById('editarIdUsuario').value = usuario.id_usuario;
-            document.getElementById('editarUsername').value = usuario.username;
-            document.getElementById('editarEmail').value = usuario.email || '';
-            document.getElementById('editarRol').value = usuario.rol;
-            document.getElementById('editarEstado').value = usuario.estado;
-            document.getElementById('editarPassword').value = '';
+            document.getElementById('logsUsuarioTitulo').textContent = `Actividad de: ${usuario.username}`;
+            const contenedor = document.getElementById('contenedorLogsUsuario');
+            contenedor.innerHTML = '<p class="text-center"><div class="spinner-border spinner-border-sm"></div></p>';
 
-            const modal = new bootstrap.Modal(document.getElementById('modalEditarUsuario'));
-            modal.show();
-        }
-
-        async function actualizarUsuario() {
-            const id = document.getElementById('editarIdUsuario').value;
-            const username = document.getElementById('editarUsername').value;
-            const email = document.getElementById('editarEmail').value;
-            const rol = document.getElementById('editarRol').value;
-            const estado = document.getElementById('editarEstado').value;
-            const password = document.getElementById('editarPassword').value;
-
-            if (!username || !rol) {
-                alert('Completa los campos requeridos');
-                return;
-            }
+            new bootstrap.Modal(document.getElementById('modalLogsUsuario')).show();
 
             try {
-                const body = { username, email, rol, estado };
-                if (password) body.password = password;
+                const logs = await fetchAPI(`/admin/usuarios/${id}/logs`);
 
-                const response = await fetch(`${API_URL}/admin/usuarios/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    },
-                    body: JSON.stringify(body)
-                });
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    alert('❌ ' + result.error);
+                if (logs.length === 0) {
+                    contenedor.innerHTML = '<p class="text-muted text-center">Sin actividad registrada</p>';
                     return;
                 }
 
-                alert('✅ ' + result.message);
-                bootstrap.Modal.getInstance(document.getElementById('modalEditarUsuario')).hide();
-                await cargarUsuarios();
+                contenedor.innerHTML = logs.map(l => {
+                    const fecha = new Date(l.fecha_evento).toLocaleString('es-AR');
+                    return `
+                        <div class="log-item ${l.accion}">
+                            <small class="text-muted">${fecha}</small>
+                            <div><strong>${l.accion}</strong></div>
+                            <small>${l.detalle || ''}</small>
+                            ${l.ip_origen ? `<br><small class="text-muted">IP: ${l.ip_origen}</small>` : ''}
+                        </div>
+                    `;
+                }).join('');
 
             } catch (error) {
-                console.error('Error:', error);
-                alert('❌ Error al actualizar usuario');
+                contenedor.innerHTML = `<p class="text-danger">${error.message}</p>`;
             }
         }
 
-        async function desactivarUsuario(id, username) {
-            if (!confirm(`¿Desactivar usuario ${username}?`)) return;
-
-            try {
-                const response = await fetch(`${API_URL}/admin/usuarios/${id}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-                });
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    alert('❌ ' + result.error);
-                    return;
-                }
-
-                alert('✅ ' + result.message);
-                await cargarUsuarios();
-
-            } catch (error) {
-                console.error('Error:', error);
-                alert('❌ Error al desactivar usuario');
-            }
+        // =========================================================================
+        // UTILIDADES
+        // =========================================================================
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            input.type = input.type === 'password' ? 'text' : 'password';
         }
     </script>
-    <script src="js/config-panel.js"></script>
+    <script src="js/connection-indicator.js"></script>
+    <script src="js/auth.js"></script>
 </body>
 </html>

@@ -4,493 +4,348 @@
     <script src="js/config.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ver Pedido - ERP LAGO</title>
+    <title>Nota de Pedido - ERP LAGO</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
+        :root {
+            --np-tinta:#1a1a1a; --np-gris:#6b7280; --np-gris-claro:#9ca3af;
+            --np-linea:#d1d5db; --np-linea-fuerte:#374151; --np-fondo-suave:#f9fafb;
+            --np-acento:#1f3a5f; --np-recargo:#92400e; --np-recargo-bg:#fffbeb;
+        }
+        * { box-sizing:border-box; }
+        body { background:#e9ecef; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; color:var(--np-tinta); margin:0; }
+        .doc { max-width:780px; margin:14px auto; background:#fff; padding:22px 26px 16px; box-shadow:0 2px 16px rgba(0,0,0,0.12); font-size:0.92rem; }
+        .doc-head { display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:start; border-bottom:2px solid var(--np-linea-fuerte); padding-bottom:10px; }
+        .emisor-nombre { font-size:1.55rem; font-weight:700; letter-spacing:-0.5px; line-height:1.1; }
+        .emisor-slogan { font-size:0.72rem; color:var(--np-gris); margin-top:2px; font-style:italic; }
+        .emisor-datos { font-size:0.74rem; margin-top:8px; line-height:1.55; }
+        .emisor-datos .lbl { color:var(--np-gris); }
+        .letra-box { border:2px solid var(--np-linea-fuerte); width:64px; height:60px; display:flex; flex-direction:column; align-items:center; justify-content:center; margin:0 8px; }
+        .letra-box .letra { font-size:2.1rem; font-weight:700; line-height:1; }
+        .letra-box .cod { font-size:0.55rem; color:var(--np-gris); margin-top:2px; }
+        .doc-meta { text-align:right; font-size:0.78rem; line-height:1.5; }
+        .doc-meta .titulo { font-size:1.05rem; font-weight:700; letter-spacing:0.5px; }
+        .doc-meta .numero { font-size:1.15rem; font-weight:700; font-variant-numeric:tabular-nums; }
+        .doc-meta .lbl { color:var(--np-gris); }
+        .leyenda-nofiscal { text-align:center; font-size:0.66rem; font-weight:700; letter-spacing:1px; color:var(--np-linea-fuerte); border:1px solid var(--np-linea); background:var(--np-fondo-suave); padding:3px; margin:8px 0 10px; text-transform:uppercase; }
+        .partes { display:grid; grid-template-columns:1.4fr 1fr; gap:16px; margin-bottom:10px; }
+        .parte-titulo { font-size:0.66rem; text-transform:uppercase; letter-spacing:1px; color:var(--np-gris); border-bottom:1px solid var(--np-linea); padding-bottom:4px; margin-bottom:8px; }
+        .parte-dato { font-size:0.82rem; line-height:1.6; }
+        .parte-dato .lbl { color:var(--np-gris); display:inline-block; min-width:78px; }
+        .cliente-nombre { font-weight:700; font-size:0.92rem; }
+        table.items { width:100%; border-collapse:collapse; font-size:0.8rem; }
+        table.items thead th { background:var(--np-acento); color:#fff; font-weight:600; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.4px; padding:8px 10px; text-align:left; }
+        table.items thead th.num { text-align:right; } table.items thead th.ctr { text-align:center; }
+        table.items tbody td { padding:4px 10px; border-bottom:1px solid var(--np-linea); vertical-align:top; }
+        table.items tbody td.num { text-align:right; font-variant-numeric:tabular-nums; } table.items tbody td.ctr { text-align:center; }
+        table.items tbody tr:nth-child(even) { background:var(--np-fondo-suave); }
+        .it-codigo { color:var(--np-gris); font-size:0.72rem; } .it-nombre { font-weight:500; }
+        .pie { display:grid; grid-template-columns:1.3fr 1fr; gap:18px; margin-top:10px; }
+        .obs-box { font-size:0.78rem; } .obs-box .parte-titulo { margin-bottom:6px; }
+        .totales { font-size:0.85rem; }
+        .totales .fila { display:flex; justify-content:space-between; padding:4px 0; }
+        .totales .fila.recargo { color:var(--np-recargo); background:var(--np-recargo-bg); padding:6px 8px; margin:4px -8px; border-radius:3px; }
+        .totales .fila.descuento { color:#b91c1c; }
+        .totales .fila .val { font-variant-numeric:tabular-nums; font-weight:600; }
+        .totales .total-final { display:flex; justify-content:space-between; align-items:baseline; border-top:2px solid var(--np-linea-fuerte); margin-top:8px; padding-top:10px; }
+        .totales .total-final .lbl { font-size:1rem; font-weight:700; }
+        .totales .total-final .val { font-size:1.4rem; font-weight:700; font-variant-numeric:tabular-nums; color:var(--np-acento); }
+        .iva-detalle { font-size:0.68rem; color:var(--np-gris); margin-top:6px; text-align:right; }
+        .firma { margin-top:28px; display:grid; justify-items:center; }
+        .firma .linea { border-top:1px solid var(--np-linea-fuerte); width:260px; padding-top:6px; text-align:center; font-size:0.74rem; color:var(--np-gris); }
+        .pie-legal { margin-top:12px; padding-top:8px; border-top:1px solid var(--np-linea); font-size:0.62rem; color:var(--np-gris-claro); text-align:center; line-height:1.4; }
+        .badge-estado { font-size:0.7rem; padding:4px 10px; border-radius:3px; font-weight:600; }
+        .pago-box { margin-top:10px; font-size:0.8rem; }
+        .pago-box .parte-titulo { margin-bottom:6px; }
+        .pago-fila { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px dotted var(--np-linea); }
+        .pago-fila:last-child { border-bottom:none; }
+        .pago-fila .met { color:var(--np-tinta); } .pago-fila .mon { font-variant-numeric:tabular-nums; font-weight:600; }
+        .action-buttons { position:fixed; bottom:20px; right:20px; z-index:1000; display:flex; flex-direction:column; gap:10px; }
+        .btn-flotante { width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:22px; box-shadow:0 4px 12px rgba(0,0,0,0.3); border:none; color:#fff; transition:transform 0.15s; }
+        .btn-flotante:hover { transform:scale(1.08); }
+        .btn-flotante.whatsapp { background:#25D366; } .btn-flotante.email { background:#0d6efd; }
+        .btn-flotante.pdf { background:#dc3545; } .btn-flotante.print { background:#6c757d; }
         @media print {
-            .no-print {
-                display: none !important;
-            }
-            body {
-                margin: 0;
-                padding: 20px;
-            }
-        }
-        
-        .pedido-container {
-            max-width: 900px;
-            margin: 20px auto;
-            background: white;
-            padding: 30px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        
-        .header-pedido {
-            border-bottom: 3px solid #0d6efd;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .badge-estado {
-            font-size: 14px;
-            padding: 8px 15px;
-        }
-        
-        .table-items {
-            margin-top: 20px;
-        }
-        
-        .totales {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin-top: 20px;
-        }
-        
-        .firma-box {
-            border-top: 1px solid #000;
-            margin-top: 80px;
-            padding-top: 10px;
-            text-align: center;
-        }
-
-        .action-buttons {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .btn-flotante {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            transition: transform 0.2s, box-shadow 0.2s;
-            border: none;
-            color: white;
-        }
-
-        .btn-flotante:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.4);
-        }
-
-        .btn-flotante:active {
-            transform: scale(0.95);
-        }
-
-        .btn-flotante.whatsapp {
-            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
-        }
-
-        .btn-flotante.email {
-            background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
-        }
-
-        .btn-flotante.pdf {
-            background: linear-gradient(135deg, #dc3545 0%, #a02622 100%);
-        }
-
-        .btn-flotante.print {
-            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
-        }
-
-        .debug-bar {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
-            font-size: 12px;
-            display: none;
-        }
-
-        .debug-bar.show {
-            display: block;
-        }
-
-        .action-buttons.no-print {
-            display: flex;
+            body { background:#fff; } .no-print { display:none !important; }
+            .doc { max-width:none; margin:0; padding:8mm 10mm; box-shadow:none; }
+            table.items thead th, table.items tbody tr:nth-child(even), .totales .fila.recargo { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+            @page { size:A4; margin:0; }
         }
     </style>
 </head>
 <body>
-    <!-- Barra superior -->
     <div class="container-fluid no-print bg-light py-2 border-bottom">
-        <div class="row">
-            <div class="col">
-                <button class="btn btn-sm btn-secondary" onclick="window.close()">
-                    <i class="bi bi-x-lg"></i> Cerrar
-                </button>
-                <button class="btn btn-sm btn-info ms-2" onclick="toggleDebug()">
-                    <i class="bi bi-bug"></i> Debug
-                </button>
-                <span class="ms-3 text-muted">
-                    <i class="bi bi-info-circle"></i> 
-                    Presione <kbd>Ctrl+P</kbd> para imprimir o guardar como PDF
-                </span>
-            </div>
-        </div>
+        <div class="row"><div class="col">
+            <button class="btn btn-sm btn-secondary" onclick="window.close()"><i class="bi bi-x-lg"></i> Cerrar</button>
+            <button class="btn btn-sm btn-outline-secondary ms-2" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+            <button class="btn btn-sm btn-info ms-2" onclick="toggleDebug()"><i class="bi bi-bug"></i> Debug</button>
+            <span class="ms-3 text-muted small"><i class="bi bi-info-circle"></i> <kbd>Ctrl+P</kbd> para imprimir o guardar PDF</span>
+        </div></div>
+    </div>
+    <div class="container-fluid no-print" id="debugBar" style="background:#f8f9fa;padding:12px;display:none;border-bottom:1px solid #dee2e6;">
+        <small><strong>Estado:</strong> <span id="debugStatus">Cargando...</span> &nbsp;|&nbsp;
+        <strong>Pedido ID:</strong> <span id="debugPedidoId">-</span> &nbsp;|&nbsp;
+        <strong>API:</strong> <span id="debugApiUrl">-</span></small>
+    </div>
+    <div class="doc" id="pedidoContenido">
+        <div class="text-center py-5"><div class="spinner-border text-secondary" role="status"></div><p class="mt-3 text-muted">Cargando nota de pedido...</p></div>
+    </div>
+    <div class="action-buttons no-print" id="botonesAccion" style="display:none;">
+        <button class="btn-flotante whatsapp" onclick="enviarPorWhatsApp()" title="WhatsApp"><i class="bi bi-whatsapp"></i></button>
+        <button class="btn-flotante email" onclick="enviarPorEmail()" title="Email"><i class="bi bi-envelope"></i></button>
+        <button class="btn-flotante pdf" onclick="descargarPDF()" title="PDF"><i class="bi bi-file-pdf"></i></button>
+        <button class="btn-flotante print" onclick="window.print()" title="Imprimir"><i class="bi bi-printer"></i></button>
     </div>
 
-    <!-- Barra de Debug -->
-    <div class="container-fluid no-print" id="debugBar" style="background: #f8f9fa; padding: 15px; display: none; border-bottom: 1px solid #dee2e6;">
-        <div class="row">
-            <div class="col">
-                <small>
-                    <strong>Estado:</strong> <span id="debugStatus">Cargando...</span><br>
-                    <strong>Pedido ID:</strong> <span id="debugPedidoId">-</span><br>
-                    <strong>API URL:</strong> <span id="debugApiUrl">-</span><br>
-                    <strong>Token:</strong> <span id="debugToken">-</span><br>
-                    <strong>Cliente:</strong> <span id="debugCliente">-</span>
-                </small>
-            </div>
-        </div>
-    </div>
-
-    <!-- Contenido del pedido -->
-    <div class="pedido-container" id="pedidoContenido">
-        <div class="text-center">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Cargando...</span>
-            </div>
-            <p class="mt-3">Cargando pedido...</p>
-        </div>
-    </div>
-
-    <!-- Botones flotantes de acción -->
-    <div class="action-buttons no-print" id="botonesAccion" style="display: none;">
-        <button class="btn-flotante whatsapp" onclick="enviarPorWhatsApp()" 
-                title="Enviar por WhatsApp" data-bs-toggle="tooltip">
-            <i class="bi bi-whatsapp"></i>
-        </button>
-        <button class="btn-flotante email" onclick="enviarPorEmail()" 
-                title="Enviar por Email" data-bs-toggle="tooltip">
-            <i class="bi bi-envelope"></i>
-        </button>
-        <button class="btn-flotante pdf" onclick="descargarPDF()" 
-                title="Descargar PDF" data-bs-toggle="tooltip">
-            <i class="bi bi-file-pdf"></i>
-        </button>
-        <button class="btn-flotante print" onclick="imprimirDocumento()" 
-                title="Imprimir" data-bs-toggle="tooltip">
-            <i class="bi bi-printer"></i>
-        </button>
-    </div>
-
-    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/documento-actions.js"></script>
     <script>
-        const API_URL = 'http://72.60.148.18:3000/api';
-        let pedidoId = null;
-        let pedidoData = null;
+        const API_URL = window.CONFIG?.API_BASE_URL || (window.location.origin + '/api');
+        const HDR = { 'Authorization': 'Bearer ' + localStorage.getItem('authToken') };
+        let pedidoId = null, pedidoData = null, empresaData = {}, cfgToggles = {};
 
-        function updateDebug(key, value) {
-            const elem = document.getElementById('debug' + key.charAt(0).toUpperCase() + key.slice(1));
-            if (elem) {
-                elem.textContent = value;
-            }
-        }
-
-        function toggleDebug() {
-            const debugBar = document.getElementById('debugBar');
-            debugBar.style.display = debugBar.style.display === 'none' ? 'block' : 'none';
-        }
+        function $m(v){ return '$ ' + parseFloat(v||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+        function $n(v,d){ d=(d===undefined)?2:d; return parseFloat(v||0).toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+        function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+        function fechaHora(d){ if(!d) return '-'; return new Date(d).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+        // Toggle: true por default si la clave no existe (defensivo)
+        function ON(clave){ const v = cfgToggles[clave]; return v === undefined ? true : (v === true || v === 'true'); }
+        function updateDebug(k,v){ const el=document.getElementById('debug'+k.charAt(0).toUpperCase()+k.slice(1)); if(el) el.textContent=v; }
+        function toggleDebug(){ const b=document.getElementById('debugBar'); b.style.display=(b.style.display==='none'||!b.style.display)?'block':'none'; }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            console.log('🚀 Página cargada');
-            
-            // Inicializar tooltips de Bootstrap
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-
-            // Obtener ID del pedido desde URL
             const params = new URLSearchParams(window.location.search);
             pedidoId = params.get('id');
-
-            console.log('📋 ID Pedido:', pedidoId);
             updateDebug('PedidoId', pedidoId || 'No especificado');
             updateDebug('ApiUrl', API_URL);
-            updateDebug('Token', localStorage.getItem('authToken') ? 'Presente' : 'Ausente');
-
-            if (!pedidoId) {
-                mostrarError('No se especificó ID de pedido');
-                updateDebug('Status', 'Error: No hay ID');
-                return;
-            }
-
-            updateDebug('Status', 'Cargando pedido...');
+            if (!pedidoId) { mostrarError('No se especificó ID de pedido'); return; }
+            await Promise.all([cargarEmpresa(), cargarToggles()]);
             await cargarPedido();
         });
 
+        async function cargarEmpresa() {
+            try {
+                const r = await fetch(`${API_URL}/configuraciones/empresa`, { headers: HDR });
+                if (r.ok) { const j = await r.json(); empresaData = j.empresa || {}; }
+            } catch(e){ console.warn('empresa:', e.message); }
+        }
+        async function cargarToggles() {
+            try {
+                // Trae todas las configs y filtra las del namespace de la nota de pedido
+                const r = await fetch(`${API_URL}/configuraciones/todas`, { headers: HDR });
+                if (r.ok) {
+                    const j = await r.json();
+                    const arr = Array.isArray(j) ? j : (j.configuraciones || j.data || []);
+                    arr.forEach(c => { if (c.clave && c.clave.indexOf('documentos.nota_pedido.') === 0) cfgToggles[c.clave] = c.valor; });
+                }
+            } catch(e){ console.warn('toggles:', e.message); }
+        }
+
         async function cargarPedido() {
             try {
-                console.log('🔄 Cargando pedido...');
-                updateDebug('Status', 'Conectando al servidor...');
-
-                const response = await fetch(`${API_URL}/pedidos/${pedidoId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    }
-                });
-
-                console.log('📊 Status de respuesta:', response.status);
-
-                if (!response.ok) {
-                    throw new Error('Error HTTP: ' + response.status);
-                }
-
-                pedidoData = await response.json();
-                console.log('✅ Pedido cargado:', pedidoData);
-                
-                updateDebug('Status', 'Pedido cargado');
-                updateDebug('Cliente', pedidoData.cliente_nombre || 'N/A');
-                
+                updateDebug('Status', 'Cargando...');
+                const resp = await fetch(`${API_URL}/pedidos/${pedidoId}`, { headers: HDR });
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                pedidoData = await resp.json();
+                updateDebug('Status', 'OK');
                 mostrarPedido(pedidoData);
-                
-                // Mostrar botones de acción
                 document.getElementById('botonesAccion').style.display = 'flex';
-
-            } catch (error) {
-                console.error('❌ Error:', error);
-                updateDebug('Status', 'Error: ' + error.message);
-                mostrarError('Error al cargar el pedido: ' + error.message);
+                // Auto-print si se abrio con &print=1 (boton Imprimir del POS)
+                if (new URLSearchParams(window.location.search).get('print') === '1') {
+                    setTimeout(function(){ window.print(); }, 400);
+                }
+            } catch (e) {
+                updateDebug('Status', 'Error: ' + e.message);
+                mostrarError('Error al cargar el pedido: ' + e.message);
             }
         }
 
-        function mostrarPedido(pedido) {
+        function mostrarPedido(p) {
             const container = document.getElementById('pedidoContenido');
-            
-            const estadoBadge = {
-                0: 'bg-secondary',
-                1: 'bg-warning',
-                2: 'bg-success',
-                3: 'bg-info',
-                4: 'bg-primary',
-                5: 'bg-primary',
-                6: 'bg-success',
-                7: 'bg-danger',
-                8: 'bg-secondary'
-            };
 
-            let subtotal = 0;
-            let descuentoTotal = 0;
-            
-            const itemsHtml = pedido.items.map((item, index) => {
-                const subtotalItem = parseFloat(item.cantidad) * parseFloat(item.precio_unitario_congelado);
-                const descuentoItem = subtotalItem * (parseFloat(item.porcentaje_descuento || 0) / 100);
-                const totalItem = subtotalItem - descuentoItem;
-                
-                subtotal += subtotalItem;
-                descuentoTotal += descuentoItem;
-                
-                return `
-                    <tr>
-                        <td class="text-center">${index + 1}</td>
-                        <td>${item.producto_nombre || 'Producto'}</td>
-                        <td class="text-center">${parseFloat(item.cantidad).toFixed(2)}</td>
-                        <td class="text-end">$${parseFloat(item.precio_unitario_congelado).toFixed(2)}</td>
-                        <td class="text-center">${item.porcentaje_descuento || 0}%</td>
-                        <td class="text-end"><strong>$${totalItem.toFixed(2)}</strong></td>
-                    </tr>
-                `;
+            // ── Empresa (de tabla empresas vía /configuraciones/empresa) ──
+            const E = empresaData;
+            const empRazon = E.razon_social || E.nombre_fantasia || 'Empresa';
+            const empCuit  = E.cuit || '';
+            const empDom   = E.domicilio_fiscal || '';
+            const empCond  = E.condicion_iva_nombre || '';
+            const empIIBB  = E.ingresos_brutos || '';
+            const empTel   = E.telefono || '';
+            const empMail  = E.email || '';
+            const empSlogan = E.nombre_fantasia && E.nombre_fantasia !== empRazon ? E.nombre_fantasia : '';
+
+            // ── Cliente (nombres REALES del endpoint getPedidoById) ──
+            const cliNombre = p.razon_social || 'Consumidor Final';
+            // discrimina_iva del backend manda; sin él, fallback a condición conocida
+            const discrimina = (p.discrimina_iva === true) || (p.discrimina_iva === 't');
+
+            // ── Items: SIEMPRE de BD (total_linea, monto_iva, iva_aplicado) ──
+            let netoAcum = 0; const ivasPorAlic = {};
+            const itemsHtml = (p.items || []).map((it, i) => {
+                const cant = parseFloat(it.cantidad||0);
+                const totLinea = parseFloat(it.total_linea||0);
+                const ivaLinea = parseFloat(it.monto_iva||0);
+                const netoLinea = totLinea - ivaLinea;
+                const alic = parseFloat(it.iva_aplicado!=null?it.iva_aplicado:0);
+                const dtoPct = parseFloat(it.porcentaje_descuento||0);
+                netoAcum += netoLinea;
+                ivasPorAlic[alic] = (ivasPorAlic[alic]||0) + ivaLinea;
+                const puMostrar = cant>0 ? (discrimina ? netoLinea/cant : totLinea/cant) : 0;
+                const impMostrar = discrimina ? netoLinea : totLinea;
+                const codHtml = ON('documentos.nota_pedido.mostrar_codigo_producto') && it.sku
+                    ? `<div class="it-codigo">Cód: ${esc(it.sku)}</div>` : '';
+                return `<tr>
+                    <td class="ctr">${i+1}</td>
+                    <td><div class="it-nombre">${esc(it.descripcion_congelada||it.producto_nombre||'Producto')}</div>${codHtml}</td>
+                    <td class="ctr">${$n(cant)}</td>
+                    <td class="num">${$m(puMostrar)}</td>
+                    <td class="ctr">${dtoPct>0?$n(dtoPct,2)+'%':'—'}</td>
+                    <td class="num"><strong>${$m(impMostrar)}</strong></td>
+                </tr>`;
             }).join('');
 
-            const iva = (subtotal - descuentoTotal) * 0.21;
-            const total = subtotal - descuentoTotal + iva;
+            // ── Totales del HEADER (BD) ──
+            const totalFinal = parseFloat(p.total_final||0);
+            const totalIva = parseFloat(p.total_iva||0);
+            const subSinIva = parseFloat(p.subtotal_sin_iva!=null?p.subtotal_sin_iva:netoAcum);
+            const recargoFp = parseFloat(p.descuento_fp_monto||0);
+            const recargoPct = parseFloat(p.descuento_fp_porcentaje||0);
+            const dtoGral = parseFloat(p.descuento_monto||0);
+            const hayRecargo = recargoFp > 0.009;
+            const baseSinRecargo = hayRecargo ? (totalFinal - recargoFp) : totalFinal;
+
+            let ivaDetalle = '';
+            if (discrimina) {
+                const partes = Object.keys(ivasPorAlic).filter(a=>parseFloat(a)>0 && ivasPorAlic[a]>0.009)
+                    .sort((a,b)=>parseFloat(b)-parseFloat(a)).map(a=>`IVA ${$n(a,1)}%: ${$m(ivasPorAlic[a])}`);
+                if (partes.length) ivaDetalle = partes.join(' &nbsp;·&nbsp; ');
+            }
+
+            const estCol = {'-1':'#6b7280',0:'#6b7280',1:'#d97706',2:'#059669',3:'#0284c7',4:'#1f3a5f',5:'#1f3a5f',6:'#059669',7:'#dc2626',8:'#6b7280',99:'#7c3aed'};
+            const colEstado = estCol[p.id_estado] || '#6b7280';
+
+            // ── Forma de pago (de BD: pagos + metodosdepago) ──
+            const pagos = p.pagos || [];
+            let pagosHtml = '';
+            if (pagos.length) {
+                const filas = pagos.map(function(pg){
+                    let met = pg.metodo_nombre || 'Efectivo';
+                    const cuo = parseInt(pg.cuotas) || 1;
+                    if (cuo > 1) met += ' en ' + cuo + ' cuotas';
+                    return '<div class="pago-fila"><span class="met">' + esc(met) + '</span><span class="mon">' + $m(pg.monto) + '</span></div>';
+                }).join('');
+                pagosHtml = '<div class="pago-box"><div class="parte-titulo">Forma de pago</div>' + filas + '</div>';
+            }
+
+            // ── Condicionales por toggle ──
+            const showCuit = ON('documentos.nota_pedido.mostrar_cuit_cliente') && p.cuit_cuil;
+            const showCond = ON('documentos.nota_pedido.mostrar_cond_iva_cliente') && p.condicion_iva;
+            const showDomCli = ON('documentos.nota_pedido.mostrar_domicilio_cliente') && p.cliente_domicilio;
+            const showTelCli = ON('documentos.nota_pedido.mostrar_telefono_cliente') && p.cliente_telefono;
+            const showObs = ON('documentos.nota_pedido.mostrar_observaciones');
+            const showSlogan = ON('documentos.nota_pedido.mostrar_slogan_empresa') && empSlogan;
+            const showDomEnt = ON('documentos.nota_pedido.mostrar_domicilio_entrega') && p.domicilio_entrega;
+            const showRazon   = ON('documentos.nota_pedido.mostrar_razon_social_empresa');
+            const showDomEmp  = ON('documentos.nota_pedido.mostrar_domicilio_empresa') && empDom;
+            const showCuitEmp = ON('documentos.nota_pedido.mostrar_cuit_empresa') && empCuit;
+            const showCondEmp = ON('documentos.nota_pedido.mostrar_cond_iva_empresa') && empCond;
+            const showIIBBEmp = ON('documentos.nota_pedido.mostrar_iibb_empresa') && empIIBB;
+            const showTelEmp  = ON('documentos.nota_pedido.mostrar_telefono_empresa') && empTel;
+            const showMailEmp = ON('documentos.nota_pedido.mostrar_email_empresa') && empMail;
+            const showLetra   = ON('documentos.nota_pedido.mostrar_letra_empresa');
+            const showNumero  = ON('documentos.nota_pedido.mostrar_numero');
+            const showFecha   = ON('documentos.nota_pedido.mostrar_fecha');
+            const showComprob = ON('documentos.nota_pedido.mostrar_nro_comprobante') && p.nro_pedido;
+            const showEstado  = ON('documentos.nota_pedido.mostrar_estado');
+            const showLeyenda = ON('documentos.nota_pedido.mostrar_leyenda_nofiscal');
+            const showPieLegal= ON('documentos.nota_pedido.mostrar_pie_legal');
 
             container.innerHTML = `
-                <div class="header-pedido">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <h3 class="mb-0">PEDIDO #${pedido.id_pedido}</h3>
-                            <p class="text-muted mb-0">Fecha: ${new Date(pedido.fecha_creacion).toLocaleDateString('es-AR', {
-                                day: '2-digit',
-                                month: '2-digit', 
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                            })}</p>
-                        </div>
-                        <div class="col-md-4 text-end">
-                            <span class="badge badge-estado ${estadoBadge[pedido.id_estado] || 'bg-secondary'}">
-                                ${pedido.estado_nombre || 'Pendiente'}
-                            </span>
+                <div class="doc-head">
+                    <div class="emisor">
+                        ${showRazon ? `<div class="emisor-nombre">${esc(empRazon)}</div>` : ''}
+                        ${showSlogan ? `<div class="emisor-slogan">${esc(empSlogan)}</div>` : ''}
+                        <div class="emisor-datos">
+                            ${showDomEmp ? `<div>${esc(empDom)}</div>` : ''}
+                            ${showCuitEmp ? `<div><span class="lbl">CUIT:</span> ${esc(empCuit)}${showCondEmp ? ` &nbsp;·&nbsp; ${esc(empCond)}` : ''}</div>` : ''}
+                            ${showIIBBEmp ? `<div><span class="lbl">IIBB:</span> ${esc(empIIBB)}</div>` : ''}
+                            ${(showTelEmp||showMailEmp) ? `<div>${showTelEmp?`<span class="lbl">Tel:</span> ${esc(empTel)}`:''}${(showTelEmp&&showMailEmp)?' &nbsp;·&nbsp; ':''}${showMailEmp?esc(empMail):''}</div>` : ''}
                         </div>
                     </div>
-                </div>
-
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <h6><i class="bi bi-person"></i> Cliente</h6>
-                        <p class="mb-1"><strong>${pedido.cliente_nombre || 'Consumidor Final'}</strong></p>
-                        ${pedido.cliente_direccion ? `<p class="text-muted mb-0"><small>${pedido.cliente_direccion}</small></p>` : ''}
-                        ${pedido.cliente_telefono ? `<p class="text-muted mb-0"><small><i class="bi bi-telephone"></i> ${pedido.cliente_telefono}</small></p>` : ''}
-                        ${pedido.cliente_email ? `<p class="text-muted mb-0"><small><i class="bi bi-envelope"></i> ${pedido.cliente_email}</small></p>` : ''}
-                    </div>
-                    <div class="col-md-6">
-                        <h6><i class="bi bi-file-text"></i> Observaciones</h6>
-                        <p class="mb-0">${pedido.observaciones || 'Sin observaciones'}</p>
+                    ${showLetra ? `<div class="letra-box"><div class="letra">X</div><div class="cod">COD. 91</div></div>` : ''}
+                    <div class="doc-meta">
+                        <div class="titulo">NOTA DE PEDIDO</div>
+                        ${showNumero ? `<div class="numero">N° ${String(p.id_pedido).padStart(8,'0')}</div>` : ''}
+                        ${showFecha ? `<div><span class="lbl">Fecha:</span> ${fechaHora(p.fecha_creacion)}</div>` : ''}
+                        ${showComprob ? `<div><span class="lbl">Comprob.:</span> ${esc(p.nro_pedido)}</div>` : ''}
+                        ${showEstado ? `<div style="margin-top:4px;"><span class="badge-estado" style="background:${colEstado};color:#fff;">${esc(p.estado_nombre||'Pendiente')}</span></div>` : ''}
                     </div>
                 </div>
-
-                <div class="table-items">
-                    <table class="table table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th width="50" class="text-center">#</th>
-                                <th>Producto</th>
-                                <th width="100" class="text-center">Cantidad</th>
-                                <th width="120" class="text-end">Precio Unit.</th>
-                                <th width="80" class="text-center">Dto%</th>
-                                <th width="120" class="text-end">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${itemsHtml}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-6"></div>
-                    <div class="col-md-6">
-                        <div class="totales">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Subtotal:</span>
-                                <strong>$${subtotal.toFixed(2)}</strong>
-                            </div>
-                            ${descuentoTotal > 0 ? `
-                            <div class="d-flex justify-content-between mb-2 text-danger">
-                                <span>Descuentos:</span>
-                                <strong>-$${descuentoTotal.toFixed(2)}</strong>
-                            </div>
-                            ` : ''}
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>IVA (21%):</span>
-                                <strong>$${iva.toFixed(2)}</strong>
-                            </div>
-                            <hr>
-                            <div class="d-flex justify-content-between">
-                                <h5 class="mb-0">TOTAL:</h5>
-                                <h5 class="mb-0 text-success">$${total.toFixed(2)}</h5>
-                            </div>
+                ${showLeyenda ? `<div class="leyenda-nofiscal">Documento no válido como factura</div>` : ''}
+                <div class="partes">
+                    <div class="parte">
+                        <div class="parte-titulo">Cliente</div>
+                        <div class="parte-dato">
+                            <div class="cliente-nombre">${esc(cliNombre)}</div>
+                            ${showCuit ? `<div><span class="lbl">CUIT/DNI:</span> ${esc(p.cuit_cuil)}</div>` : ''}
+                            ${showCond ? `<div><span class="lbl">Cond. IVA:</span> ${esc(p.condicion_iva)}</div>` : ''}
+                            ${showDomCli ? `<div><span class="lbl">Domicilio:</span> ${esc(p.cliente_domicilio)}</div>` : ''}
+                            ${showTelCli ? `<div><span class="lbl">Tel:</span> ${esc(p.cliente_telefono)}</div>` : ''}
+                        </div>
+                    </div>
+                    <div class="parte">
+                        <div class="parte-titulo">Condiciones</div>
+                        <div class="parte-dato">
+                            <div><span class="lbl">Entrega:</span> ${p.tipo_entrega==='entrega'?'Envío a domicilio':'Retira en local'}</div>
+                            ${showDomEnt ? `<div><span class="lbl">Envío a:</span> ${esc(p.domicilio_entrega)}</div>` : ''}
                         </div>
                     </div>
                 </div>
-
-                <div class="firma-box">
-                    <p class="mb-0"><strong>Firma y Aclaración</strong></p>
+                <table class="items">
+                    <thead><tr>
+                        <th class="ctr" style="width:36px;">#</th><th>Descripción</th>
+                        <th class="ctr" style="width:90px;">Cantidad</th>
+                        <th class="num" style="width:120px;">P. Unit. ${discrimina?'s/IVA':'c/IVA'}</th>
+                        <th class="ctr" style="width:70px;">Dto.</th>
+                        <th class="num" style="width:130px;">Importe</th>
+                    </tr></thead>
+                    <tbody>${itemsHtml}</tbody>
+                </table>
+                <div class="pie">
+                    <div class="obs-box">
+                        ${showObs ? `<div class="parte-titulo">Observaciones</div><div>${esc(p.observaciones||'Sin observaciones.')}</div>` : ''}
+                        ${recargoPct>0 ? `<div style="margin-top:10px;font-size:0.7rem;color:var(--np-recargo);"><i class="bi bi-info-circle"></i> Incluye recargo por financiación del ${$n(recargoPct,2)}%.</div>` : ''}
+                    </div>
+                    <div class="totales">
+                        ${discrimina ? `
+                        <div class="fila"><span>Subtotal neto:</span><span class="val">${$m(subSinIva)}</span></div>
+                        ${ivaDetalle ? `<div class="iva-detalle">${ivaDetalle}</div>` : ''}
+                        <div class="fila"><span>IVA:</span><span class="val">${$m(totalIva)}</span></div>
+                        ` : `
+                        <div class="fila"><span>Subtotal:</span><span class="val">${$m(hayRecargo?baseSinRecargo:totalFinal)}</span></div>
+                        `}
+                        ${dtoGral>0 ? `<div class="fila descuento"><span>Descuento:</span><span class="val">- ${$m(dtoGral)}</span></div>` : ''}
+                        ${hayRecargo ? `<div class="fila recargo"><span>Recargo financiación${recargoPct>0?` (${$n(recargoPct,2)}%)`:''}:</span><span class="val">+ ${$m(recargoFp)}</span></div>` : ''}
+                        <div class="total-final"><span class="lbl">TOTAL</span><span class="val">${$m(totalFinal)}</span></div>
+                        ${!discrimina ? `<div class="iva-detalle">IVA contenido: ${$m(totalIva)}</div>` : ''}
+                    </div>
                 </div>
-            `;
+                ${pagosHtml}
+                <div class="firma"><div class="linea">Firma y aclaración</div></div>
+                ${showPieLegal ? `<div class="pie-legal">
+                    Documento no válido como factura (R.G. ARCA). Comprobante interno de respaldo comercial.<br>
+                    ${esc(empRazon)}${empCuit?` · CUIT ${esc(empCuit)}`:''} — Generado el ${fechaHora(new Date())}
+                </div>` : ''}`;
 
-            // Guardar totales en variables globales para WhatsApp
-            window.pedidoTotales = {
-                subtotal: subtotal,
-                descuentoTotal: descuentoTotal,
-                iva: iva,
-                total: total
-            };
+            window.pedidoTotales = { subtotal:subSinIva, iva:totalIva, recargo:recargoFp, total:totalFinal };
         }
 
-        function mostrarError(mensaje) {
-            const container = document.getElementById('pedidoContenido');
-            container.innerHTML = `
-                <div class="alert alert-danger text-center">
-                    <i class="bi bi-exclamation-triangle"></i> ${mensaje}
-                </div>
-            `;
-        }
-
-        // ===== FUNCIONES DE ACCIÓN =====
-
-        function descargarPDF() {
-            console.log('📥 Descargando PDF');
-            DocumentoActions.descargarPDF('pedidos', pedidoId);
-        }
-
-        async function enviarPorWhatsApp() {
-            try {
-                console.log('📱 Iniciando WhatsApp para pedido:', pedidoId);
-                console.log('📊 Datos del pedido:', pedidoData);
-                
-                // Generar mensaje detallado
-                const mensaje = generarMensajePedido();
-                console.log('📝 Mensaje generado:', mensaje);
-                
-                // Intentar enviar por WhatsApp
-                const resultado = await DocumentoActions.enviarWhatsApp('pedidos', pedidoId);
-                console.log('✅ Resultado:', resultado);
-                
-            } catch (error) {
-                console.error('❌ Error en WhatsApp:', error);
-                console.error('Detalles:', error.message);
-            }
-        }
-
-        function generarMensajePedido() {
-            if (!pedidoData) return 'Pedido sin detalles';
-            
-            let mensaje = `*PEDIDO #${pedidoData.id_pedido}*\n\n`;
-            mensaje += `📅 Fecha: ${new Date(pedidoData.fecha_creacion).toLocaleDateString('es-AR')}\n`;
-            mensaje += `📊 Estado: ${pedidoData.estado_nombre || 'Pendiente'}\n\n`;
-            
-            mensaje += `*ARTÍCULOS:*\n`;
-            
-            if (pedidoData.items && pedidoData.items.length > 0) {
-                pedidoData.items.forEach((item, idx) => {
-                    const subtotal = parseFloat(item.cantidad) * parseFloat(item.precio_unitario_congelado);
-                    const descuento = subtotal * (parseFloat(item.porcentaje_descuento || 0) / 100);
-                    const total = subtotal - descuento;
-                    
-                    mensaje += `${idx + 1}. ${item.producto_nombre || 'Producto'}\n`;
-                    mensaje += `   Cantidad: ${item.cantidad} x $${parseFloat(item.precio_unitario_congelado).toFixed(2)}\n`;
-                    if (item.porcentaje_descuento) {
-                        mensaje += `   Descuento: ${item.porcentaje_descuento}%\n`;
-                    }
-                    mensaje += `   Total: $${total.toFixed(2)}\n\n`;
-                });
-            }
-            
-            // Agregar totales
-            if (window.pedidoTotales) {
-                mensaje += `*RESUMEN:*\n`;
-                mensaje += `Subtotal: $${window.pedidoTotales.subtotal.toFixed(2)}\n`;
-                if (window.pedidoTotales.descuentoTotal > 0) {
-                    mensaje += `Descuentos: -$${window.pedidoTotales.descuentoTotal.toFixed(2)}\n`;
-                }
-                mensaje += `IVA (21%): $${window.pedidoTotales.iva.toFixed(2)}\n`;
-                mensaje += `*TOTAL: $${window.pedidoTotales.total.toFixed(2)}*\n`;
-            }
-            
-            if (pedidoData.observaciones) {
-                mensaje += `\n📝 Observaciones: ${pedidoData.observaciones}`;
-            }
-            
-            return mensaje;
-        }
-
-        function enviarPorEmail() {
-            console.log('📧 Enviando email');
-            const emailCliente = pedidoData?.cliente_email || '';
-            DocumentoActions.mostrarModalEmail('pedidos', pedidoId, emailCliente);
-        }
-
-        function imprimirDocumento() {
-            console.log('🖨️ Imprimiendo');
-            DocumentoActions.imprimirDocumento();
-        }
+        function mostrarError(msg){ document.getElementById('pedidoContenido').innerHTML = `<div class="alert alert-danger text-center m-4"><i class="bi bi-exclamation-triangle"></i> ${esc(msg)}</div>`; }
+        function descargarPDF(){ DocumentoActions.descargarPDF('pedidos', pedidoId); }
+        function enviarPorEmail(){ DocumentoActions.mostrarModalEmail('pedidos', pedidoId, pedidoData?.cliente_email || ''); }
+        async function enviarPorWhatsApp(){ try { await DocumentoActions.enviarWhatsApp('pedidos', pedidoId); } catch(e){ console.error('WhatsApp:', e.message); } }
     </script>
+    <script src="js/auth.js"></script>
 </body>
 </html>

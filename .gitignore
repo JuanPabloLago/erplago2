@@ -1,14 +1,33 @@
-afip/certificados/
-afip/tokens/
-*.key
-*.crt
+# ═══ SECRETOS (jamás en git) ═══
 .env
-*.dump*
-dump_*.txt
-backups/
-*.backup*
-*.bak*
-*.old
-*.log
+.env.*
+!.env.example
+afip/certificados/
+certs/
+*.key
+*.pem
+*.crt
+
+# ═══ DEPENDENCIAS (se regeneran con npm install) ═══
 node_modules/
-estructura.txt
+
+# ═══ BACKUPS (por-instancia, no son código) ═══
+backups/
+backups_web/
+_backups_*/
+*.dump
+
+# ═══ BASURA DE DESARROLLO / PARCHES VIEJOS ═══
+*.bak
+*.bak.*
+_backup_*/
+_archive/
+_codigo_muerto_*/
+_migrations_legacy/
+
+# ═══ LOGS Y TEMPORALES ═══
+*.log
+.DS_Store
+
+# ═══ REPORTES GENERADOS DEL TOOLKIT ═══
+scripts_mantenimiento/resultados/

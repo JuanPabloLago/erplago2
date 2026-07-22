@@ -1,0 +1,859 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * COMPRAS NUEVA CONTROLLER — ERP LAGO — v2.0 (Rediseño)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * THIN LAYER: Solo HTTP + validación DTO + transacción.
+ * Toda lógica de negocio en compras.helper.js (orquestadores).
+ *
+ * Endpoints:
+ *   GET  /form-data              → Datos para formularios
+ *   GET  /proveedores/buscar     → Buscar proveedores
+ *   GET  /proveedores/:id        → Detalle proveedor
+ *   GET  /productos/buscar       → Buscar productos
+ *   GET  /ordenes-compra         → OC pendientes
+ *   GET  /ordenes-compra/:id/items → Items de OC
+ *   GET  /recepciones            → Recepciones pendientes
+ *   GET  /recepciones/:id/items  → Items de recepción
+ *   POST /                       → Guardar comprobante ★
+ *   POST /calcular-totales       → Cálculo server-side
+ *   GET  /                       → Listar comprobantes
+ *   GET  /:id                    → Detalle comprobante
+ *   PUT  /:id/anular             → Anular comprobante ★
+ *   GET  /historial-precios/:id_producto → Historial precios
+ *   GET  /cheques-cartera        → Cheques disponibles
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+const logger = require('../utils/logger');
+const pool = require('../config/database');
+const comprasHelper = require('../utils/compras.helper');
+const ivaHelper = require('../utils/iva.helper');
+var cuitLookup = require('../utils/cuit-lookup.helper');
+
+// ═══════════════════════════════════════════════════════════════
+// DATOS PARA FORMULARIOS (solo lectura)
+// ═══════════════════════════════════════════════════════════════
+
+exports.getFormData = async (req, res) => {
+    const { id_empresa } = req.usuario;
+    try {
+        const [tipos, alicuotas, monedas, formasPago, bancos] = await Promise.all([
+            pool.query('SELECT * FROM comprobante_compra_tipos ORDER BY id_tipo'),
+            pool.query('SELECT * FROM alicuotasiva WHERE activo = true ORDER BY porcentaje DESC'),
+            pool.query('SELECT * FROM monedas WHERE activo = true ORDER BY id_moneda'),
+            pool.query('SELECT * FROM formas_pago WHERE id_empresa = $1 ORDER BY id_forma_pago', [id_empresa]),
+            pool.query('SELECT * FROM bancos ORDER BY nombre')
+        ]);
+        const configsCompras = await comprasHelper.obtenerConfigsCompras(pool, { id_empresa });
+        res.json({ success: true, data: { tipos: tipos.rows, alicuotas: alicuotas.rows, monedas: monedas.rows, formasPago: formasPago.rows, bancos: bancos.rows, configsCompras } });
+    } catch (error) {
+        logger.error('getFormData:', error);
+        res.status(500).json({ error: 'Error al obtener datos del formulario' });
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// BÚSQUEDAS (solo lectura)
+// ═══════════════════════════════════════════════════════════════
+
+exports.buscarProveedores = async (req, res) => {
+    const { id_empresa } = req.usuario;
+    const { q, limit = 10 } = req.query;
+    // Si q vacío → listar todos los activos (hay pocos proveedores)
+    try {
+        let where = 'p.id_empresa = $1 AND p.activo = true';
+        const params = [id_empresa];
+        const terminos = (q || '').trim().length >= 2 ? q.trim().toLowerCase().split(/\s+/) : [];
+        terminos.forEach((t, i) => { params.push(`%${t}%`); where += ` AND p.busqueda_texto ILIKE $${i + 2}`; });
+        params.push(parseInt(limit));
+        const { rows } = await pool.query(`
+            SELECT p.id_proveedor, p.cuit, p.razon_social, p.nombre_fantasia,
+                   p.domicilio, p.telefono, p.email,
+                   ci.id_condicion_iva, ci.nombre as condicion_iva, ci.discrimina_iva,
+                   COALESCE(SUM(cpp.saldo), 0)::numeric as saldo_total,
+                   COUNT(CASE WHEN cpp.saldo > 0 THEN 1 END)::integer as facturas_pendientes
+            FROM proveedores p
+            INNER JOIN condicionesiva ci ON ci.id_condicion_iva = p.id_condicion_iva
+            LEFT JOIN cuentas_por_pagar cpp ON cpp.id_proveedor = p.id_proveedor AND cpp.id_empresa = $1
+            WHERE ${where}
+            GROUP BY p.id_proveedor, ci.id_condicion_iva, ci.nombre, ci.discrimina_iva
+            ORDER BY p.razon_social LIMIT $${params.length}
+        `, params);
+        res.json({ success: true, data: rows });
+    } catch (error) {
+        logger.error('buscarProveedores:', error);
+        res.status(500).json({ error: 'Error en búsqueda de proveedores' });
+    }
+};
+
+exports.getProveedor = async (req, res) => {
+    const { id_empresa } = req.usuario;
+    const { id } = req.params;
+    try {
+        const { rows } = await pool.query(`
+            SELECT p.*, ci.nombre as condicion_iva, ci.discrimina_iva,
+                   COALESCE(SUM(cpp.saldo), 0)::numeric as saldo_total,
+                   COUNT(CASE WHEN cpp.saldo > 0 THEN 1 END)::integer as facturas_pendientes
+            FROM proveedores p
+            INNER JOIN condicionesiva ci ON ci.id_condicion_iva = p.id_condicion_iva
+            LEFT JOIN cuentas_por_pagar cpp ON cpp.id_proveedor = p.id_proveedor AND cpp.id_empresa = $2
+            WHERE p.id_proveedor = $1 AND p.id_empresa = $2
+            GROUP BY p.id_proveedor, ci.nombre, ci.discrimina_iva
+        `, [id, id_empresa]);
+        if (rows.length === 0) return res.status(404).json({ error: 'Proveedor no encontrado' });
+        const ultimoComprobante = await comprasHelper.obtenerUltimoComprobante(pool, { id_empresa, id_proveedor: parseInt(id) });
+        res.json({ success: true, data: { ...rows[0], ultimo_comprobante: ultimoComprobante } });
+    } catch (error) {
+        logger.error('getProveedor:', error);
+        res.status(500).json({ error: 'Error al obtener proveedor' });
+    }
+};
+
+exports.buscarProductos = async (req, res) => {
+    const { id_empresa } = req.usuario;
+    const { q, id_proveedor, limit = 15 } = req.query;
+    if (!q || q.trim().length < 2) return res.json({ success: true, data: [] });
+    try {
+        let where = 'p.activo = true';
+        const params = [];
+        let idx = 1;
+        const qRaw = q.trim();                                // término crudo para match exacto
+        const terminos = qRaw.toLowerCase().split(/\s+/);
+        terminos.forEach(t => { params.push(`%${t}%`); where += ` AND p.busqueda_vector ILIKE $${idx}`; idx++; });
+        const empIdx = idx; params.push(id_empresa); idx++;
+        const limIdx = idx; params.push(parseInt(limit)); idx++;
+        let provIdx = null;
+        if (id_proveedor) { provIdx = idx; params.push(parseInt(id_proveedor)); idx++; }
+        const qExactIdx = idx; params.push(qRaw.toUpperCase());
+
+        const { rows } = await pool.query(`
+            SELECT p.id_producto, p.sku, p.nombre, p.descripcion, p.url_imagen,
+                   p.unidad_medida, p.cantidad_minima_venta, p.id_alicuota_iva, a.porcentaje as iva_porcentaje,
+                   COALESCE(i.stock_real, 0) as stock_actual,
+                   pp.precio_compra as precio_proveedor,
+                   pp.descuento_porcentaje as descuento_proveedor,
+                   pp.precio_neto as precio_neto_proveedor,
+                   pp.codigo_proveedor,
+                   (SELECT json_build_object('precio', h.precio_unitario, 'fecha', h.fecha, 'proveedor', prov.razon_social)
+                    FROM historial_precios_compra h
+                    LEFT JOIN proveedores prov ON prov.id_proveedor = h.id_proveedor
+                    WHERE h.id_producto = p.id_producto AND h.id_empresa = $${empIdx}
+                    ${provIdx ? `AND h.id_proveedor = $${provIdx}` : ''}
+                    ORDER BY h.fecha DESC LIMIT 1
+                   ) as ultimo_precio
+            FROM productos p
+            LEFT JOIN alicuotasiva a ON a.id_alicuota = p.id_alicuota_iva
+            LEFT JOIN inventario i ON i.id_producto = p.id_producto AND i.id_empresa = $${empIdx}
+            LEFT JOIN producto_proveedor pp ON pp.id_producto = p.id_producto
+                ${provIdx ? `AND pp.id_proveedor = $${provIdx}` : ''}
+                AND pp.id_empresa = $${empIdx} AND pp.activo = true
+            WHERE ${where}
+            ORDER BY
+              CASE WHEN UPPER(p.sku) = $${qExactIdx} THEN 0 ELSE 1 END,
+              CASE WHEN UPPER(pp.codigo_proveedor) = $${qExactIdx} THEN 0 ELSE 1 END,
+              CASE WHEN UPPER(p.sku) LIKE $${qExactIdx} || '%' THEN 0 ELSE 1 END,
+              CASE WHEN pp.id_producto IS NOT NULL THEN 0 ELSE 1 END,
+              p.nombre
+            LIMIT $${limIdx}
+        `, params);
+        res.json({ success: true, data: rows });
+    } catch (error) {
+        logger.error('buscarProductos:', error.message, error.detail);
+        res.status(500).json({ error: 'Error en búsqueda de productos' });
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// OC / RECEPCIONES (solo lectura)
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// ★ GUARDAR COMPROBANTE — Delegado al helper orquestador
+// ═══════════════════════════════════════════════════════════════
+
+exports.guardarComprobante = async (req, res) => {
+    const { id_empresa, id_usuario } = req.usuario;
+    const b = req.body;
+
+    // Validación DTO mínima
+    if (!b.id_proveedor) return res.status(400).json({ error: 'Falta proveedor' });
+    if (!b.id_tipo) return res.status(400).json({ error: 'Falta tipo de comprobante' });
+    if (!b.numero_comprobante) return res.status(400).json({ error: 'Falta número de comprobante' });
+    if (!b.fecha_emision) return res.status(400).json({ error: 'Falta fecha de emisión' });
+    if (!b.items || b.items.length === 0) return res.status(400).json({ error: 'Agregue al menos un item' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const resultado = await comprasHelper.crearComprobanteCompleto(client, {
+            id_empresa, id_usuario,
+            id_proveedor: parseInt(b.id_proveedor),
+            id_tipo: parseInt(b.id_tipo),
+            punto_venta: b.punto_venta,
+            numero_comprobante: b.numero_comprobante,
+            fecha_emision: b.fecha_emision,
+            fecha_vencimiento: b.fecha_vencimiento || null,
+            items: b.items,
+            observaciones: b.observaciones || null,
+            percepcion_iva: parseFloat(b.percepcion_iva) || 0,
+            percepcion_iibb: parseFloat(b.percepcion_iibb) || 0,
+            percepcion_iibb_jurisdiccion: b.percepcion_iibb_jurisdiccion || null,
+            impuestos_internos: parseFloat(b.impuestos_internos) || 0,
+            actualizar_precios: b.actualizar_precios || false,
+            nc_devuelve_mercaderia: b.nc_devuelve_mercaderia || false,
+            id_moneda: b.id_moneda ? parseInt(b.id_moneda) : 1,
+            cotizacion: parseFloat(b.cotizacion) || 1,
+            total_comprobante: b.total_comprobante ? parseFloat(b.total_comprobante) : null,
+            // Paso 10: pago opcional (viene del modal de pago en compras.html)
+            pago: b.pago || null
+        });
+
+        // Cerrar trazabilidad: marcar importación como confirmada si vino id_importacion
+        if (b.id_importacion) {
+            await importacionHelper.marcarConfirmado(client, {
+                id_importacion: parseInt(b.id_importacion),
+                id_comprobante: resultado.id_comprobante
+            });
+        }
+
+        await client.query('COMMIT');
+        logger.info(`Comprobante creado: ${resultado.numero_completo}`);
+        res.json({ success: true, message: 'Comprobante guardado correctamente', data: resultado });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        logger.error('guardarComprobante:', error.message);
+        console.error('[DEBUG] STACK:', error.stack);
+        if (error.code) console.error('[DEBUG] PG CODE:', error.code, '| POSITION:', error.position, '| DETAIL:', error.detail);
+        if (error.where) console.error('[DEBUG] PG WHERE:', error.where);
+        if (error.code === '23505') return res.status(400).json({ error: 'Ya existe un comprobante con ese número para este proveedor' });
+        res.status(error.statusCode || 500).json({ error: error.message || 'Error al guardar el comprobante' });
+    } finally {
+        client.release();
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ★ CALCULAR TOTALES (server-side, sin persistir)
+// ═══════════════════════════════════════════════════════════════
+
+exports.calcularTotales = async (req, res) => {
+    try {
+        const { id_empresa } = req.usuario;
+        const { items, id_tipo, percepcion_iva, percepcion_iibb, impuestos_internos } = req.body;
+        if (!items || items.length === 0) return res.status(400).json({ error: 'Sin items' });
+
+        let discrimina_iva = true;
+        if (id_tipo) {
+            const { rows } = await pool.query('SELECT discrimina_iva FROM comprobante_compra_tipos WHERE id_tipo = $1', [id_tipo]);
+            if (rows.length > 0) discrimina_iva = rows[0].discrimina_iva;
+        }
+
+        // Invariante fiscal: resolver alícuota default antes de delegar al helper puro
+        const ivaDef = await ivaHelper.obtenerAlicuotaDefectoParaCreacion(pool, id_empresa);
+
+        const totales = comprasHelper.calcularTotalesServidor(items, {
+            discrimina_iva,
+            percepcion_iva: parseFloat(percepcion_iva) || 0,
+            percepcion_iibb: parseFloat(percepcion_iibb) || 0,
+            impuestos_internos: parseFloat(impuestos_internos) || 0,
+            iva_porcentaje_default: ivaDef.porcentaje
+        });
+
+        res.json({ success: true, data: totales });
+    } catch (error) {
+        logger.error('calcularTotales:', error);
+        res.status(500).json({ error: 'Error al calcular totales' });
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ★ ANULAR COMPROBANTE — Delegado al helper orquestador
+// ═══════════════════════════════════════════════════════════════
+
+exports.anularComprobante = async (req, res) => {
+    const { id_empresa, id_usuario } = req.usuario;
+    const { id } = req.params;
+    const { motivo } = req.body;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        await comprasHelper.anularComprobanteCompleto(client, {
+            id_comprobante: parseInt(id),
+            id_empresa, id_usuario,
+            motivo: motivo || 'Sin motivo'
+        });
+
+        await client.query('COMMIT');
+        logger.info(`Comprobante ${id} anulado`);
+        res.json({ success: true, message: 'Comprobante anulado correctamente' });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        logger.error('anularComprobante:', error.message);
+        res.status(error.statusCode || 500).json({ error: error.message });
+    } finally {
+        client.release();
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// LISTAR / OBTENER COMPROBANTES (solo lectura)
+// ═══════════════════════════════════════════════════════════════
+
+exports.listarComprobantes = async (req, res) => {
+    const { id_empresa } = req.usuario;
+    const { q, id_proveedor, id_tipo, estado, fecha_desde, fecha_hasta, limit = 50, offset = 0 } = req.query;
+    try {
+        let where = 'cc.id_empresa = $1';
+        const params = [id_empresa];
+        let pi = 2;
+
+        if (q && q.trim()) {
+            q.trim().toLowerCase().split(/\s+/).forEach(t => {
+                params.push(`%${t}%`);
+                where += ` AND (cc.busqueda_texto ILIKE $${pi} OR p.busqueda_texto ILIKE $${pi})`;
+                pi++;
+            });
+        }
+        if (id_proveedor) { where += ` AND cc.id_proveedor = $${pi}`; params.push(parseInt(id_proveedor)); pi++; }
+        if (id_tipo) { where += ` AND cc.id_tipo = $${pi}`; params.push(parseInt(id_tipo)); pi++; }
+        if (estado && estado !== 'todos') { where += ` AND cc.estado = $${pi}`; params.push(estado); pi++; }
+        if (fecha_desde) { where += ` AND cc.fecha_emision >= $${pi}`; params.push(fecha_desde); pi++; }
+        if (fecha_hasta) { where += ` AND cc.fecha_emision <= $${pi}`; params.push(fecha_hasta); pi++; }
+
+        const dataQuery = `
+            SELECT cc.id_comprobante, cc.numero_completo, cc.fecha_emision, cc.fecha_vencimiento,
+                   cc.total, cc.estado, cc.observaciones,
+                   cct.codigo as tipo_codigo, cct.nombre as tipo_nombre,
+                   p.razon_social as proveedor_razon_social, p.cuit as proveedor_cuit,
+                   COALESCE(cpp.saldo, 0) as saldo_pendiente
+            FROM comprobantes_compra cc
+            INNER JOIN comprobante_compra_tipos cct ON cct.id_tipo = cc.id_tipo
+            INNER JOIN proveedores p ON p.id_proveedor = cc.id_proveedor
+            LEFT JOIN cuentas_por_pagar cpp ON cpp.id_comprobante = cc.id_comprobante
+            WHERE ${where}
+            ORDER BY cc.fecha_emision DESC, cc.id_comprobante DESC
+            LIMIT $${pi} OFFSET $${pi + 1}
+        `;
+        params.push(parseInt(limit), parseInt(offset));
+
+        const countQuery = `
+            SELECT COUNT(*) as total
+            FROM comprobantes_compra cc
+            INNER JOIN proveedores p ON p.id_proveedor = cc.id_proveedor
+            WHERE ${where}
+        `;
+
+        const [resultados, conteo] = await Promise.all([
+            pool.query(dataQuery, params),
+            pool.query(countQuery, params.slice(0, -2))
+        ]);
+
+        // Stats para metric cards
+        const { rows: stats } = await pool.query(`
+            SELECT
+                COUNT(*) FILTER (WHERE cc.estado = 'pendiente') as pendientes,
+                COUNT(*) FILTER (WHERE cc.estado = 'pagado_parcial') as pagado_parcial,
+                COUNT(*) FILTER (WHERE cc.estado = 'pagado') as pagados,
+                COUNT(*) FILTER (WHERE cc.estado = 'anulado') as anulados,
+                COALESCE(SUM(cpp.saldo) FILTER (WHERE cc.estado != 'anulado'), 0) as deuda_total
+            FROM comprobantes_compra cc
+            LEFT JOIN cuentas_por_pagar cpp ON cpp.id_comprobante = cc.id_comprobante
+            WHERE cc.id_empresa = $1
+        `, [id_empresa]);
+
+        res.json({
+            success: true,
+            data: resultados.rows,
+            total: parseInt(conteo.rows[0].total),
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            stats: stats[0] || {}
+        });
+    } catch (error) {
+        logger.error('listarComprobantes:', error);
+        res.status(500).json({ error: 'Error al listar comprobantes' });
+    }
+};
+
+exports.getComprobante = async (req, res) => {
+    const { id_empresa } = req.usuario;
+    const { id } = req.params;
+    try {
+        const { rows: comp } = await pool.query(`
+            SELECT cc.*, cct.codigo as tipo_codigo, cct.nombre as tipo_nombre,
+                   cct.afecta_stock as tipo_afecta_stock, cct.afecta_cuenta as tipo_afecta_cuenta,
+                   p.razon_social as proveedor_razon_social, p.nombre_fantasia as proveedor_nombre_fantasia,
+                   p.cuit as proveedor_cuit, p.domicilio as proveedor_domicilio,
+                   ci.nombre as proveedor_condicion_iva,
+                   u.nombre as usuario_nombre,
+                   m.codigo as moneda_codigo, m.simbolo as moneda_simbolo
+            FROM comprobantes_compra cc
+            INNER JOIN comprobante_compra_tipos cct ON cct.id_tipo = cc.id_tipo
+            INNER JOIN proveedores p ON p.id_proveedor = cc.id_proveedor
+            INNER JOIN condicionesiva ci ON ci.id_condicion_iva = p.id_condicion_iva
+            LEFT JOIN usuarios u ON u.id_usuario = cc.id_usuario
+            LEFT JOIN monedas m ON m.id_moneda = cc.id_moneda
+            WHERE cc.id_comprobante = $1 AND cc.id_empresa = $2
+        `, [id, id_empresa]);
+
+        if (comp.length === 0) return res.status(404).json({ error: 'Comprobante no encontrado' });
+
+        const { rows: items } = await pool.query(`
+            SELECT cci.*, p.sku as producto_sku, p.nombre as producto_nombre,
+                   p.url_imagen as producto_imagen, a.porcentaje as alicuota_porcentaje
+            FROM comprobante_compra_items cci
+            LEFT JOIN productos p ON p.id_producto = cci.id_producto
+            LEFT JOIN alicuotasiva a ON a.id_alicuota = cci.id_alicuota
+            WHERE cci.id_comprobante = $1 AND cci.id_empresa = $2 ORDER BY cci.id_item
+        `, [id, id_empresa]);
+
+        const { rows: cuenta } = await pool.query(
+            'SELECT * FROM cuentas_por_pagar WHERE id_comprobante = $1 AND id_empresa = $2', [id, id_empresa]
+        );
+
+        res.json({ success: true, data: { ...comp[0], items, cuenta_corriente: cuenta[0] || null } });
+    } catch (error) {
+        logger.error('getComprobante:', error);
+        res.status(500).json({ error: 'Error al obtener comprobante' });
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// HISTORIAL + CHEQUES (solo lectura)
+// ═══════════════════════════════════════════════════════════════
+
+exports.getHistorialPrecios = async (req, res) => {
+    const { id_empresa } = req.usuario;
+    const { id_producto } = req.params;
+    const { id_proveedor, limit = 20 } = req.query;
+    try {
+        let where = 'h.id_empresa = $1 AND h.id_producto = $2';
+        const params = [id_empresa, id_producto];
+        if (id_proveedor) { where += ' AND h.id_proveedor = $3'; params.push(parseInt(id_proveedor)); }
+        params.push(parseInt(limit));
+        const { rows } = await pool.query(`
+            SELECT h.*, p.razon_social as proveedor, cc.numero_completo as comprobante
+            FROM historial_precios_compra h
+            INNER JOIN proveedores p ON p.id_proveedor = h.id_proveedor
+            LEFT JOIN comprobantes_compra cc ON cc.id_comprobante = h.id_comprobante
+            WHERE ${where} ORDER BY h.fecha DESC LIMIT $${params.length}
+        `, params);
+        res.json({ success: true, data: rows });
+    } catch (error) {
+        logger.error('getHistorialPrecios:', error);
+        res.status(500).json({ error: 'Error al obtener historial de precios' });
+    }
+};
+
+exports.getChequesCartera = async (req, res) => {
+    const { id_empresa } = req.usuario;
+    try {
+        const { rows } = await pool.query(`
+            SELECT ct.*, b.nombre as banco_nombre_catalogo, c.razon_social as cliente_nombre
+            FROM cheques_terceros ct
+            LEFT JOIN bancos b ON b.id_banco = ct.id_banco
+            LEFT JOIN clientes c ON c.id_cliente = ct.id_cliente
+            WHERE ct.id_empresa = $1 AND ct.estado = 'en_cartera'
+            ORDER BY ct.fecha_vencimiento ASC
+        `, [id_empresa]);
+        res.json({ success: true, data: rows });
+    } catch (error) {
+        logger.error('getChequesCartera:', error);
+        res.status(500).json({ error: 'Error al obtener cheques en cartera' });
+    }
+};
+
+
+// ═══════════════════════════════════════════════════════════════
+// VALIDAR NÚMERO (on-blur, sin persistir)
+// ═══════════════════════════════════════════════════════════════
+
+exports.validarNumero = async (req, res) => {
+    const { id_empresa } = req.usuario;
+    const { id_proveedor, punto_venta, numero_comprobante } = req.query;
+    if (!id_proveedor || !punto_venta || !numero_comprobante) {
+        return res.status(400).json({ error: 'Faltan parámetros' });
+    }
+    try {
+        const existente = await comprasHelper.validarNumeroExistente(pool, {
+            id_empresa,
+            id_proveedor: parseInt(id_proveedor),
+            punto_venta,
+            numero_comprobante
+        });
+        const siguiente = await comprasHelper.sugerirSiguienteNumero(pool, {
+            id_empresa,
+            id_proveedor: parseInt(id_proveedor),
+            punto_venta
+        });
+        res.json({ success: true, data: { existe: !!existente, comprobante: existente, siguiente } });
+    } catch (error) {
+        logger.error('validarNumero:', error);
+        res.status(500).json({ error: 'Error al validar número' });
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// SUGERIR SIGUIENTE NÚMERO
+// ═══════════════════════════════════════════════════════════════
+
+exports.sugerirNumero = async (req, res) => {
+    const { id_empresa } = req.usuario;
+    const { id_proveedor, punto_venta } = req.query;
+    if (!id_proveedor || !punto_venta) {
+        return res.status(400).json({ error: 'Faltan parámetros' });
+    }
+    try {
+        const siguiente = await comprasHelper.sugerirSiguienteNumero(pool, {
+            id_empresa,
+            id_proveedor: parseInt(id_proveedor),
+            punto_venta
+        });
+        res.json({ success: true, data: { siguiente } });
+    } catch (error) {
+        logger.error('sugerirNumero:', error);
+        res.status(500).json({ error: 'Error al sugerir número' });
+    }
+};
+
+
+// ═══════════════════════════════════════════════════════════════
+// BUSCAR CUIT (reutilizable — local + AFIP)
+// ═══════════════════════════════════════════════════════════════
+
+exports.buscarCuit = async (req, res) => {
+    var { id_empresa } = req.usuario;
+    var { cuit } = req.params;
+    try {
+        var resultado = await cuitLookup.buscarCuit(pool, id_empresa, cuit);
+        if (resultado.error) return res.status(400).json({ error: resultado.error });
+        res.json({ success: true, data: resultado });
+    } catch (e) {
+        logger.error('buscarCuit:', e);
+        res.status(500).json({ error: 'Error al buscar CUIT' });
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ALTA RÁPIDA PROVEEDOR
+// ═══════════════════════════════════════════════════════════════
+
+exports.altaRapidaProveedor = async (req, res) => {
+    var { id_empresa } = req.usuario;
+    var { cuit, razon_social, nombre_fantasia, id_condicion_iva, telefono, email, domicilio } = req.body;
+    if (!cuit || !razon_social || !id_condicion_iva) {
+        return res.status(400).json({ error: 'CUIT, razón social y condición IVA son obligatorios' });
+    }
+    var pool = require('../config/database');
+    var client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        var crudHelper = require('../utils/crud.helper');
+        var prov = await crudHelper.crearProveedor(client, {
+            id_empresa: id_empresa,
+            cuit: cuit.trim(),
+            razon_social: razon_social.trim(),
+            nombre_fantasia: (nombre_fantasia || '').trim() || null,
+            id_condicion_iva: parseInt(id_condicion_iva),
+            telefono: (telefono || '').trim() || null,
+            email: (email || '').trim() || null,
+            domicilio: (domicilio || '').trim() || null
+        });
+        await client.query('COMMIT');
+        res.json({ success: true, data: prov, message: 'Proveedor creado' });
+    } catch (e) {
+        await client.query('ROLLBACK');
+        if (e.code === '23505') return res.status(400).json({ error: 'Ya existe un proveedor con ese CUIT' });
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
+    }
+};
+
+
+// ═══════════════════════════════════════════════════════════════
+// EXCEL EXPORT / IMPORT / HISTORIAL PRODUCTO
+// ═══════════════════════════════════════════════════════════════
+
+var excelHelper = require('../utils/excel.helper');
+var configHelper = require('../utils/config.helper');
+var importacionHelper = require('../utils/compras-importacion.helper');
+var multerMem = require('multer')({ storage: require('multer').memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+var COL_COMPROBANTES = [
+    { header: 'Comprobante', key: 'numero_completo', width: 22 },
+    { header: 'Tipo', key: 'tipo', width: 18 },
+    { header: 'Proveedor', key: 'proveedor', width: 30 },
+    { header: 'CUIT', key: 'cuit_cuil', width: 15 },
+    { header: 'Emisión', key: 'fecha_emision', width: 12, style: { numFmt: 'DD/MM/YYYY' } },
+    { header: 'Vto.', key: 'fecha_vencimiento', width: 12, style: { numFmt: 'DD/MM/YYYY' } },
+    { header: 'Subtotal', key: 'subtotal', width: 14, style: { numFmt: '#,##0.00' } },
+    { header: 'IVA', key: 'iva', width: 12, style: { numFmt: '#,##0.00' } },
+    { header: 'Perc.IVA', key: 'percepcion_iva', width: 11, style: { numFmt: '#,##0.00' } },
+    { header: 'Perc.IIBB', key: 'percepcion_iibb', width: 11, style: { numFmt: '#,##0.00' } },
+    { header: 'Total', key: 'total', width: 14, style: { numFmt: '#,##0.00' } },
+    { header: 'Estado', key: 'estado', width: 12 },
+    { header: 'CAE', key: 'cae', width: 18 }
+];
+
+var COL_ITEMS = [
+    { header: 'Comprobante', key: 'numero_completo', width: 22 },
+    { header: 'Tipo', key: 'tipo', width: 16 },
+    { header: 'Proveedor', key: 'proveedor', width: 28 },
+    { header: 'Fecha', key: 'fecha_emision', width: 12, style: { numFmt: 'DD/MM/YYYY' } },
+    { header: 'Código', key: 'codigo_producto', width: 15 },
+    { header: 'Descripción', key: 'descripcion', width: 35 },
+    { header: 'Cant.', key: 'cantidad', width: 10 },
+    { header: 'Precio', key: 'precio_unitario', width: 14, style: { numFmt: '#,##0.00' } },
+    { header: 'Dto%', key: 'descuento_porcentaje', width: 8 },
+    { header: 'IVA%', key: 'iva_porcentaje', width: 8 },
+    { header: 'Subtotal', key: 'subtotal', width: 14, style: { numFmt: '#,##0.00' } },
+    { header: 'Total', key: 'total', width: 14, style: { numFmt: '#,##0.00' } }
+];
+
+var COL_PLANTILLA = [
+    { header: 'codigo', key: 'codigo', width: 18 },
+    { header: 'descripcion', key: 'descripcion', width: 40 },
+    { header: 'cantidad', key: 'cantidad', width: 12 },
+    { header: 'precio_unitario', key: 'precio_unitario', width: 16 },
+    { header: 'descuento_porcentaje', key: 'descuento_porcentaje', width: 12 },
+    { header: 'iva_porcentaje', key: 'iva_porcentaje', width: 12 }
+];
+
+// GET /export/excel?tipo=comprobantes|items
+exports.exportarExcel = async function(req, res) {
+    try {
+        var { id_empresa } = req.usuario;
+        var tipo = req.query.tipo || 'comprobantes';
+        var filtros = { q: req.query.q, id_tipo: req.query.id_tipo, estado: req.query.estado, desde: req.query.desde, hasta: req.query.hasta };
+        var rows, columns, sheetName;
+        if (tipo === 'items') {
+            rows = await comprasHelper.obtenerItemsParaExport(pool, { id_empresa: id_empresa, filtros: filtros });
+            columns = COL_ITEMS; sheetName = 'Items Compras';
+        } else {
+            rows = await comprasHelper.obtenerComprobantesParaExport(pool, { id_empresa: id_empresa, filtros: filtros });
+            columns = COL_COMPROBANTES; sheetName = 'Comprobantes Compras';
+        }
+        var buffer = await excelHelper.exportar({ sheetName: sheetName, columns: columns, rows: rows });
+        excelHelper.enviar(res, buffer, 'compras_' + tipo + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
+    } catch (err) {
+        console.error('exportarExcel compras:', err);
+        res.status(500).json({ error: 'Error al exportar' });
+    }
+};
+
+// GET /import/plantilla
+exports.descargarPlantilla = async function(req, res) {
+    try {
+        const { id_empresa } = req.usuario;
+        const cfg = await configHelper.getPrefix(pool, id_empresa, 'compras.import_excel.');
+        const ExcelJS = require('exceljs');
+        const wb = new ExcelJS.Workbook();
+        wb.creator = 'ERP LAGO';
+        const ws = wb.addWorksheet('Items Compra');
+        ws.columns = [
+            { header: 'SKU',           key: 'sku',       width: 20 },
+            { header: 'Descripción',   key: 'desc',      width: 40 },
+            { header: 'Cantidad',      key: 'cant',      width: 10 },
+            { header: 'Precio Unit.',  key: 'precio',    width: 14 },
+            { header: 'Descuento %',   key: 'dto',       width: 12 }
+        ];
+        ws.getRow(1).font = { bold: true };
+        ws.addRow({ sku: 'EJEMPLO-001', desc: '(opcional)', cant: 10, precio: 1500, dto: 5 }).eachCell(c => {
+            c.font = { italic: true, color: { argb: 'FF888888' } };
+        });
+
+        const wh = wb.addWorksheet('Instrucciones');
+        wh.getCell('A1').value = 'PLANTILLA IMPORTACIÓN ITEMS DE COMPRA'; wh.getCell('A1').font = { bold: true, size: 14 };
+        const lineas = [
+            '• Modo POSICIONAL: importa por columnas A/B/C/D/E — no por nombre de header.',
+            '• Columna A: SKU interno LAGO (obligatoria).',
+            '• Columna B: Descripción (opcional, solo usada si el producto NO se encuentra).',
+            '• Columna C: Cantidad (obligatoria, > 0).',
+            '• Columna D: Precio unitario NETO sin IVA (obligatorio).',
+            '• Columna E: Descuento porcentaje (opcional, 0–100). Vacío = 0.',
+            '',
+            'Estrategia de match configurable en Configuraciones > Compras > Importación Excel.',
+            'Default: sku → producto_proveedor → código de barras.',
+            '',
+            'Si primera_fila_header = true en config, la fila 1 se ignora.',
+            'Config actual primera_fila_header = ' + String(cfg.primera_fila_header),
+            'Columnas configuradas: SKU=' + cfg.col_sku + '  Cant=' + cfg.col_cantidad + '  Precio=' + cfg.col_precio_unit + '  Dto=' + cfg.col_descuento_porc
+        ];
+        lineas.forEach((t, i) => { wh.getCell('A' + (i + 3)).value = t; });
+        wh.getColumn(1).width = 100;
+
+        const buffer = await wb.xlsx.writeBuffer();
+        excelHelper.enviar(res, buffer, 'plantilla_items_compra.xlsx');
+    } catch (err) {
+        console.error('[compras/import/plantilla]', err);
+        res.status(500).json({ error: 'Error al generar plantilla' });
+    }
+};
+
+// POST /import/preview — multer middleware se aplica en routes
+exports.previewImport = async function(req, res) {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No se recibió archivo' });
+        const { id_empresa, id_usuario } = req.usuario;
+        const id_proveedor = req.body.id_proveedor ? parseInt(req.body.id_proveedor) : null;
+        if (!id_proveedor) return res.status(400).json({ error: 'Falta id_proveedor' });
+
+        // 1) Leer config (vía pool porque configHelper cachea por id_empresa)
+        const cfg = await configHelper.getPrefix(pool, id_empresa, 'compras.import_excel.');
+        cfg.iva_default_id_alicuota = await configHelper.get(pool, id_empresa, 'compras.iva_default_id_alicuota', 3);
+
+        // 2) Parsear Excel en modo posicional
+        const filas = await importacionHelper.parsearExcel(req.file.buffer, cfg);
+        if (!filas.length) return res.status(400).json({ error: 'Archivo vacío o sin datos' });
+
+        // 3) Validar + matchear
+        const resultado = await importacionHelper.validarYMatchear(pool, {
+            id_empresa, id_proveedor, filas, config: cfg
+        });
+
+        // 4) Trazabilidad: grabar intento en log (tx corta, no bloquea respuesta)
+        let id_importacion = null;
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            id_importacion = await importacionHelper.registrarIntento(client, {
+                id_empresa, id_usuario, id_proveedor,
+                archivo_nombre: req.file.originalname || null,
+                archivo_buffer: req.file.buffer,
+                resumen: resultado,
+                estado: 'preview'
+            });
+            await client.query('COMMIT');
+        } catch (logErr) {
+            await client.query('ROLLBACK');
+            console.error('[compras/import] log falló (no bloqueante):', logErr.message);
+        } finally {
+            client.release();
+        }
+
+        // 5) Respuesta al frontend — contrato nuevo + alias retrocompat para no romper UI actual
+        res.json({
+            id_importacion,
+            total: resultado.total,
+            validos: resultado.validos,
+            errores: resultado.errores,
+            stats: resultado.stats,
+            // alias retrocompatibles:
+            itemsValidos: resultado.validos,
+            totalFilas: resultado.total
+        });
+    } catch (err) {
+        console.error('[compras/import/preview]', err);
+        res.status(err.statusCode || 500).json({ error: err.message || 'Error al procesar archivo' });
+    }
+};
+
+// GET /historial-compras-producto/:id_producto
+//   ?id_proveedor=13 (opcional) &incluir_anulados=false &desde=YYYY-MM-DD &hasta=YYYY-MM-DD &limit=50
+// Respuesta: array plano (retrocompat con compras.js legacy). Stats se calculan en cliente.
+exports.historialComprasProducto = async function(req, res) {
+    try {
+        const { id_empresa } = req.usuario;
+        const id_producto = parseInt(req.params.id_producto, 10);
+        if (!Number.isFinite(id_producto)) {
+            return res.status(400).json({ error: 'id_producto inválido' });
+        }
+
+        const { id_proveedor, incluir_anulados, desde, hasta, limit } = req.query;
+
+        const rows = await comprasHelper.obtenerHistorialComprasProducto(pool, {
+            id_empresa: id_empresa,
+            id_producto: id_producto,
+            id_proveedor: id_proveedor ? parseInt(id_proveedor, 10) : null,
+            incluir_anulados: incluir_anulados === 'true' || incluir_anulados === true,
+            desde: desde || null,
+            hasta: hasta || null,
+            limit: limit ? parseInt(limit, 10) : null
+        });
+        res.json(rows);
+    } catch (err) {
+        console.error('historial compras producto:', err);
+        res.status(500).json({ error: 'Error al obtener historial' });
+    }
+};
+
+// Exportar middleware multer para que routes lo use
+exports.uploadExcel = multerMem.single('file');
+
+
+// ═══════════════════════════════════════════════════════════════
+// IMPRESION — datos para orden de pago y log
+// ═══════════════════════════════════════════════════════════════
+
+exports.getDatosOrdenPago = async (req, res) => {
+    const { id_empresa } = req.usuario;
+    const { id } = req.params;
+    try {
+        const { rows: pagoRows } = await pool.query(`
+            SELECT pp.*, p.razon_social as proveedor_razon_social, p.cuit as proveedor_cuit,
+                   p.domicilio as proveedor_domicilio, u.nombre as usuario_nombre,
+                   e.razon_social as empresa_nombre, e.cuit as empresa_cuit,
+                   e.domicilio_fiscal as empresa_direccion
+            FROM pagosaproveedores pp
+            INNER JOIN proveedores p ON p.id_proveedor = pp.id_proveedor
+            INNER JOIN empresas e ON e.id_empresa = pp.id_empresa
+            LEFT JOIN usuarios u ON u.id_usuario = pp.id_usuario
+            WHERE pp.id_pago_proveedor = $1 AND pp.id_empresa = $2
+        `, [id, id_empresa]);
+
+        if (pagoRows.length === 0) return res.status(404).json({ error: 'Pago no encontrado' });
+
+        const { rows: items } = await pool.query(`
+            SELECT ppi.*, fp.nombre as forma_pago_nombre, fp.tipo as forma_pago_tipo,
+                   m.codigo as moneda_codigo, m.simbolo as moneda_simbolo,
+                   b.nombre as banco_nombre, t.nombre as tarjeta_nombre
+            FROM pago_proveedor_items ppi
+            INNER JOIN formas_pago fp ON fp.id_forma_pago = ppi.id_forma_pago
+            LEFT JOIN monedas m ON m.id_moneda = ppi.id_moneda
+            LEFT JOIN bancos b ON b.id_banco = ppi.id_banco
+            LEFT JOIN tarjetas t ON t.id_tarjeta = ppi.id_tarjeta
+            WHERE ppi.id_pago = $1 AND ppi.id_empresa = $2
+            ORDER BY ppi.id_pago_item
+        `, [id, id_empresa]);
+
+        const { rows: imputaciones } = await pool.query(`
+            SELECT ipp.id_imputacion, ipp.monto_imputado, ipp.fecha_imputacion,
+                   cpp.id_comprobante, cc.numero_completo, cc.fecha_emision, cc.total as total_comprobante
+            FROM imputacion_pagos_proveedor ipp
+            INNER JOIN cuentas_por_pagar cpp ON cpp.id_cuenta = ipp.id_cuenta
+            LEFT JOIN comprobantes_compra cc ON cc.id_comprobante = cpp.id_comprobante
+            WHERE ipp.id_pago = $1 AND ipp.id_empresa = $2
+            ORDER BY ipp.fecha_imputacion
+        `, [id, id_empresa]);
+
+        res.json({ success: true, data: { ...pagoRows[0], items, imputaciones } });
+    } catch (error) {
+        logger.error('getDatosOrdenPago:', error);
+        res.status(500).json({ error: 'Error al obtener orden de pago' });
+    }
+};
+
+// Endpoint de audit log para impresiones del lado del cliente
+exports.logImpresion = async (req, res) => {
+    const { id_empresa, id_usuario } = req.usuario;
+    const { tipo_documento, id_documento, numero_documento, resultado } = req.body;
+    if (!tipo_documento || !id_documento) return res.status(400).json({ error: 'Faltan campos' });
+    try {
+        await pool.query(`
+            INSERT INTO log_impresiones (id_empresa, id_usuario, tipo_documento, id_documento, numero_documento, resultado, ip_origen)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [id_empresa, id_usuario, tipo_documento, parseInt(id_documento), numero_documento || null, resultado || 'ok', req.ip || null]);
+        res.json({ success: true });
+    } catch (error) {
+        logger.error('logImpresion:', error.message);
+        res.status(500).json({ error: 'Error al registrar impresion' });
+    }
+};
+
+
+module.exports = exports;

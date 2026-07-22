@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Remito {{numero_completo}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        @page {
+            size: A4;
+            margin: {{margenes.superior}} {{margenes.derecho}} {{margenes.inferior}} {{margenes.izquierdo}};
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            line-height: 1.3;
+            color: #000;
+        }
+        
+        .remito-container {
+            width: 100%;
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 5mm;
+            page-break-after: always;
+        }
+        
+        .remito-container:last-child {
+            page-break-after: auto;
+        }
+        
+        /* ENCABEZADO */
+        .header {
+            display: flex;
+            border: 2px solid #000;
+            margin-bottom: 3mm;
+        }
+        
+        .header-left {
+            width: 45%;
+            padding: 3mm;
+            border-right: 2px solid #000;
+        }
+        
+        .header-center {
+            width: 10%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-right: 2px solid #000;
+        }
+        
+        .letra-comprobante {
+            font-size: 32px;
+            font-weight: bold;
+            line-height: 1;
+        }
+        
+        .codigo-afip {
+            font-size: 9px;
+            margin-top: 2px;
+        }
+        
+        .header-right {
+            width: 45%;
+            padding: 3mm;
+        }
+        
+        .empresa-nombre {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 2mm;
+        }
+        
+        .empresa-fantasia {
+            font-size: 12px;
+            margin-bottom: 2mm;
+        }
+        
+        .empresa-dato {
+            font-size: 10px;
+            margin-bottom: 1mm;
+        }
+        
+        .documento-tipo {
+            font-size: 14px;
+            font-weight: bold;
+            text-align: right;
+            margin-bottom: 2mm;
+        }
+        
+        .documento-numero {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: right;
+            margin-bottom: 3mm;
+        }
+        
+        .documento-fecha {
+            text-align: right;
+            font-size: 11px;
+        }
+        
+        .copia-badge {
+            position: absolute;
+            top: 5mm;
+            right: 5mm;
+            padding: 2mm 4mm;
+            border: 1px solid #000;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        /* DATOS CLIENTE */
+        .cliente-section {
+            border: 1px solid #000;
+            padding: 3mm;
+            margin-bottom: 3mm;
+        }
+        
+        .cliente-row {
+            display: flex;
+            margin-bottom: 1mm;
+        }
+        
+        .cliente-label {
+            width: 80px;
+            font-weight: bold;
+            font-size: 10px;
+        }
+        
+        .cliente-value {
+            flex: 1;
+            font-size: 10px;
+            border-bottom: 1px dotted #999;
+            padding-left: 2mm;
+        }
+        
+        .cliente-row-doble {
+            display: flex;
+            gap: 5mm;
+        }
+        
+        .cliente-row-doble > div {
+            flex: 1;
+            display: flex;
+        }
+        
+        /* TRANSPORTE */
+        .transporte-section {
+            border: 1px solid #000;
+            padding: 2mm 3mm;
+            margin-bottom: 3mm;
+            display: flex;
+            gap: 5mm;
+        }
+        
+        .transporte-item {
+            display: flex;
+            align-items: center;
+        }
+        
+        .transporte-label {
+            font-weight: bold;
+            font-size: 9px;
+            margin-right: 2mm;
+        }
+        
+        .transporte-value {
+            font-size: 9px;
+            border-bottom: 1px dotted #999;
+            min-width: 80px;
+            padding: 0 2mm;
+        }
+        
+        /* TABLA DE ITEMS */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 3mm;
+        }
+        
+        .items-table th {
+            background-color: #f0f0f0;
+            border: 1px solid #000;
+            padding: 2mm;
+            font-size: 9px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .items-table td {
+            border: 1px solid #000;
+            padding: 1.5mm 2mm;
+            font-size: 10px;
+            vertical-align: top;
+        }
+        
+        .items-table .col-codigo {
+            width: 15%;
+            text-align: center;
+        }
+        
+        .items-table .col-descripcion {
+            width: 45%;
+        }
+        
+        .items-table .col-cantidad {
+            width: 10%;
+            text-align: center;
+        }
+        
+        .items-table .col-unidad {
+            width: 8%;
+            text-align: center;
+        }
+        
+        .items-table .col-precio {
+            width: 11%;
+            text-align: right;
+        }
+        
+        .items-table .col-total {
+            width: 11%;
+            text-align: right;
+        }
+        
+        .items-table tbody tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+        
+        /* Filas vacías para completar */
+        .items-table .fila-vacia td {
+            height: 6mm;
+        }
+        
+        /* TOTALES */
+        .totales-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 3mm;
+        }
+        
+        .totales-box {
+            width: 40%;
+            border: 1px solid #000;
+        }
+        
+        .totales-row {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            padding: 1.5mm 3mm;
+        }
+        
+        .totales-row:last-child {
+            border-bottom: none;
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+        
+        .totales-label {
+            flex: 1;
+            font-size: 10px;
+        }
+        
+        .totales-value {
+            width: 100px;
+            text-align: right;
+            font-size: 10px;
+        }
+        
+        /* SALDO A COBRAR */
+        .saldo-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 3mm;
+        }
+        .saldo-box {
+            width: 40%;
+            border: 3px solid #000;
+        }
+        .saldo-row {
+            display: flex;
+            padding: 1.5mm 3mm;
+            border-bottom: 1px solid #ddd;
+            font-size: 10px;
+        }
+        .saldo-row-total {
+            display: flex;
+            padding: 2mm 3mm;
+            background-color: #000;
+            color: #fff;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .saldo-row-pagado {
+            display: flex;
+            padding: 2mm 3mm;
+            background-color: #e8f5e9;
+            font-weight: bold;
+            font-size: 16px;
+            justify-content: center;
+            color: #2e7d32;
+            border: none;
+        }
+        .saldo-label {
+            flex: 1;
+        }
+        .saldo-value {
+            width: 120px;
+            text-align: right;
+        }
+        /* OBSERVACIONES */
+        .observaciones-section {
+            border: 1px solid #000;
+            padding: 2mm 3mm;
+            margin-bottom: 3mm;
+            min-height: 15mm;
+        }
+        
+        .observaciones-titulo {
+            font-weight: bold;
+            font-size: 9px;
+            margin-bottom: 1mm;
+        }
+        
+        .observaciones-texto {
+            font-size: 10px;
+            white-space: pre-wrap;
+        }
+        
+        /* FIRMAS */
+        .firmas-section {
+            display: flex;
+            gap: 10mm;
+            margin-top: 5mm;
+        }
+        
+        .firma-box {
+            flex: 1;
+            text-align: center;
+        }
+        
+        .firma-linea {
+            border-top: 1px solid #000;
+            margin-top: 15mm;
+            padding-top: 2mm;
+            font-size: 9px;
+        }
+        
+        .firma-campos {
+            display: flex;
+            justify-content: center;
+            gap: 5mm;
+            margin-top: 2mm;
+            font-size: 8px;
+        }
+        
+        .firma-campo {
+            display: flex;
+            align-items: center;
+        }
+        
+        .firma-campo-label {
+            margin-right: 1mm;
+        }
+        
+        .firma-campo-linea {
+            border-bottom: 1px solid #000;
+            min-width: 50px;
+        }
+        
+        /* PIE */
+        .footer {
+            margin-top: 3mm;
+            padding-top: 2mm;
+            border-top: 1px solid #ddd;
+            font-size: 8px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .veces-impreso {
+            font-size: 8px;
+            color: #999;
+        }
+        
+        /* Utilidades */
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .font-bold { font-weight: bold; }
+        
+        @media print {
+            body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+{{#each copias}}
+<div class="remito-container" style="position: relative;">
+    <div class="copia-badge" style="color: {{this.color}}">{{this.nombre}}</div>
+    
+    <!-- ENCABEZADO -->
+    <div class="header">
+        <div class="header-left">
+            {{#if ../config.mostrar.logo_empresa}}
+            <!-- Logo placeholder -->
+            {{/if}}
+            <div class="empresa-nombre">{{../empresa.razon_social}}</div>
+            {{#if ../empresa.nombre_fantasia}}
+            <div class="empresa-fantasia">{{../empresa.nombre_fantasia}}</div>
+            {{/if}}
+            <div class="empresa-dato">{{../empresa.domicilio}}</div>
+            {{#if ../config.mostrar.cuit_empresa}}
+            <div class="empresa-dato"><strong>CUIT:</strong> {{../empresa.cuit}}</div>
+            {{/if}}
+            {{#if ../config.mostrar.condicion_iva_empresa}}
+            <div class="empresa-dato"><strong>{{../config.etiquetas.condicion_iva}}:</strong> {{../empresa.condicion_iva}}</div>
+            {{/if}}
+            {{#if ../empresa.telefono}}
+            <div class="empresa-dato"><strong>Tel:</strong> {{../empresa.telefono}}</div>
+            {{/if}}
+            {{#if ../empresa.email}}
+            <div class="empresa-dato"><strong>Email:</strong> {{../empresa.email}}</div>
+            {{/if}}
+        </div>
+        
+        <div class="header-center">
+            <div class="letra-comprobante">{{../tipo_comprobante.letra}}</div>
+            <div class="codigo-afip">COD. {{../tipo_comprobante.codigo_afip}}</div>
+        </div>
+        
+        <div class="header-right">
+            <div class="documento-tipo">{{../tipo_comprobante.titulo}}</div>
+            <div class="documento-numero">N° {{../remito.numero_completo}}</div>
+            <div class="documento-fecha">
+                <strong>{{../config.etiquetas.fecha_emision}}:</strong> {{../remito.fecha_emision_formateada}}
+            </div>
+            {{#if ../config.mostrar.numero_pedido}}
+            <div class="documento-fecha">
+                <strong>{{../config.etiquetas.pedido}}:</strong> {{../remito.id_pedido}}
+            </div>
+            {{/if}}
+        </div>
+    </div>
+    
+    <!-- DATOS CLIENTE -->
+    <div class="cliente-section">
+        <div class="cliente-row">
+            <span class="cliente-label">{{../config.etiquetas.cliente}}:</span>
+            <span class="cliente-value">{{../cliente.razon_social}}</span>
+        </div>
+        <div class="cliente-row">
+            <span class="cliente-label">{{../config.etiquetas.domicilio}}:</span>
+            <span class="cliente-value">{{../remito.direccion_entrega}}</span>
+        </div>
+        <div class="cliente-row-doble">
+            {{#if ../config.mostrar.cuit_cliente}}
+            <div>
+                <span class="cliente-label">{{../config.etiquetas.cuit}}:</span>
+                <span class="cliente-value">{{../cliente.cuit}}</span>
+            </div>
+            {{/if}}
+            {{#if ../config.mostrar.condicion_iva_cliente}}
+            <div>
+                <span class="cliente-label">{{../config.etiquetas.condicion_iva}}:</span>
+                <span class="cliente-value">{{../cliente.condicion_iva}}</span>
+            </div>
+            {{/if}}
+        </div>
+        {{#if ../config.mostrar.telefono_cliente}}
+        <div class="cliente-row">
+            <span class="cliente-label">{{../config.etiquetas.telefono}}:</span>
+            <span class="cliente-value">{{../cliente.telefono}}</span>
+        </div>
+        {{/if}}
+    </div>
+    
+    <!-- TRANSPORTE -->
+    {{#if ../config.mostrar.transportista}}
+    <div class="transporte-section">
+        <div class="transporte-item">
+            <span class="transporte-label">{{../config.etiquetas.transportista}}:</span>
+            <span class="transporte-value">{{../remito.transportista}}</span>
+        </div>
+        {{#if ../config.mostrar.chofer}}
+        <div class="transporte-item">
+            <span class="transporte-label">{{../config.etiquetas.chofer}}:</span>
+            <span class="transporte-value">{{../remito.chofer}}</span>
+        </div>
+        {{/if}}
+        {{#if ../config.mostrar.patente}}
+        <div class="transporte-item">
+            <span class="transporte-label">{{../config.etiquetas.patente}}:</span>
+            <span class="transporte-value">{{../remito.patente}}</span>
+        </div>
+        {{/if}}
+    </div>
+    {{/if}}
+    
+    <!-- ITEMS -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                {{#if ../config.mostrar.codigo_producto}}
+                <th class="col-codigo">{{../config.etiquetas.codigo}}</th>
+                {{/if}}
+                <th class="col-descripcion">{{../config.etiquetas.descripcion}}</th>
+                <th class="col-cantidad">{{../config.etiquetas.cantidad}}</th>
+                <th class="col-unidad">{{../config.etiquetas.unidad}}</th>
+                {{#if ../config.mostrar.precio_unitario}}
+                <th class="col-precio">{{../config.etiquetas.precio_unitario}}</th>
+                {{/if}}
+                {{#if ../config.mostrar.total_item}}
+                <th class="col-total">{{../config.etiquetas.total}}</th>
+                {{/if}}
+            </tr>
+        </thead>
+        <tbody>
+            {{#each ../items}}
+            <tr>
+                {{#if ../../config.mostrar.codigo_producto}}
+                <td class="col-codigo">{{this.codigo}}</td>
+                {{/if}}
+                <td class="col-descripcion">{{this.descripcion}}</td>
+                <td class="col-cantidad">{{this.cantidad_formateada}}</td>
+                <td class="col-unidad">{{this.unidad_medida}}</td>
+                {{#if ../../config.mostrar.precio_unitario}}
+                <td class="col-precio">{{this.precio_formateado}}</td>
+                {{/if}}
+                {{#if ../../config.mostrar.total_item}}
+                <td class="col-total">{{this.total_formateado}}</td>
+                {{/if}}
+            </tr>
+            {{/each}}
+            <!-- Filas vacías para completar -->
+            {{#each ../filas_vacias}}
+            <tr class="fila-vacia">
+                {{#if ../../config.mostrar.codigo_producto}}<td></td>{{/if}}
+                <td></td>
+                <td></td>
+                <td></td>
+                {{#if ../../config.mostrar.precio_unitario}}<td></td>{{/if}}
+                {{#if ../../config.mostrar.total_item}}<td></td>{{/if}}
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+    
+    <!-- TOTALES -->
+    {{#if ../config.mostrar.total_documento}}
+    <div class="totales-section">
+        <div class="totales-box">
+            {{#if ../config.mostrar.subtotal_documento}}
+            <div class="totales-row">
+                <span class="totales-label">{{../config.etiquetas.subtotal}}</span>
+                <span class="totales-value">{{../remito.subtotal_formateado}}</span>
+            </div>
+            {{/if}}
+            {{#if ../config.mostrar.iva_documento}}
+            <div class="totales-row">
+                <span class="totales-label">{{../config.etiquetas.iva}}</span>
+                <span class="totales-value">{{../remito.iva_formateado}}</span>
+            </div>
+            {{/if}}
+            <div class="totales-row">
+                <span class="totales-label">{{../config.etiquetas.total_general}}</span>
+                <span class="totales-value">{{../remito.total_formateado}}</span>
+            </div>
+        </div>
+    </div>
+    {{/if}}
+    
+    <-- 5. Verificar SALDO A COBRAR -->
+    {{#if ../remito.saldo_a_cobrar}}
+    <div class="saldo-section">
+        <div class="saldo-box">
+            <div class="saldo-row">
+                <span class="saldo-label">TOTAL PEDIDO</span>
+                <span class="saldo-value">{{../remito.pedido_total_formateado}}</span>
+            </div>
+            <div class="saldo-row">
+                <span class="saldo-label">PAGADO</span>
+                <span class="saldo-value">{{../remito.total_pagado_formateado}}</span>
+            </div>
+            <div class="saldo-row-total">
+                <span class="saldo-label">A COBRAR EN ENTREGA</span>
+                <span class="saldo-value">{{../remito.saldo_formateado}}</span>
+            </div>
+        </div>
+    </div>
+    {{else}}
+    {{#if ../remito.pedido_total}}
+    <div class="saldo-section">
+        <div class="saldo-box">
+            <div class="saldo-row-pagado">
+                PAGADO ✓
+            </div>
+        </div>
+    </div>
+    {{/if}}
+    {{/if}}
+        <!-- OBSERVACIONES -->
+    {{#if ../hayObsPedido}}
+    <div class="observaciones-section">
+        <div class="observaciones-titulo">OBS PEDIDO:</div>
+        <div class="observaciones-texto">{{../obsPedido}}</div>
+    </div>
+    {{/if}}
+    {{#if ../hayObsRemito}}
+    <div class="observaciones-section">
+        <div class="observaciones-titulo">OBS DESPACHO:</div>
+        <div class="observaciones-texto">{{../obsRemito}}{{#if ../obsEditadoPor}} <em style="font-size:9px;color:#666;">(editado por {{../obsEditadoPor}} · {{../obsEditadoEn}})</em>{{/if}}</div>
+    </div>
+    {{/if}}
+    
+    <!-- FIRMAS -->
+    <div class="firmas-section">
+        {{#if ../config.mostrar.firma_transportista}}
+        <div class="firma-box">
+            <div class="firma-linea">{{../config.etiquetas.firma_transportista}}</div>
+        </div>
+        {{/if}}
+        {{#if ../config.mostrar.firma_receptor}}
+        <div class="firma-box">
+            <div class="firma-linea">{{../config.etiquetas.recibe_conforme}}</div>
+            {{#if ../config.mostrar.aclaracion}}
+            <div class="firma-campos">
+                <div class="firma-campo">
+                    <span class="firma-campo-label">{{../config.etiquetas.aclaracion}}:</span>
+                    <span class="firma-campo-linea"></span>
+                </div>
+                {{#if ../config.mostrar.dni}}
+                <div class="firma-campo">
+                    <span class="firma-campo-label">{{../config.etiquetas.dni}}:</span>
+                    <span class="firma-campo-linea"></span>
+                </div>
+                {{/if}}
+            </div>
+            {{/if}}
+        </div>
+        {{/if}}
+    </div>
+    
+    <!-- PIE -->
+    <div class="footer">
+        <span>{{../config.textos_legales.pie_pagina}}</span>
+        {{#if ../config.mostrar.veces_impreso}}
+        <span class="veces-impreso">Impresión N° {{../remito.veces_impreso}}</span>
+        {{/if}}
+    </div>
+</div>
+{{/each}}
+</body>
+</html>

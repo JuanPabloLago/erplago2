@@ -1,0 +1,21 @@
+<div style="font-family:Arial,sans-serif;max-width:600px;color:#222">
+  <h2 style="color:#0B7A3E;border-bottom:2px solid #0B7A3E;padding-bottom:8px">
+    Nuevo pedido web pendiente de revisión
+  </h2>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px">
+    <tr><td style="padding:6px;width:140px"><b>Nro pedido:</b></td><td>{{nro_pedido}}</td></tr>
+    <tr><td style="padding:6px"><b>Cliente:</b></td><td>{{cliente_nombre}}{{#if cliente_email}} ({{cliente_email}}){{/if}}</td></tr>
+    <tr><td style="padding:6px"><b>Total:</b></td><td><b style="color:#0B7A3E;font-size:18px">$ {{total_final}}</b></td></tr>
+    <tr><td style="padding:6px"><b>Items:</b></td><td>{{cant_items}}</td></tr>
+    <tr><td style="padding:6px"><b>Entrega:</b></td><td>{{tipo_entrega}}{{#if domicilio_entrega}} — {{domicilio_entrega}}{{/if}}</td></tr>
+    {{#if observaciones}}<tr><td style="padding:6px"><b>Observaciones:</b></td><td>{{observaciones}}</td></tr>{{/if}}
+  </table>
+  <p style="margin-top:24px">
+    <a href="https://app.lago.ar/pedidos-web.html?pedido={{id_pedido}}"
+       style="background:#0B7A3E;color:white;padding:12px 24px;text-decoration:none;border-radius:4px;display:inline-block">
+      Ver pedido #{{nro_pedido}}
+    </a>
+  </p>
+  <hr style="margin-top:24px;border:none;border-top:1px solid #ddd">
+  <p style="color:#888;font-size:12px">ERP LAGO — Notificación automática</p>
+</div>

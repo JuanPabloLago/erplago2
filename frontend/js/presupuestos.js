@@ -2,7 +2,7 @@
 //                    PRESUPUESTOS.JS - ERP LAGO
 // =======================================================================
 
-const API_URL = 'http://72.60.148.18:3000/api';
+const API_URL = window.CONFIG?.API_BASE_URL || '/api';
 let productos = [];
 let clientes = [];
 let presupuestos = [];
@@ -14,8 +14,6 @@ let itemCount = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
     verificarAutenticacion();
-    cargarClientes();
-    cargarProductos();
     cargarPresupuestos();
 });
 
@@ -25,8 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function cargarClientes() {
     try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/clientes`, {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_URL}/clientes?limit=1000`, {
             headers: {'Authorization': `Bearer ${token}`}
         });
         
@@ -45,8 +43,8 @@ async function cargarClientes() {
 
 async function cargarProductos() {
     try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/productos`, {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_URL}/productos/listar`, {
             headers: {'Authorization': `Bearer ${token}`}
         });
         
@@ -60,7 +58,7 @@ async function cargarProductos() {
 
 async function cargarPresupuestos() {
     try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('authToken');
         const response = await fetch(`${API_URL}/presupuestos`, {
             headers: {'Authorization': `Bearer ${token}`}
         });
@@ -94,7 +92,7 @@ function mostrarPresupuestos(lista) {
         const estadoBadge = getEstadoBadge(p.estado);
         
         return `
-            <tr>
+            <tr style="cursor:pointer" onclick="verDetalle(${p.id_presupuesto})">
                 <td><strong>${p.numero_completo}</strong></td>
                 <td>${fecha}</td>
                 <td>${p.cliente || 'Sin cliente'}</td>
@@ -297,7 +295,7 @@ async function guardarPresupuesto() {
     };
     
     try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('authToken');
         const response = await fetch(`${API_URL}/presupuestos`, {
             method: 'POST',
             headers: {
@@ -326,5 +324,5 @@ async function guardarPresupuesto() {
 // =======================================================================
 
 async function verDetalle(id) {
-    try {
-        const token = localS
+    window.location.href = `ver-presupuesto.html?id=${id}`;
+}

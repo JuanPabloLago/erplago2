@@ -1,0 +1,1972 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Despachos - ERP LAGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css?v=20260418_111016" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css?v=20260418_111016" rel="stylesheet">
+    <link href="css/erp-lago-styles.css?v=20260418_111016" rel="stylesheet">
+    <style>
+        :root {
+            --lago-primary: #1a5f7a;
+            --lago-secondary: #0d3b4f;
+            --lago-success: #10b981;
+            --lago-warning: #f59e0b;
+            --lago-danger: #ef4444;
+            --lago-info: #3b82f6;
+            --lago-fiado: #f97316;
+            --lago-muted: #64748b;
+            --lago-dark: #0f172a;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* LAYOUT PRINCIPAL */
+        /* ═══════════════════════════════════════════════════════════════════ */
+        
+        .main-container {
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--lago-primary);
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--lago-primary);
+            margin: 0;
+        }
+
+        /* Tabs de navegación */
+        .nav-tabs-custom {
+            border-bottom: 2px solid #dee2e6;
+            margin-bottom: 20px;
+        }
+
+        .nav-tabs-custom .nav-link {
+            border: none;
+            color: #666;
+            padding: 12px 24px;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .nav-tabs-custom .nav-link:hover {
+            color: var(--lago-primary);
+            border-color: transparent;
+        }
+
+        .nav-tabs-custom .nav-link.active {
+            color: var(--lago-primary);
+            background: transparent;
+            border-bottom-color: var(--lago-primary);
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* CARDS DE PEDIDOS */
+        /* ═══════════════════════════════════════════════════════════════════ */
+
+        .pedidos-container {
+            max-height: calc(100vh - 350px);
+            overflow-y: auto;
+        }
+
+        .pedido-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 4px solid #ccc;
+            background: white;
+        }
+
+        .pedido-card:hover {
+            background: #f8f9fa;
+            transform: translateX(3px);
+        }
+
+        .pedido-card.seleccionado {
+            background: #e3f2fd;
+            border-left-color: var(--lago-primary);
+        }
+
+        .pedido-card.moroso {
+            border-left-color: var(--lago-danger);
+        }
+
+        .pedido-card.excede_credito {
+            border-left-color: var(--lago-warning);
+        }
+
+        .pedido-card.ok {
+            border-left-color: var(--lago-secondary);
+        }
+
+        .pedido-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .pedido-numero {
+            font-weight: 700;
+            color: var(--lago-primary);
+            font-size: 1.1rem;
+        }
+
+        .pedido-cliente {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .pedido-direccion {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .pedido-items {
+            font-size: 0.85rem;
+            color: #444;
+        }
+
+        .pedido-items .item-linea {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+        }
+
+        .pedido-total {
+            font-weight: 700;
+            text-align: right;
+            font-size: 1.1rem;
+            color: var(--lago-primary);
+            margin-top: 8px;
+        }
+
+        /* Badges de estado */
+        .badge-estado {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .badge-moroso {
+            background: #ffebee;
+            color: var(--lago-danger);
+        }
+
+        .badge-excede {
+            background: #fff3e0;
+            color: var(--lago-warning);
+        }
+
+        .badge-ok {
+            background: #e8f5e9;
+            color: var(--lago-secondary);
+        }
+
+        .badge-transito {
+            background: #e3f2fd;
+            color: var(--lago-primary);
+        }
+
+        .info-transito {
+            font-size: 0.8rem;
+            color: var(--lago-primary);
+            background: #e3f2fd;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* CARGA DEL VIAJE */
+        /* ═══════════════════════════════════════════════════════════════════ */
+
+        .carga-container {
+            background: #fafafa;
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            min-height: 300px;
+            padding: 15px;
+        }
+
+        .carga-container.drag-over {
+            border-color: var(--lago-primary);
+            background: #e3f2fd;
+        }
+
+        .carga-item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: grab;
+        }
+
+        .carga-item:active {
+            cursor: grabbing;
+        }
+
+        .carga-orden {
+            width: 28px;
+            height: 28px;
+            background: var(--lago-primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        .carga-cliente {
+            font-weight: 600;
+        }
+
+        .carga-direccion {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .carga-items-list {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #eee;
+        }
+
+        .carga-item-linea {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 0;
+        }
+
+        .carga-item-linea .form-control {
+            width: 80px;
+            text-align: center;
+        }
+
+        .carga-placeholder {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+        }
+
+        .carga-placeholder i {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        /* Resumen de carga */
+        .carga-resumen {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .carga-resumen .resumen-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+
+        .carga-resumen .resumen-total {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--lago-primary);
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+            margin-top: 5px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* VIAJES */
+        /* ═══════════════════════════════════════════════════════════════════ */
+
+        .viaje-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            background: white;
+        }
+
+        .viaje-header {
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .viaje-header.preparando {
+            background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+        }
+
+        .viaje-header.en_ruta {
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+        }
+
+        .viaje-header.finalizado {
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+        }
+
+        .viaje-header.liquidado {
+            background: #f5f5f5;
+        }
+
+        .viaje-body {
+            padding: 12px 15px;
+        }
+
+        .viaje-remitos {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .viaje-remito-badge {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 0.85rem;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* REGISTRO DE REGRESO */
+        /* ═══════════════════════════════════════════════════════════════════ */
+
+        .registro-remito {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .registro-header {
+            background: #f8f9fa;
+            padding: 12px 15px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .registro-body {
+            padding: 15px;
+        }
+
+        .estado-radio {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .estado-radio .form-check {
+            padding: 8px 15px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .estado-radio .form-check:has(input:checked) {
+            border-color: var(--lago-primary);
+            background: #e3f2fd;
+        }
+
+        .estado-radio .form-check-input {
+            margin-right: 8px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* DETALLE DE ITEMS (DESGLOSE) */
+        /* ═══════════════════════════════════════════════════════════════════ */
+
+        .detalle-seccion {
+            margin-bottom: 15px;
+        }
+
+        .detalle-seccion-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .detalle-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 0 6px 25px;
+            border-bottom: 1px dashed #eee;
+            font-size: 0.9rem;
+        }
+
+        .detalle-item:last-child {
+            border-bottom: none;
+        }
+
+        .detalle-cant {
+            min-width: 50px;
+            font-weight: 700;
+            color: var(--lago-primary);
+        }
+
+        .detalle-producto {
+            flex: 1;
+        }
+
+        .detalle-remito {
+            font-size: 0.75rem;
+            color: #666;
+            background: #f0f0f0;
+            padding: 2px 8px;
+            border-radius: 3px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* MODALES */
+        /* ═══════════════════════════════════════════════════════════════════ */
+
+        .modal-header {
+            background: var(--lago-primary);
+            color: white;
+        }
+
+        .modal-header .btn-close {
+            filter: invert(1);
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* UTILIDADES */
+        /* ═══════════════════════════════════════════════════════════════════ */
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-overlay.hidden {
+            display: none;
+        }
+
+        .btn-icon {
+            padding: 5px 10px;
+        }
+
+        .text-truncate-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .stock-badge {
+            font-size: 0.75rem;
+            padding: 2px 6px;
+        }
+
+        .stock-ok {
+            background: #e8f5e9;
+            color: var(--lago-secondary);
+        }
+
+        .stock-bajo {
+            background: #fff3e0;
+            color: var(--lago-warning);
+        }
+
+        .stock-sin {
+            background: #ffebee;
+            color: var(--lago-danger);
+        }
+
+        /* Barra de progreso */
+        .progress-entrega {
+            height: 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+        }
+
+        .progress-entrega .progress-bar {
+            border-radius: 4px;
+        }
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* BARRA DE BÚSQUEDA GLOBAL - Estilo Google */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+.search-global-container {
+    position: relative;
+    flex: 1;
+    max-width: 600px;
+    margin: 0 20px;
+}
+
+.search-global {
+    display: flex;
+    align-items: center;
+    background: #f1f3f4;
+    border-radius: 24px;
+    padding: 0 16px;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+}
+
+.search-global:focus-within {
+    background: white;
+    box-shadow: 0 1px 6px rgba(32,33,36,0.28);
+    border-color: transparent;
+}
+
+.search-global input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 12px 8px;
+    font-size: 14px;
+    outline: none;
+}
+
+.search-global input::placeholder {
+    color: #5f6368;
+}
+
+.search-global .search-icon {
+    color: #5f6368;
+    font-size: 18px;
+}
+
+.search-global .search-clear {
+    display: none;
+    background: none;
+    border: none;
+    color: #5f6368;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+.search-global .search-clear.visible {
+    display: block;
+}
+
+/* Dropdown de resultados */
+.search-results-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 4px 12px rgba(32,33,36,0.28);
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+}
+
+.search-results-dropdown.visible {
+    display: block;
+}
+
+.search-result-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f3f4;
+    transition: background 0.15s;
+}
+
+.search-result-item:hover {
+    background: #f8f9fa;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    font-size: 16px;
+}
+
+.search-result-icon.pedido {
+    background: #e3f2fd;
+    color: var(--lago-primary);
+}
+
+.search-result-icon.cliente {
+    background: #e8f5e9;
+    color: var(--lago-secondary);
+}
+
+.search-result-icon.direccion {
+    background: #fff3e0;
+    color: var(--lago-warning);
+}
+
+.search-result-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.search-result-title {
+    font-weight: 600;
+    color: #202124;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.search-result-subtitle {
+    font-size: 12px;
+    color: #5f6368;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.search-result-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.search-result-item:hover .search-result-actions {
+    opacity: 1;
+}
+
+.search-result-actions .btn {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.search-no-results {
+    padding: 20px;
+    text-align: center;
+    color: #5f6368;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* TOGGLE DE VISTA - Cards / Lista */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+.view-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #f1f3f4;
+    border-radius: 8px;
+    padding: 4px;
+}
+
+.view-toggle .btn {
+    padding: 6px 10px;
+    border: none;
+    background: transparent;
+    color: #5f6368;
+    border-radius: 6px;
+    transition: all 0.15s;
+}
+
+.view-toggle .btn:hover {
+    background: rgba(0,0,0,0.05);
+}
+
+.view-toggle .btn.active {
+    background: white;
+    color: var(--lago-primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* SELECTOR DE COLUMNAS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+.column-selector {
+    position: relative;
+}
+
+.column-selector-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    min-width: 200px;
+    padding: 8px 0;
+    z-index: 1001;
+    display: none;
+}
+
+.column-selector-dropdown.visible {
+    display: block;
+}
+
+.column-selector-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.column-selector-item:hover {
+    background: #f8f9fa;
+}
+
+.column-selector-item input {
+    margin-right: 10px;
+}
+
+.column-selector-item label {
+    cursor: pointer;
+    margin: 0;
+    font-size: 13px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* VISTA LISTA/TABLA */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+.pedidos-lista {
+    display: none;
+}
+
+.pedidos-lista.visible {
+    display: block;
+}
+
+.pedidos-cards.hidden {
+    display: none;
+}
+
+.tabla-pedidos {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+
+.tabla-pedidos th {
+    background: #f0f2f4;
+    padding: 4px 6px;
+    text-align: left;
+    font-weight: 600;
+    color: #5f6368;
+    border-bottom: 2px solid #dee2e6;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.tabla-pedidos th:hover {
+    background: #e9ecef;
+}
+
+.tabla-pedidos th .sort-icon {
+    margin-left: 4px;
+    opacity: 0.3;
+}
+
+.tabla-pedidos th.sorted .sort-icon {
+    opacity: 1;
+    color: var(--lago-primary);
+}
+
+.tabla-pedidos td {
+    padding: 3px 6px;
+    border-bottom: 1px solid #f1f3f4;
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.tabla-pedidos tr { cursor: pointer; }
+
+.tabla-pedidos tr:hover {
+    background: #e8f4fd;
+}
+
+.tabla-pedidos tr.seleccionado {
+    background: #c8e6ff;
+}
+
+.tabla-pedidos tr.en-viaje {
+    background: #e8f5e9;
+    opacity: 0.6;
+}
+
+    .col-pedido {
+    font-weight: 700;
+    color: var(--lago-primary);
+    width: 55px;
+}
+
+.tabla-pedidos .col-estado {
+    text-align: center;
+    width: 45px;
+}
+
+.tabla-pedidos .col-total {
+    text-align: right;
+    font-weight: 600;
+    width: 80px;
+}
+
+.tabla-pedidos .col-items-count {
+    text-align: center;
+    width: 35px;
+}
+
+.tabla-pedidos .col-acciones {
+    text-align: center;
+    width: 70px;
+}
+
+.tabla-pedidos .obs-row:hover { background: transparent; }
+.tabla-pedidos th.sorted { color: var(--lago-primary, #1a5f7a); }
+.tabla-pedidos th.sort-asc .arrow { font-size: 8px; margin-left: 3px; }
+.tabla-pedidos th.sort-desc .arrow { font-size: 8px; margin-left: 3px; }
+.tabla-pedidos .obs-row td { cursor: default; }
+
+.tabla-pedidos .col-acciones .btn {
+    padding: 1px 4px;
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+/* Columnas opcionales - ocultas por defecto */
+.tabla-pedidos .col-telefono,
+.tabla-pedidos .col-items,
+.tabla-pedidos .col-observaciones {
+    display: none;
+}
+
+.tabla-pedidos .col-obs {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #888;
+    font-size: 10px;
+}
+
+.tabla-pedidos.show-telefono .col-telefono,
+.tabla-pedidos.show-items .col-items,
+.tabla-pedidos.show-observaciones .col-observaciones {
+    display: table-cell;
+}
+
+/* Badge en tabla */
+.tabla-pedidos .badge-mini {
+    font-size: 10px;
+    padding: 2px 6px;
+}
+
+
+/* Resultados de búsqueda - Remitos */
+.search-result-icon.remito {
+    background: #fce4ec;
+    color: #c2185b;
+}
+
+.search-section-header {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-reimpresion {
+    font-size: 9px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: #ffebee;
+    color: #c62828;
+    margin-left: 5px;
+}
+
+.badge-estado-remito {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+.badge-estado-remito.pendiente { background: #fff3e0; color: #e65100; }
+.badge-estado-remito.despachado { background: #e3f2fd; color: #1565c0; }
+.badge-estado-remito.entregado { background: #e8f5e9; color: #2e7d32; }
+.badge-estado-remito.no_entregado { background: #ffebee; color: #c62828; }
+.badge-estado-remito.anulado { background: #f5f5f5; color: #616161; }
+
+    
+    /* Fix dropdown cortado en viaje-card */
+    .viaje-card .dropdown-menu {
+    }
+    
+    /* ═══ Data grid de remitos en viaje-card ═══ */
+    .viaje-card {
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        overflow: hidden;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        transition: box-shadow 0.15s;
+    }
+    .viaje-card:hover {
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    .viaje-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 14px;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .viaje-header.preparando { background: #fff8e1; }
+    .viaje-header.en_ruta    { background: #e3f2fd; }
+    .viaje-header.finalizado { background: #e8f5e9; }
+    .viaje-header.liquidado  { background: #f5f5f5; }
+
+    .despacho-grid {
+        font-size: 13px;
+        margin-bottom: 0;
+    }
+    .despacho-grid thead th {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: #6c757d;
+        font-weight: 600;
+        padding: 6px 8px;
+        background: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+    .despacho-grid tbody td {
+        padding: 7px 8px;
+        vertical-align: middle;
+        border-top: 1px solid #f0f0f0;
+    }
+    .despacho-grid tbody tr:hover {
+        background: #f5f9ff;
+    }
+    .despacho-remito-row td.text-truncate {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .viaje-footer {
+        font-size: 13px;
+    }
+    /* Responsive: en mobile ocultar fecha y pedido */
+    @media (max-width: 768px) {
+        .despacho-grid th:nth-child(3), .despacho-grid td:nth-child(3),
+        .despacho-grid th:nth-child(4), .despacho-grid td:nth-child(4) {
+            display: none;
+        }
+    }
+
+    
+/* col-fecha siempre visible (no depende de show-fecha) */
+.tabla-pedidos .col-fecha {
+    display: table-cell !important;
+    width: 90px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+.tabla-pedidos tbody .col-fecha {
+    color: #000;
+    font-weight: 500;
+}
+    
+/* Texto negro fuerte en toda la tabla de pedidos */
+.tabla-pedidos tbody td {
+    color: #000 !important;
+}
+.tabla-pedidos tbody .text-muted,
+.tabla-pedidos tbody td.text-muted {
+    color: #333 !important;
+}
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Header -->
+        <div class="page-header">
+            <h1 class="page-title">
+                <i class="bi bi-truck"></i> Gestión de Despachos
+            </h1>
+            
+            <!-- Barra de búsqueda global estilo Google -->
+            <div class="search-global-container">
+                <div class="search-global">
+                    <i class="bi bi-search search-icon"></i>
+                    <input type="text" 
+                           id="busquedaGlobal" 
+                           placeholder="Buscar pedido, cliente, dirección, teléfono..." 
+                           autocomplete="off">
+                    <button class="search-clear" id="btnLimpiarBusqueda" title="Limpiar">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <!-- Dropdown de resultados -->
+                <div class="search-results-dropdown" id="searchResultsDropdown">
+                    <!-- Se llena dinámicamente -->
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 align-items-center">
+                <!-- Toggle de vista -->
+                <div class="view-toggle">
+                    <button class="btn active" id="btnVistaCards" title="Vista Cards">
+                        <i class="bi bi-grid-3x2-gap"></i>
+                    </button>
+                    <button class="btn" id="btnVistaLista" title="Vista Lista">
+                        <i class="bi bi-list-ul"></i>
+                    </button>
+                </div>
+                
+                <!-- Selector de columnas (solo visible en vista lista) -->
+                <div class="column-selector" id="columnSelector" style="display: none;">
+                    <button class="btn btn-outline-secondary btn-sm" id="btnColumnSelector" title="Columnas">
+                        <i class="bi bi-layout-three-columns"></i>
+                    </button>
+                    <div class="column-selector-dropdown" id="columnSelectorDropdown">
+                        <div class="column-selector-item">
+                            <input type="checkbox" id="colTelefono" data-col="telefono">
+                            <label for="colTelefono">Teléfono</label>
+                        </div>
+                        <div class="column-selector-item">
+                            <input type="checkbox" id="colFecha" data-col="fecha">
+                            <label for="colFecha">Fecha</label>
+                        </div>
+                        <div class="column-selector-item">
+                            <input type="checkbox" id="colItems" data-col="items" checked>
+                            <label for="colItems">Items</label>
+                        </div>
+                        <div class="column-selector-item">
+                            <input type="checkbox" id="colObservaciones" data-col="observaciones">
+                            <label for="colObservaciones">Observaciones</label>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-outline-primary" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i> Actualizar
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs de navegación -->
+        <ul class="nav nav-tabs-custom" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="armar-tab" data-bs-toggle="tab" data-bs-target="#armar" type="button">
+                    <i class="bi bi-box-seam"></i> Armar Viaje
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="viajes-tab" data-bs-toggle="tab" data-bs-target="#viajes" type="button">
+                    <i class="bi bi-calendar-day"></i> Viajes del Día
+                    <span class="badge bg-primary ms-1" id="badgeViajesEnRuta">0</span>
+                </button>
+            </li>
+        </ul>
+
+        <!-- Contenido de tabs -->
+        <div class="tab-content" id="mainTabsContent">
+            
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <!-- TAB: ARMAR VIAJE -->
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <div class="tab-pane fade show active" id="armar" role="tabpanel">
+                
+                <!-- Datos del viaje -->
+                <div class="row mb-3">
+                    <div class="col-md-2">
+                        <label class="form-label small text-muted">Fecha</label>
+                        <input type="date" class="form-control" id="viajeNuevoFecha">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small text-muted">Chofer <span class="text-muted">(opcional)</span></label>
+                        <input type="text" class="form-control" id="viajeNuevoChofer" placeholder="Nombre">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small text-muted">Vehículo <span class="text-muted">(opcional)</span></label>
+                        <input type="text" class="form-control" id="viajeNuevoVehiculo" placeholder="Patente">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small text-muted">Depósito</label>
+                        <select class="form-select" id="depositoSeleccionado">
+                            <option value="">Cargando...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end gap-2">
+                        <button class="btn btn-outline-warning btn-sm" onclick="cancelarViajesVacios()" title="Eliminar viajes sin remitos">
+                            <i class="bi bi-trash"></i> Limpiar vacíos
+                        </button>
+                        <button class="btn btn-success" id="btnCrearViaje" style="display: none;">
+                            <i class="bi bi-plus-lg"></i> Crear Viaje
+                        </button>
+                        <div id="viajeActualInfo" class="alert alert-info py-2 px-3 mb-0 flex-grow-1" style="display: none;">
+                            <strong>Viaje #<span id="viajeActualId"></span></strong> - En preparación
+                            <button class="btn btn-sm btn-outline-danger float-end" onclick="cancelarViaje()">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <!-- Columna izquierda: Pedidos disponibles -->
+                    <div class="col-md-8">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <h6 class="mb-0">
+                                <i class="bi bi-inbox"></i> Pedidos con Disponible
+                                <span class="badge bg-secondary ms-1" id="contadorPedidos">0</span>
+                            </h6>
+                            <div class="input-group" style="width: 200px;">
+                                <input type="text" class="form-control form-control-sm" id="buscarPedido" placeholder="Buscar cliente...">
+                                <button class="btn btn-outline-secondary btn-sm" onclick="cargarPedidosDisponibles()">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-1 mb-2 align-items-center">
+                            <small class="text-muted me-1">Período:</small>
+                            <button class="btn btn-sm btn-outline-primary filtro-pedido-periodo active" data-periodo="todo" onclick="filtrarPedidosPeriodo(this)">Todo</button>
+                            <button class="btn btn-sm btn-outline-primary filtro-pedido-periodo" data-periodo="hoy" onclick="filtrarPedidosPeriodo(this)">Hoy</button>
+                            <button class="btn btn-sm btn-outline-primary filtro-pedido-periodo" data-periodo="semana" onclick="filtrarPedidosPeriodo(this)">Semana</button>
+                            <button class="btn btn-sm btn-outline-primary filtro-pedido-periodo" data-periodo="mes" onclick="filtrarPedidosPeriodo(this)">Mes</button>
+                            <button class="btn btn-sm btn-outline-primary filtro-pedido-periodo" data-periodo="anio" onclick="filtrarPedidosPeriodo(this)">Año</button>
+                            <span class="mx-1" style="color:#ccc">|</span>
+                            <input type="date" class="form-control form-control-sm" id="pedidoFechaDesde" style="width:120px;font-size:10px" onchange="filtrarPedidosRango()">
+                            <small class="text-muted">a</small>
+                            <input type="date" class="form-control form-control-sm" id="pedidoFechaHasta" style="width:120px;font-size:10px" onchange="filtrarPedidosRango()">
+                        </div>
+                        <div class="pedidos-container" id="pedidosContainerCards" style="display:none;">
+                            <div class="text-center text-muted py-5">
+                                <div class="spinner-border spinner-border-sm me-2"></div>
+                                Cargando pedidos...
+                            </div>
+                        </div>
+
+                        <!-- Vista Lista/Tabla -->
+                        <div class="pedidos-container pedidos-lista visible" id="pedidosContainerLista" style="max-height:75vh;overflow-y:auto;">
+                            <table class="tabla-pedidos show-items show-fecha" id="tablaPedidos">
+                                <thead>
+                                    <tr>
+                                        <th data-sort="id_pedido" class="col-pedido">#</th>
+                                        <th data-sort="fecha_creacion" class="col-fecha">Fecha</th>
+                                        <th data-sort="cliente">Cliente</th>
+                                        <th>Dirección</th>
+                                        <th>Tel</th>
+                                        <th class="col-items-count">It</th>
+                                        <th style="max-width:30px;font-size:9px" title="Ordenar por observaciones">Obs</th>
+                                        <th class="col-estado">Cred</th>
+                                        <th class="col-total" data-sort="total">Total</th>
+                                        <th class="col-acciones">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaPedidosBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Columna derecha: Carga del viaje -->
+                    <div class="col-md-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">
+                                <i class="bi bi-truck"></i> Carga del Viaje
+                            </h6>
+                            <span class="badge bg-primary" id="contadorParadas">0 paradas</span>
+                        </div>
+                        
+                        <div class="carga-container" id="cargaContainer">
+                            <div class="carga-placeholder" id="cargaPlaceholder">
+                                <i class="bi bi-arrow-down-circle"></i>
+                                <div>Hacé click en los pedidos para agregar</div>
+                                <small class="text-muted">o arrastrá y soltá aquí</small>
+                            </div>
+                            <div id="cargaItems"></div>
+                        </div>
+
+                        <div class="carga-resumen" id="cargaResumen" style="display: none;">
+                            <div class="resumen-item">
+                                <span>Total items:</span>
+                                <strong id="resumenItems">0</strong>
+                            </div>
+                            <div class="resumen-item resumen-total">
+                                <span>Total:</span>
+                                <span id="resumenTotal">$0</span>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2 mt-3">
+                            <button class="btn btn-outline-secondary flex-grow-1" id="btnVistaPrevia" disabled>
+                                <i class="bi bi-eye"></i> Vista Previa
+                            </button>
+                            <button class="btn btn-primary flex-grow-1" id="btnDespachar" disabled>
+                                <i class="bi bi-send"></i> Despachar + Imprimir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <!-- TAB: VIAJES DEL DÍA -->
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <div class="tab-pane fade" id="viajes" role="tabpanel">
+                <!-- Filtros modernos estilo Google -->
+                <div class="filtros-viajes mb-3">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <span class="text-muted small fw-bold">Período:</span>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-primary filtro-periodo active" data-periodo="hoy">Hoy</button>
+                            <button type="button" class="btn btn-outline-primary filtro-periodo" data-periodo="semana">Semana</button>
+                            <button type="button" class="btn btn-outline-primary filtro-periodo" data-periodo="mes">Mes</button>
+                            <button type="button" class="btn btn-outline-primary filtro-periodo" data-periodo="todo">Todo</button>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRangoPersonalizado" title="Rango personalizado">
+                            <i class="bi bi-calendar-range"></i> Personalizado
+                        </button>
+                    </div>
+                    <!-- Rango personalizado (oculto por defecto) -->
+                    <div class="rango-personalizado d-none mb-2" id="rangoPersonalizado">
+                        <div class="d-flex align-items-center gap-2 p-2 bg-light rounded">
+                            <span class="text-muted small">Desde:</span>
+                            <input type="date" class="form-control form-control-sm" id="filtroFechaDesde" style="width: 140px;">
+                            <span class="text-muted small">Hasta:</span>
+                            <input type="date" class="form-control form-control-sm" id="filtroFechaHasta" style="width: 140px;">
+                            <button class="btn btn-sm btn-primary" onclick="aplicarRangoPersonalizado()">
+                                <i class="bi bi-check"></i> Aplicar
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="cerrarRangoPersonalizado()">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="text-muted small fw-bold">Estado:</span>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-secondary filtro-estado active" data-estado="">Todos</button>
+                            <button type="button" class="btn btn-outline-warning filtro-estado" data-estado="preparando">Preparando</button>
+                            <button type="button" class="btn btn-outline-primary filtro-estado" data-estado="en_ruta">En Ruta</button>
+                            <button type="button" class="btn btn-outline-success filtro-estado" data-estado="finalizado">Finalizado</button>
+                            <button type="button" class="btn btn-outline-info filtro-estado" data-estado="liquidado">Liquidado</button>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger ms-auto" onclick="cancelarViajesVacios()" title="Eliminar viajes sin remitos">
+                            <i class="bi bi-trash"></i> Limpiar vacíos
+                        </button>
+                    </div>
+                </div>
+                <!-- Buscador en memoria -->
+                <div class="mb-2">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" id="buscarViajeCliente"
+                               placeholder="Buscar por cliente, número de remito, teléfono, pedido o chofer..."
+                               oninput="filtrarViajesBusqueda(this.value)">
+                        <button class="btn btn-outline-secondary" type="button"
+                                onclick="document.getElementById('buscarViajeCliente').value='';filtrarViajesBusqueda('');"
+                                title="Limpiar"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+                <!-- Resumen -->
+                <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                    <small class="text-muted" id="resumenViajes"><i class="bi bi-calendar-check"></i> Mostrando viajes de hoy</small>
+                    <button class="btn btn-sm btn-link text-decoration-none" onclick="cargarViajes()"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+                </div>
+                <div id="viajesContainer">
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-truck" style="font-size: 2rem;"></i>
+                        <p class="mt-2">Cargando viajes...</p>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- MODAL: Detalle de Pedido -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="modalDetallePedido" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-file-text"></i> Detalle Pedido #<span id="modalPedidoNumero"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="modalPedidoBody">
+                    <!-- Se llena dinámicamente -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary" id="btnAgregarTodoAlViaje">
+                        <i class="bi bi-plus-lg"></i> Agregar Todo al Viaje
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- MODAL: Registrar Regreso -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="modalRegistrarRegreso" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-clipboard-check"></i> Registrar Regreso - Viaje #<span id="modalRegresoViajeId"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="modalRegresoBody">
+                    <!-- Se llena dinámicamente -->
+                </div>
+                <div class="modal-footer">
+                    <div class="me-auto">
+                        <strong>Efectivo total: $<span id="modalRegresoEfectivo">0</span></strong>
+                    </div>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" id="btnConfirmarRegreso">
+                        <i class="bi bi-check-lg"></i> Confirmar Regreso
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- MODAL: Liquidar Caja -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="modalLiquidar" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-cash-stack"></i> Liquidar Caja - Viaje #<span id="modalLiquidarViajeId"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info py-2 mb-3">
+                        <i class="bi bi-info-circle"></i> Los cobros del viaje ya fueron registrados en caja durante el regreso.
+                        Aquí solo se registran los gastos del chofer.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Gastos Combustible</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="liquidarCombustible" value="0" min="0">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Otros Gastos</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="liquidarOtros" value="0" min="0">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción Gastos</label>
+                        <input type="text" class="form-control" id="liquidarDescripcion" placeholder="Combustible, peajes, viáticos...">
+                    </div>
+                    <div class="bg-light p-3 rounded" id="liquidarResumenGastosTotal">
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-bold">Total Gastos:</span>
+                            <strong class="text-danger" id="liquidarTotalGastos">$0</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" id="btnConfirmarLiquidacion">
+                        <i class="bi bi-check-lg"></i> Confirmar Liquidación
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts (orden: config → auth → vendor → módulo) -->
+    <script src="js/config.js?v=20260418_111016"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://printjs-4de6.kxcdn.com/print.min.css?v=20260418_111016">
+    <script src="https://printjs-4de6.kxcdn.com/print.min.js"></script>
+    <script src="js/auth.js?v=20260418_111016"></script>
+    <script src="js/connection-indicator.js?v=20260418_111016"></script>
+    <!-- LAGO Shortcut Bar -->
+    <div class="lago-shortcut-bar">
+        <span><kbd>F3</kbd> Buscar</span>
+        <span><kbd>F5</kbd> Actualizar</span>
+        <span><kbd>Ins</kbd> Nuevo viaje</span>
+        <span><kbd>Esc</kbd> Cerrar</span>
+    </div>
+
+    <script src="js/gestion-despachos.js?v=20260626_102124"></script>
+    <!-- Modal: Remitos de Pedido -->
+    <div class="modal fade" id="modalRemitosPedido" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, \#1a4d8f, \#2e7d32); color: white;">
+                    <h5 class="modal-title"><i class="bi bi-receipt"></i> <span id="modalRemitosPedidoTitulo">Remitos del Pedido</span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="remitosPedidoInfo"></div>
+                    <div id="remitosPedidoLista"></div>
+                    <div id="remitosPedidoResumen"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-info" onclick="abrirTrazabilidad('pedido', document.getElementById('modalRemitosPedidoTitulo').textContent.match(/\#(\d+)/)?.[1])"><i class="bi bi-diagram-3"></i> Trazabilidad Completa</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Cobro Despacho -->
+    <div class="modal fade" id="modalCobro" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white py-2">
+                    <h6 class="modal-title"><i class="bi bi-cash-coin"></i> Cobrar Remito</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <div class="text-center mb-3">
+                        <div class="fw-bold" id="cobroRemitoInfo"></div>
+                        <small class="text-muted" id="cobroPedidoInfo"></small>
+                        <div class="mt-1">Saldo: <strong class="text-danger" id="cobroSaldoInfo"></strong></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small mb-1">Monto</label>
+                        <input type="number" class="form-control" id="cobroMonto" step="0.01" min="0">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small mb-1">Forma de pago</label>
+                        <div class="d-flex flex-wrap gap-1">
+                            <button type="button" class="btn btn-sm btn-outline-success cobro-metodo-btn" data-metodo="1" onclick="seleccionarMetodoCobro(this,1)"><i class="bi bi-cash-stack"></i> Efect.</button>
+                            <button type="button" class="btn btn-sm btn-outline-info cobro-metodo-btn" data-metodo="2" onclick="seleccionarMetodoCobro(this,2)"><i class="bi bi-phone"></i> MP</button>
+                            <button type="button" class="btn btn-sm btn-outline-primary cobro-metodo-btn" data-metodo="3" onclick="seleccionarMetodoCobro(this,3)"><i class="bi bi-bank"></i> Transf.</button>
+                            <button type="button" class="btn btn-sm btn-outline-warning cobro-metodo-btn" data-metodo="4" onclick="seleccionarMetodoCobro(this,4)"><i class="bi bi-credit-card"></i> Créd.</button>
+                            <button type="button" class="btn btn-sm btn-outline-warning cobro-metodo-btn" data-metodo="5" onclick="seleccionarMetodoCobro(this,5)"><i class="bi bi-credit-card-2-front"></i> Déb.</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary cobro-metodo-btn" data-metodo="6" onclick="seleccionarMetodoCobro(this,6)"><i class="bi bi-journal-text"></i> CC</button>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small mb-1">Referencia <small class="text-muted">(opcional)</small></label>
+                        <input type="text" class="form-control form-control-sm" id="cobroReferencia" placeholder="Nro. operación, comprobante...">
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success btn-sm" id="btnConfirmarCobro" onclick="confirmarCobro()">
+                        <i class="bi bi-cash-coin"></i> Cobrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- MODAL: Trazabilidad de Documentos -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="modalTrazabilidad" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-diagram-3"></i> <span id="trazabilidadTitulo">Trazabilidad</span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="row g-0">
+                        <!-- Columna izquierda: CC y Documentos -->
+                        <div class="col-md-7 border-end">
+                            <!-- Cuenta Corriente -->
+                            <div id="trazabilidadCC" class="trazabilidad-seccion"></div>
+                            
+                            <!-- Árbol de documentos -->
+                            <div class="trazabilidad-seccion">
+                                <div class="seccion-titulo">
+                                    <i class="bi bi-diagram-2"></i> DOCUMENTOS RELACIONADOS
+                                </div>
+                                <div id="trazabilidadDocumentos"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Columna derecha: Timeline y Cliente -->
+                        <div class="col-md-5">
+                            <!-- Timeline -->
+                            <div class="trazabilidad-seccion">
+                                <div class="seccion-titulo">
+                                    <i class="bi bi-clock-history"></i> TIMELINE DE EVENTOS
+                                </div>
+                                <div id="trazabilidadTimeline"></div>
+                            </div>
+                            
+                            <!-- Info Cliente -->
+                            <div class="trazabilidad-seccion border-top">
+                                <div class="seccion-titulo">
+                                    <i class="bi bi-person-badge"></i> CLIENTE
+                                </div>
+                                <div id="trazabilidadClienteInfo"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+    /* ═══════════════════════════════════════════════════════════════════ */
+    /* ESTILOS TRAZABILIDAD */
+    /* ═══════════════════════════════════════════════════════════════════ */
+    
+    .trazabilidad-seccion {
+        padding: 15px;
+    }
+    
+    .seccion-titulo {
+        font-size: 11px;
+        font-weight: 700;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    /* Cuenta Corriente */
+    .cc-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(135deg, #1a4d8f, #2e7d32);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 8px 8px 0 0;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    
+    .cc-cliente {
+        font-size: 14px;
+    }
+    
+    .cc-body {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 0 0 8px 8px;
+        border: 1px solid #e0e0e0;
+        border-top: none;
+    }
+    
+    .cc-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        font-size: 13px;
+    }
+    
+    .cc-barra-container {
+        height: 8px;
+        background: #e0e0e0;
+        border-radius: 4px;
+        margin: 10px 0 5px;
+        overflow: hidden;
+    }
+    
+    .cc-barra {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.3s;
+    }
+    
+    .cc-porcentaje {
+        font-size: 11px;
+        text-align: right;
+        color: #666;
+    }
+    
+    /* Árbol de documentos */
+    .doc-tree {
+        padding: 10px 0;
+    }
+    
+    .doc-node {
+        display: flex;
+        align-items: flex-start;
+        padding: 10px 12px;
+        border-radius: 8px;
+        margin-bottom: 4px;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    
+    .doc-node:hover {
+        background: #f5f5f5;
+    }
+    
+    .doc-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 12px;
+        font-size: 16px;
+        flex-shrink: 0;
+    }
+    
+    .doc-pedido .doc-icon { background: #e3f2fd; color: #1565c0; }
+    .doc-remito .doc-icon { background: #e0f2f1; color: var(--lago-primary); }
+    .doc-factura .doc-icon { background: #efebe9; color: #5d4037; }
+    .doc-pago .doc-icon { background: #e8f5e9; color: #2e7d32; }
+    
+    .doc-info {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .doc-titulo {
+        font-weight: 600;
+        font-size: 13px;
+        color: #333;
+    }
+    
+    .doc-subtitulo {
+        font-size: 11px;
+        color: #666;
+        margin-top: 2px;
+    }
+    
+    .doc-badge {
+        display: inline-block;
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        margin-top: 4px;
+        margin-right: 4px;
+    }
+    
+    .doc-badge.estado-1 { background: #fff3e0; color: #e65100; }
+    .doc-badge.estado-2 { background: #e3f2fd; color: #1565c0; }
+    .doc-badge.estado-3 { background: #e8f5e9; color: #2e7d32; }
+    .doc-badge.estado-6 { background: #e8f5e9; color: #2e7d32; }
+    .doc-badge.estado-7 { background: #ffebee; color: #c62828; }
+    
+    .doc-badge.remito-pendiente { background: #fff3e0; color: #e65100; }
+    .doc-badge.remito-borrador { background: #f5f5f5; color: #666; }
+    .doc-badge.remito-despachado { background: #e3f2fd; color: #1565c0; }
+    .doc-badge.remito-entregado { background: #e8f5e9; color: #2e7d32; }
+    .doc-badge.remito-parcial { background: #fff3e0; color: #f57c00; }
+    .doc-badge.remito-no_entregado { background: #ffebee; color: #c62828; }
+    
+    .doc-badge.impreso { background: #fce4ec; color: #c2185b; }
+    .doc-badge.factura { background: #efebe9; color: #5d4037; }
+    .doc-badge.pago-aprobado { background: #e8f5e9; color: #2e7d32; }
+    .doc-badge.pago-pendiente { background: #fff3e0; color: #e65100; }
+    .doc-badge.pago-rechazado { background: #ffebee; color: #c62828; }
+    
+    .doc-children {
+        margin-left: 24px;
+        padding-left: 20px;
+        border-left: 2px solid #e0e0e0;
+    }
+    
+    .doc-branch {
+        position: relative;
+    }
+    
+    .doc-branch::before {
+        content: '';
+        position: absolute;
+        left: -20px;
+        top: 22px;
+        width: 18px;
+        height: 2px;
+        background: #e0e0e0;
+    }
+    
+    .doc-separator {
+        height: 1px;
+        background: #e0e0e0;
+        margin: 15px 0;
+    }
+    
+    .doc-actions {
+        display: flex;
+        gap: 4px;
+        opacity: 0;
+        transition: opacity 0.15s;
+    }
+    
+    .doc-node:hover .doc-actions {
+        opacity: 1;
+    }
+    
+    /* Resumen de pagos */
+    .resumen-pagos {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 12px 15px;
+        margin-top: 15px;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .resumen-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+        font-size: 13px;
+    }
+    
+    .progress-pagos {
+        height: 6px;
+        background: #e0e0e0;
+        border-radius: 3px;
+        margin: 10px 0 5px;
+        overflow: hidden;
+    }
+    
+    .progress-bar-pagos {
+        height: 100%;
+        background: #2e7d32;
+        border-radius: 3px;
+        transition: width 0.3s;
+    }
+    
+    /* Timeline */
+    .timeline-container {
+        max-height: 400px;
+        overflow-y: auto;
+        padding-right: 10px;
+    }
+    
+    .timeline-item {
+        display: flex;
+        padding-bottom: 20px;
+        position: relative;
+    }
+    
+    .timeline-item:not(.ultimo)::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 32px;
+        bottom: 0;
+        width: 2px;
+        background: #e0e0e0;
+    }
+    
+    .timeline-marker {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 14px;
+        flex-shrink: 0;
+        margin-right: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .timeline-content {
+        flex: 1;
+        padding-top: 4px;
+    }
+    
+    .timeline-fecha {
+        font-size: 11px;
+        color: #999;
+        margin-bottom: 2px;
+    }
+    
+    .timeline-descripcion {
+        font-size: 13px;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .timeline-usuario {
+        font-size: 11px;
+        color: #666;
+        margin-top: 2px;
+    }
+    
+    /* Info cliente mini */
+    .cliente-info-mini {
+        font-size: 13px;
+    }
+    
+    .cliente-info-mini > div {
+        padding: 6px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .cliente-info-mini > div:last-child {
+        border-bottom: none;
+    }
+    
+    .cliente-info-mini i {
+        width: 20px;
+        color: #666;
+    }
+    
+    .cliente-info-mini a {
+        color: #1565c0;
+        text-decoration: none;
+    }
+    
+    .cliente-info-mini a:hover {
+        text-decoration: underline;
+    }
+    </style>
+
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- MODAL: Editar Observaciones de Remito (Fase 5 — 2026-05-04) -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="modalEditarObs" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success-subtle">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil-square text-success"></i>
+                        Observaciones del Remito <span id="modalEditarObsNumero" class="fw-bold"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="modalEditarObsIdRemito">
+                    <label for="modalEditarObsTextarea" class="form-label small text-muted">
+                        Nota operativa del despacho (NO modifica la observacion del pedido):
+                    </label>
+                    <textarea
+                        id="modalEditarObsTextarea"
+                        class="form-control"
+                        rows="4"
+                        maxlength="2000"
+                        placeholder="Ej: tocar timbre del fondo, entregar despues de las 14hs, etc."
+                    ></textarea>
+                    <div id="modalEditarObsAuditoria" class="form-text text-muted small mt-2 d-none"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" id="modalEditarObsBtnGuardar" onclick="guardarObsRemito()">
+                        <i class="bi bi-check-lg"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- MODAL: Editar Observaciones de Pedido (Fase 7 — 2026-05-04) -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="modalEditarObsPedido" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary-subtle">
+                    <h5 class="modal-title">
+                        <i class="bi bi-chat-square-text text-primary"></i>
+                        Observaciones del Pedido <span id="modalEditarObsPedidoNumero" class="fw-bold"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="modalEditarObsPedidoIdPedido">
+                    <label for="modalEditarObsPedidoTextarea" class="form-label small text-muted">
+                        Observacion del pedido (visible al imprimir el remito):
+                    </label>
+                    <textarea
+                        id="modalEditarObsPedidoTextarea"
+                        class="form-control"
+                        rows="4"
+                        maxlength="2000"
+                        placeholder="Ej: lunes pago, llevo lampara, tocar timbre del fondo, etc."
+                    ></textarea>
+                    <div id="modalEditarObsPedidoAuditoria" class="form-text text-muted small mt-2 d-none"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" id="modalEditarObsPedidoBtnGuardar" onclick="guardarObsPedido()">
+                        <i class="bi bi-check-lg"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

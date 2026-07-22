@@ -417,3 +417,378 @@
 
 
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CARDS ENTREGAS - ESTILOS MEJORADOS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.pedido-items {
+    margin: 8px 0;
+    padding: 6px 8px;
+    background: rgba(0,0,0,0.03);
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+.item-linea {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+}
+.pedido-obs {
+    margin: 6px 0;
+    padding: 4px 8px;
+    background: #fff3cd;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: #856404;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pedido-pagos {
+    margin-top: 4px;
+    font-size: 0.75rem;
+    color: #28a745;
+}
+.pago-linea {
+    line-height: 1.3;
+}
+.pedido-totales {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(0,0,0,0.1);
+    font-size: 0.85rem;
+}
+.pedido-saldo {
+    font-weight: 600;
+    color: #dc3545;
+    margin-top: 4px;
+}
+.pedido-saldo.saldo-favor {
+    color: #28a745;
+}
+.badge-pago-parcial {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+/* === SUGERENCIAS DE BÚSQUEDA === */
+.producto-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1050;
+    display: none;
+}
+.producto-suggestions.visible {
+    display: block;
+}
+.producto-suggestion {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.15s;
+}
+.producto-suggestion:hover,
+.producto-suggestion.active {
+    background: #e8f4fc;
+}
+.producto-suggestion-info {
+    flex: 1;
+}
+.producto-suggestion-name {
+    font-weight: 600;
+    color: #333;
+}
+.producto-suggestion-sku {
+    font-size: 0.85em;
+    color: #666;
+}
+
+/* Panel proveedor - posicionamiento */
+.proveedor-panel .input-group {
+    position: relative;
+}
+#panelProveedor {
+    position: relative;
+}
+/* ═══════════════════════════════════════════════════════════════════════════
+   MENÚ DINÁMICO - Control de Acceso a Módulos
+   Agregar al final de /root/mi_erp/frontend/css/erp-lago-styles.css
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Contenedor del sidebar */
+#sidebar-menu {
+    padding: 0;
+}
+
+/* Grupo de módulos */
+.menu-grupo {
+    margin-bottom: 4px;
+}
+
+.menu-grupo-titulo {
+    padding: 10px 16px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255,255,255,0.45);
+    user-select: none;
+}
+
+.menu-grupo-titulo i {
+    margin-right: 6px;
+    font-size: 10px;
+}
+
+/* Item del menú */
+.menu-item {
+    display: flex;
+    align-items: center;
+    padding: 9px 16px 9px 24px;
+    color: rgba(255,255,255,0.75);
+    text-decoration: none;
+    font-size: 13px;
+    transition: all 0.15s ease;
+    border-left: 3px solid transparent;
+    gap: 10px;
+}
+
+.menu-item:hover {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    text-decoration: none;
+}
+
+.menu-item.active {
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    border-left-color: #667eea;
+    font-weight: 600;
+}
+
+.menu-item i {
+    width: 18px;
+    text-align: center;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.menu-item span {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Badge solo lectura */
+.badge-solo-lectura {
+    font-size: 10px;
+    opacity: 0.6;
+    flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODO SOLO LECTURA
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+body.modulo-solo-lectura .btn-crear,
+body.modulo-solo-lectura .btn-nuevo,
+body.modulo-solo-lectura .btn-guardar,
+body.modulo-solo-lectura .btn-eliminar,
+body.modulo-solo-lectura .btn-anular,
+body.modulo-solo-lectura [data-accion="crear"],
+body.modulo-solo-lectura [data-accion="editar"],
+body.modulo-solo-lectura [data-accion="eliminar"],
+body.modulo-solo-lectura [data-accion="guardar"],
+body.modulo-solo-lectura [data-accion="anular"] {
+    opacity: 0.4 !important;
+    pointer-events: none !important;
+    cursor: not-allowed !important;
+}
+
+/* Indicador visual de solo lectura en la barra superior */
+body.modulo-solo-lectura::after {
+    content: '🔒 Solo lectura';
+    position: fixed;
+    bottom: 12px;
+    right: 12px;
+    background: #ffc107;
+    color: #333;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 9999;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   MÓDULO FACTURACIÓN
+   Migrado desde facturas.html inline → centralizado
+   ═══════════════════════════════════════════════════════════ */
+
+/* Navbar facturación */
+.navbar-factura {
+    background: linear-gradient(135deg, var(--lago-primary, #1a5f7a) 0%, var(--lago-secondary, #0d3b4f) 100%);
+}
+
+/* Badge AFIP */
+.badge-afip {
+    background: var(--lago-warning, #f59e0b);
+    color: #000;
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-weight: bold;
+}
+
+/* Tabs facturación */
+.facturacion-module .nav-tabs .nav-link {
+    color: var(--lago-primary, #1a5f7a);
+    font-weight: 600;
+}
+.facturacion-module .nav-tabs .nav-link.active {
+    color: #fff;
+    background: var(--lago-primary, #1a5f7a);
+    border-color: var(--lago-primary, #1a5f7a);
+}
+
+/* Tabla masivo */
+.table-masivo th { font-size: 0.85rem; white-space: nowrap; }
+.table-masivo td { font-size: 0.85rem; vertical-align: middle; }
+
+/* Barra acciones sticky */
+.barra-acciones {
+    position: sticky;
+    bottom: 0;
+    z-index: 100;
+    background: white;
+    border-top: 3px solid var(--lago-primary, #1a5f7a);
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+}
+
+/* Loading overlay */
+.lago-loading-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+.lago-loading-overlay.active { display: flex; }
+.lago-loading-content {
+    background: white;
+    padding: 40px;
+    border-radius: 15px;
+    text-align: center;
+}
+
+/* Resumen del día */
+.resumen-dia {
+    background: #e8f5e9;
+    border-radius: 8px;
+    padding: 10px 15px;
+}
+
+/* Detail modal — Pedido (LAGO design) */
+.dp-metric {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    border-left: 4px solid var(--lago-primary, #1a5f7a);
+}
+.dp-metric-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--lago-dark, #0f172a);
+}
+.dp-metric-label {
+    font-size: 0.78rem;
+    color: var(--lago-muted, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+}
+.dp-section {
+    background: #fafbfc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px;
+}
+.dp-section-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--lago-primary, #1a5f7a);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e2e8f0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.dp-info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.9rem;
+}
+.dp-info-row span:first-child { color: var(--lago-muted, #64748b); }
+.dp-pago-chip {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.dp-doc-card {
+    text-align: center;
+    padding: 16px 10px;
+    border-radius: 10px;
+    border: 2px dashed #e2e8f0;
+    color: #94a3b8;
+    position: relative;
+    transition: all 0.2s;
+}
+.dp-doc-card.dp-doc-active {
+    border-color: var(--lago-success, #10b981);
+    border-style: solid;
+    color: var(--lago-dark, #0f172a);
+    background: #f0fdf4;
+}
+.dp-doc-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+/* Acciones column */
+.col-acciones { white-space: nowrap; }
+.col-acciones .btn-group .btn { padding: 2px 6px; }
+.col-acciones .dropdown-menu { min-width: 200px; z-index: 9999; }
+
+/* Vendedor column */
+.col-vendedor {
+    font-size: 0.82rem;
+    color: var(--lago-muted, #64748b);
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

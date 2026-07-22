@@ -1,0 +1,857 @@
+/**
+ * AFIP SERVICE - ERP LAGO
+ * ========================
+ * Integración con Web Services de AFIP:
+ *   - WSAA: Autenticación (Token + Sign)
+ *   - WSFE: Factura Electrónica (CAE)
+ *
+ * REQUISITOS:
+ *   npm install soap xml2js xml-crypto
+ *   Certificado (.crt) y clave privada (.key) de AFIP
+ *
+ * CONFIGURACIÓN:
+ *   Las rutas a los certificados y el CUIT se leen de configuracion_sistema
+ *   o se pueden setear por variable de entorno.
+ *
+ * MODO TESTING:
+ *   Por defecto usa homologación. Cambiar a producción cuando esté listo.
+ */
+
+const soap = require('soap');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const { parseStringPromise } = require('xml2js');
+const logger = require('../utils/logger');
+
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
+
+// URLs de AFIP
+const URLS = {
+    // HOMOLOGACIÓN (testing)
+    homo: {
+        wsaa: 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms?WSDL',
+        wsfe: 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL',
+        padron: 'https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA13?WSDL',
+        constancia: 'https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5?WSDL',
+    },
+    // PRODUCCIÓN
+    prod: {
+        wsaa: 'https://wsaa.afip.gov.ar/ws/services/LoginCms?WSDL',
+        wsfe: 'https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL',
+        padron: 'https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA13?WSDL',
+        constancia: 'https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5?WSDL',
+    }
+};
+
+// Configuración por defecto (sobreescribir con cargarConfiguracion)
+let config = {
+    env: process.env.AFIP_ENV || 'prod',  // 'homo' | 'prod'
+    cuit: process.env.AFIP_CUIT || '20296284921',
+    certPath: process.env.AFIP_CERT || '/root/mi_erp/certs/afip.crt',
+    keyPath: process.env.AFIP_KEY || '/root/mi_erp/certs/afip.key',
+    // Si es true, se usa CAE interno sin consultar AFIP (para desarrollo)
+    modoOffline: process.env.AFIP_OFFLINE === 'true' || false,
+};
+
+// Cache del token WSAA (dura 12hs)
+let tokenCache = {
+    token: null,
+    sign: null,
+    expiresAt: null,
+};
+
+// Cache del token padrón (separado de WSFE)
+let padronTokenCache = {
+    token: null,
+    sign: null,
+    expiresAt: null,
+};
+
+// ============================================================
+// WSAA - AUTENTICACIÓN
+// ============================================================
+
+/**
+ * Genera el TRA (Ticket de Requerimiento de Acceso) firmado
+ */
+function generarTRA(service = 'wsfe') {
+    const now = new Date();
+    const expiration = new Date(now.getTime() + 12 * 60 * 60 * 1000); // 12 horas
+
+    const tra = `<?xml version="1.0" encoding="UTF-8"?>
+<loginTicketRequest version="1.0">
+    <header>
+        <uniqueId>${Math.floor(Date.now() / 1000)}</uniqueId>
+        <generationTime>${now.toISOString()}</generationTime>
+        <expirationTime>${expiration.toISOString()}</expirationTime>
+    </header>
+    <service>${service}</service>
+</loginTicketRequest>`;
+
+    return tra;
+}
+
+/**
+ * Firma el TRA con el certificado y clave privada usando CMS (PKCS#7)
+ */
+function firmarTRA(tra) {
+    const certContent = fs.readFileSync(config.certPath, 'utf8');
+    const keyContent = fs.readFileSync(config.keyPath, 'utf8');
+
+    // Crear firma PKCS#7 (CMS)
+    const sign = crypto.createSign('RSA-SHA256');
+    sign.update(tra);
+    const signature = sign.sign(keyContent);
+
+    // Construir CMS manualmente o usar openssl
+    // NOTA: Node.js nativo no soporta CMS/PKCS7 directamente.
+    // Usamos openssl via child_process como método más confiable.
+    const { execSync } = require('child_process');
+    const tmpDir = '/tmp/afip_' + Date.now();
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    const traPath = path.join(tmpDir, 'tra.xml');
+    const cmsPath = path.join(tmpDir, 'tra.cms');
+
+    fs.writeFileSync(traPath, tra);
+
+    try {
+        execSync(
+            `openssl cms -sign -in "${traPath}" -out "${cmsPath}" -signer "${config.certPath}" ` +
+            `-inkey "${config.keyPath}" -nodetach -outform PEM`,
+            { timeout: 10000 }
+        );
+
+        let cms = fs.readFileSync(cmsPath, 'utf8');
+        // Limpiar headers PEM
+        cms = cms.replace(/-----BEGIN CMS-----/g, '')
+                 .replace(/-----END CMS-----/g, '')
+                 .replace(/\r?\n/g, '');
+
+        return cms;
+    } finally {
+        // Limpiar archivos temporales
+        try {
+            fs.rmSync(tmpDir, { recursive: true });
+        } catch (e) { /* ignorar */ }
+    }
+}
+
+/**
+ * Obtiene Token y Sign del WSAA
+ * Se cachea por 12 horas
+ */
+async function obtenerTokenSign() {
+    // Verificar cache
+    if (tokenCache.token && tokenCache.expiresAt && new Date() < tokenCache.expiresAt) {
+        return { token: tokenCache.token, sign: tokenCache.sign };
+    }
+
+    logger.info('AFIP: Solicitando nuevo token WSAA...');
+
+    const tra = generarTRA('wsfe');
+    const cms = firmarTRA(tra);
+
+    const urls = URLS[config.env];
+    const client = await soap.createClientAsync(urls.wsaa);
+
+    const result = await client.loginCmsAsync({ in0: cms });
+    const loginResult = result[0]?.loginCmsReturn;
+
+    if (!loginResult) {
+        throw new Error('AFIP WSAA: Respuesta vacía');
+    }
+
+    // Parsear XML de respuesta
+    const parsed = await parseStringPromise(loginResult);
+    const credentials = parsed.loginTicketResponse?.credentials?.[0];
+
+    if (!credentials) {
+        throw new Error('AFIP WSAA: No se obtuvieron credenciales');
+    }
+
+    tokenCache = {
+        token: credentials.token[0],
+        sign: credentials.sign[0],
+        expiresAt: new Date(Date.now() + 11 * 60 * 60 * 1000), // 11hs (margen)
+    };
+
+    logger.info('AFIP: Token WSAA obtenido correctamente');
+
+    return { token: tokenCache.token, sign: tokenCache.sign };
+}
+
+// ============================================================
+// WSFE - FACTURA ELECTRÓNICA
+// ============================================================
+
+/**
+ * Obtiene el último comprobante autorizado para un punto de venta y tipo
+ * @param {number} puntoVenta - Punto de venta
+ * @param {number} cbteTipo - Tipo de comprobante AFIP (1=FacA, 6=FacB, 11=FacC, etc.)
+ * @returns {number} Último número autorizado
+ */
+async function ultimoComprobante(puntoVenta, cbteTipo) {
+    if (config.modoOffline) return 0;
+
+    const { token, sign } = await obtenerTokenSign();
+    const urls = URLS[config.env];
+    const client = await soap.createClientAsync(urls.wsfe);
+
+    const result = await client.FECompUltimoAutorizadoAsync({
+        Auth: { Token: token, Sign: sign, Cuit: config.cuit },
+        PtoVta: puntoVenta,
+        CbteTipo: cbteTipo,
+    });
+
+    const response = result[0]?.FECompUltimoAutorizadoResult;
+    if (response?.Errors) {
+        const errMsg = response.Errors.Err.map(e => `${e.Code}: ${e.Msg}`).join('; ');
+        throw new Error(`AFIP FECompUltimoAutorizado: ${errMsg}`);
+    }
+
+    return response?.CbteNro || 0;
+}
+
+/**
+ * Mapea tipo de factura interno a código AFIP
+ */
+function tipoFacturaAFIP(id_tipo_factura) {
+    // Ajustar estos IDs según la tabla factura_tipos de tu BD
+    const mapeo = {
+        1: 1,    // Factura A  → AFIP tipo 1
+        2: 6,    // Factura B  → AFIP tipo 6
+        3: 11,   // Factura C  → AFIP tipo 11
+        // Notas de crédito
+        4: 3,    // NC A       → AFIP tipo 3
+        5: 8,    // NC B       → AFIP tipo 8
+        6: 13,   // NC C       → AFIP tipo 13
+        // Notas de débito
+        7: 2,    // ND A       → AFIP tipo 2
+        8: 7,    // ND B       → AFIP tipo 7
+        9: 12,   // ND C       → AFIP tipo 12
+    };
+    return mapeo[id_tipo_factura] || null;
+}
+
+/**
+ * Mapea condición IVA a código de documento AFIP
+ * 80 = CUIT, 96 = DNI, 99 = Sin identificar
+ */
+function tipoDocumentoAFIP(condicionIva, cuit) {
+    if (cuit && cuit.length >= 11) return 80; // CUIT
+    if (cuit && cuit.length >= 7) return 96;  // DNI
+    return 99; // Sin identificar (Consumidor Final sin datos)
+}
+
+/**
+ * Solicita CAE a AFIP para una factura
+ *
+ * @param {Object} factura - Datos de la factura
+ * @param {number} factura.punto_venta
+ * @param {number} factura.id_tipo_factura - ID interno (1=A, 2=B, 3=C)
+ * @param {number} factura.numero_factura
+ * @param {string} factura.cuit_cliente
+ * @param {number} factura.id_condicion_iva_cliente
+ * @param {number} factura.neto_gravado - Base imponible (sin IVA)
+ * @param {number} factura.total_iva - Monto IVA
+ * @param {number} factura.total
+ * @param {Array}  factura.iva_detalle - [{id_alicuota, base_imponible, importe}]
+ * @param {string} [factura.fecha_emision] - YYYYMMDD
+ *
+ * @returns {Object} { cae, cae_vencimiento, numero_comprobante, resultado }
+ */
+async function solicitarCAE(factura) {
+    // MODO OFFLINE: devolver CAE interno (solo para desarrollo)
+    if (config.modoOffline) {
+        logger.warn('AFIP: Modo offline - generando CAE interno (NO VÁLIDO FISCALMENTE)');
+        const vto = new Date();
+        vto.setDate(vto.getDate() + 10);
+        return {
+            cae: 'OFFLINE-' + Date.now(),
+            cae_vencimiento: vto.toISOString().split('T')[0],
+            numero_comprobante: factura.numero_factura,
+            resultado: 'A',
+            offline: true,
+        };
+    }
+
+    const { token, sign } = await obtenerTokenSign();
+    const urls = URLS[config.env];
+    const client = await soap.createClientAsync(urls.wsfe);
+
+    // Si viene cbte_tipo_afip directo (ej: desde notas NC/ND), usarlo sin mapear
+    const cbteTipoAFIP = factura.cbte_tipo_afip || tipoFacturaAFIP(factura.id_tipo_factura);
+    if (!cbteTipoAFIP) {
+        throw new Error(`Tipo de factura ${factura.id_tipo_factura} no mapeado a AFIP`);
+    }
+
+    const fechaEmision = factura.fecha_emision ||
+        new Date().toISOString().split('T')[0].replace(/-/g, '');
+
+    const docTipo = tipoDocumentoAFIP(
+        factura.id_condicion_iva_cliente,
+        factura.cuit_cliente
+    );
+    const docNro = factura.cuit_cliente
+        ? factura.cuit_cliente.replace(/[^0-9]/g, '')
+        : '0';
+
+    // Construir detalle de IVA (alícuotas)
+    // Alícuotas AFIP: 3=0%, 4=10.5%, 5=21%, 6=27%, 8=5%, 9=2.5%
+    const ivaDetalleRaw = (factura.iva_detalle || []).map(iva => ({
+        Id: iva.id_alicuota,
+        BaseImp: iva.base_imponible,
+        Importe: iva.importe,
+    }));
+
+    // Normalizar para que BaseImp sume exactamente ImpNeto y Importe sume ImpIVA
+    // (evita rechazos AFIP 10061/10048 por centavos de redondeo)
+    const impNeto = Math.round((factura.total - (factura.total_iva || 0)) * 100) / 100;
+    const impIVA = Math.round((factura.total_iva || 0) * 100) / 100;
+
+    const ivaDetalle = ivaDetalleRaw.map(d => ({ ...d, BaseImp: Math.round(d.BaseImp * 100) / 100, Importe: Math.round(d.Importe * 100) / 100 }));
+    if (ivaDetalle.length > 0) {
+        const sumaBase = ivaDetalle.reduce((s, d) => s + d.BaseImp, 0);
+        const sumaImp = ivaDetalle.reduce((s, d) => s + d.Importe, 0);
+        const diffBase = Math.round((impNeto - sumaBase) * 100) / 100;
+        const diffImp = Math.round((impIVA - sumaImp) * 100) / 100;
+        if (diffBase !== 0) ivaDetalle[0].BaseImp = Math.round((ivaDetalle[0].BaseImp + diffBase) * 100) / 100;
+        if (diffImp !== 0) ivaDetalle[0].Importe = Math.round((ivaDetalle[0].Importe + diffImp) * 100) / 100;
+    }
+
+    // En Factura B: AFIP no quiere IVA discriminado (va todo en total)
+    const esFacturaB = cbteTipoAFIP === 6 || cbteTipoAFIP === 8 || cbteTipoAFIP === 7;
+
+    const feDetReq = {
+        FeCabReq: {
+            CantReg: 1,
+            PtoVta: factura.punto_venta,
+            CbteTipo: cbteTipoAFIP,
+        },
+        FeDetReq: {
+            FECAEDetRequest: [{
+                Concepto: 1, // 1=Productos, 2=Servicios, 3=Ambos
+                DocTipo: docTipo,
+                DocNro: parseInt(docNro) || 0,
+                CbteDesde: parseInt(factura.numero_factura),
+                CbteHasta: parseInt(factura.numero_factura),
+                CbteFch: fechaEmision,
+                ImpTotal: factura.total,
+                ImpTotConc: 0, // No gravado
+                // Neto e IVA: ImpNeto = Total - IVA (garantiza ImpTotal = suma)
+                ImpNeto: Math.round((factura.total - (factura.total_iva || 0)) * 100) / 100,
+                ImpOpEx: 0,    // Exento
+                ImpIVA: Math.round((factura.total_iva || 0) * 100) / 100,
+                ImpTrib: 0,    // Otros tributos
+                MonId: 'PES',  // Pesos argentinos
+                MonCotiz: 1,
+                // IVA: obligatorio cuando ImpNeto > 0 (incluso Factura B desde 2024)
+                ...(ivaDetalle.length > 0 ? {
+                    Iva: { AlicIva: ivaDetalle }
+                } : {}),
+                // NC/ND requieren comprobante asociado (solo campos base)
+                ...(factura.cbte_asoc ? {
+                    CbtesAsoc: { CbteAsoc: [{
+                        Tipo:   parseInt(factura.cbte_asoc.tipo),
+                        PtoVta: parseInt(factura.cbte_asoc.punto_venta),
+                        Nro:    parseInt(factura.cbte_asoc.numero),
+                    }]}
+                } : {}),
+            }]
+        }
+    };
+
+    const result = await client.FECAESolicitarAsync({
+        Auth: { Token: token, Sign: sign, Cuit: config.cuit },
+        FeCAEReq: feDetReq,
+    });
+
+    const response = result[0]?.FECAESolicitarResult;
+
+    // Verificar errores globales
+    if (response?.Errors) {
+        const errMsg = response.Errors.Err.map(e => `${e.Code}: ${e.Msg}`).join('; ');
+        throw new Error(`AFIP FECAESolicitar: ${errMsg}`);
+    }
+
+    // Obtener resultado del comprobante
+    const detResponse = response?.FeDetResp?.FECAEDetResponse?.[0];
+    if (!detResponse) {
+        throw new Error('AFIP: Respuesta vacía de FECAESolicitar');
+    }
+
+    if (detResponse.Resultado !== 'A') {
+        // Rechazado
+        const obs = detResponse.Observaciones?.Obs?.map(o => `${o.Code}: ${o.Msg}`).join('; ') || 'Sin detalle';
+        throw new Error(`AFIP rechazó comprobante: ${obs}`);
+    }
+
+    return {
+        cae: detResponse.CAE,
+        cae_vencimiento: detResponse.CAEFchVto, // YYYYMMDD
+        numero_comprobante: detResponse.CbteHasta,
+        resultado: detResponse.Resultado,
+        offline: false,
+    };
+}
+
+// ============================================================
+// UTILIDADES
+// ============================================================
+
+/**
+ * Mapea porcentaje IVA a ID de alícuota AFIP
+ */
+function alicuotaAFIP(porcentajeIva) {
+    const mapeo = {
+        0: 3,
+        2.5: 9,
+        5: 8,
+        10.5: 4,
+        21: 5,
+        27: 6,
+    };
+    return mapeo[parseFloat(porcentajeIva)] || 5; // default 21%
+}
+
+/**
+ * Agrupa items por alícuota IVA para el detalle de AFIP
+ * @param {Array} items - Array de items con { subtotal, porcentaje_iva, iva_calculado }
+ * @returns {Array} [{ id_alicuota, base_imponible, importe }]
+ */
+function agruparIVAPorAlicuota(items) {
+    const grupos = {};
+
+    items.forEach(item => {
+        const _pctRaw = item.porcentaje_iva ?? item.iva_aplicado;
+        if (_pctRaw == null || isNaN(parseFloat(_pctRaw))) {
+            throw new Error(`agruparIVAPorAlicuota: item sin alicuota IVA resoluble: ${JSON.stringify(item)}`);
+        }
+        const pct = parseFloat(_pctRaw);
+        const idAlic = alicuotaAFIP(pct);
+
+        if (!grupos[idAlic]) {
+            grupos[idAlic] = { id_alicuota: idAlic, base_imponible: 0, importe: 0 };
+        }
+        // Calcular base: total_linea - monto_iva, o precio * cantidad
+        const base = parseFloat(item.subtotal || item.neto || 0) 
+            || (parseFloat(item.total_linea || 0) - parseFloat(item.monto_iva || 0))
+            || (parseFloat(item.precio_unitario_congelado || item.precio_unitario || 0) * parseFloat(item.cantidad || 1));
+        grupos[idAlic].base_imponible += base;
+        grupos[idAlic].importe += parseFloat(item.iva_calculado || item.monto_iva || 0);
+    });
+
+    // Redondear a 2 decimales
+    return Object.values(grupos).map(g => ({
+        id_alicuota: g.id_alicuota,
+        base_imponible: Math.round(g.base_imponible * 100) / 100,
+        importe: Math.round(g.importe * 100) / 100,
+    }));
+}
+
+/**
+ * Carga configuración AFIP desde BD
+ */
+async function cargarConfiguracion(pool, id_empresa) {
+    try {
+        const { rows } = await pool.query(`
+            SELECT clave, valor FROM configuraciones_empresa
+            WHERE id_empresa = $1
+              AND clave IN ('afip_cuit', 'afip_cert_path', 'afip_key_path', 'afip_env', 'afip_offline')
+        `, [id_empresa]);
+
+        rows.forEach(r => {
+            switch (r.clave) {
+                case 'afip_cuit': config.cuit = r.valor; break;
+                case 'afip_cert_path': config.certPath = r.valor; break;
+                case 'afip_key_path': config.keyPath = r.valor; break;
+                case 'afip_env': config.env = r.valor; break;
+                case 'afip_offline': config.modoOffline = r.valor === 'true'; break;
+            }
+        });
+
+        logger.info(`AFIP: Config cargada - env=${config.env}, cuit=${config.cuit}, offline=${config.modoOffline}`);
+    } catch (error) {
+        logger.warn('AFIP: No se pudo cargar config de BD, usando env vars:', error.message);
+    }
+}
+
+/**
+ * Formatea fecha a YYYYMMDD para AFIP
+ */
+function formatearFechaAFIP(fecha) {
+    if (!fecha) {
+        const hoy = new Date();
+        return hoy.toISOString().split('T')[0].replace(/-/g, '');
+    }
+    if (fecha instanceof Date) {
+        return fecha.toISOString().split('T')[0].replace(/-/g, '');
+    }
+    return String(fecha).replace(/-/g, '').substring(0, 8);
+}
+
+/**
+ * Parsea fecha AFIP (YYYYMMDD) a Date
+ */
+function parsearFechaAFIP(fechaStr) {
+    if (!fechaStr || fechaStr.length < 8) return null;
+    const y = fechaStr.substring(0, 4);
+    const m = fechaStr.substring(4, 6);
+    const d = fechaStr.substring(6, 8);
+    return new Date(`${y}-${m}-${d}`);
+}
+
+// ============================================================
+// VALIDACIONES FISCALES
+// ============================================================
+
+/**
+ * Valida tope de Consumidor Final según RG vigente
+ * @param {number} total - Monto total de la operación
+ * @param {number} idCondicionIva - Condición IVA del cliente
+ * @param {string} metodoPago - 'efectivo', 'tarjeta', etc.
+ * @returns {{ valido: boolean, mensaje?: string }}
+ */
+function validarTopeConsumidorFinal(total, idCondicionIva, metodoPago, topesConfig = null) {
+    // Condición IVA 4 = Consumidor Final (según tabla condicionesiva)
+    // Topes se leen de configuraciones_empresa (clave afip_tope_cf_efectivo / afip_tope_cf_otros)
+    // El caller pasa topesConfig = { efectivo: N, otros: N } leído de BD
+    const TOPE_EFECTIVO_DEFAULT = 116046;
+    const TOPE_OTROS_DEFAULT = 116046;
+
+    const TOPE_EFECTIVO = topesConfig?.efectivo || TOPE_EFECTIVO_DEFAULT;
+    const TOPE_OTROS = topesConfig?.otros || TOPE_OTROS_DEFAULT;
+
+    const esConsumidorFinal = idCondicionIva === 4;
+
+    if (!esConsumidorFinal) {
+        return { valido: true };
+    }
+
+    const tope = (metodoPago === 'efectivo') ? TOPE_EFECTIVO : TOPE_OTROS;
+
+    if (total > tope) {
+        return {
+            valido: false,
+            mensaje: `Venta a Consumidor Final supera tope (${tope.toLocaleString('es-AR')}). Se requiere identificación del comprador (DNI).`,
+            tope,
+        };
+    }
+
+    return { valido: true };
+}
+
+/**
+ * Determina tipo de factura según condición IVA del emisor y receptor
+ * LAGO como Responsable Inscripto:
+ *   RI → A, Monotributista → A, Exento → B, CF → B
+ */
+function determinarTipoFactura(idCondicionIvaCliente) {
+    // Mapeo según tabla condicionesiva de la BD
+    // 1 = RI, 2 = Monotributista, 3 = Exento, 4 = CF
+    switch (idCondicionIvaCliente) {
+        case 1: // Responsable Inscripto
+        case 2: // Monotributista
+            return 1; // Factura A
+        case 3: // Exento
+        case 4: // Consumidor Final
+        default:
+            return 2; // Factura B
+    }
+}
+
+
+/**
+ * Carga topes de Consumidor Final desde configuraciones_empresa
+ * @param {object} pool - Pool de conexiones
+ * @param {number} id_empresa
+ * @returns {Promise<{efectivo: number, otros: number}>}
+ */
+async function cargarTopesConsumidorFinal(pool, id_empresa) {
+    try {
+        const { rows } = await pool.query(`
+            SELECT clave, valor FROM configuraciones_empresa
+            WHERE id_empresa = $1
+              AND clave IN ('afip_tope_cf_efectivo', 'afip_tope_cf_otros')
+        `, [id_empresa]);
+
+        const topes = { efectivo: 116046, otros: 116046 };
+        rows.forEach(r => {
+            if (r.clave === 'afip_tope_cf_efectivo') topes.efectivo = parseFloat(r.valor);
+            if (r.clave === 'afip_tope_cf_otros') topes.otros = parseFloat(r.valor);
+        });
+        return topes;
+    } catch (e) {
+        logger.warn('AFIP: No se pudieron cargar topes CF:', e.message);
+        return { efectivo: 116046, otros: 116046 };
+    }
+}
+
+
+/**
+ * Carga topes de Consumidor Final desde configuraciones_empresa
+ * @param {object} pool - Pool de conexiones
+ * @param {number} id_empresa
+ * @returns {Promise<{efectivo: number, otros: number}>}
+ */
+
+// ============================================================
+// EXPORTS
+// ============================================================
+
+// ============================================================
+// PADRON A5 - CONSULTA DE CONTRIBUYENTES
+// ============================================================
+
+const CONDICION_IVA_AFIP = {
+    'AC': 1,  // IVA Responsable Inscripto
+    'RI': 1,
+    'MT': 2,  // Monotributo
+    'MN': 2,
+    'EX': 3,  // Exento
+    'NA': 3,  // No Alcanzado
+    'CF': 4,  // Consumidor Final
+    'NR': 1,  // No Responsable -> RI por defecto
+};
+
+async function obtenerTokenPadron() {
+    if (padronTokenCache.token && padronTokenCache.expiresAt && new Date() < padronTokenCache.expiresAt) {
+        return { token: padronTokenCache.token, sign: padronTokenCache.sign };
+    }
+    logger.info('AFIP: Solicitando token WSAA para ws_sr_padron_a13...');
+    const tra = generarTRA('ws_sr_padron_a13');
+    const cms = firmarTRA(tra);
+    const urls = URLS[config.env];
+    const client = await soap.createClientAsync(urls.wsaa);
+    const result = await client.loginCmsAsync({ in0: cms });
+    const loginResult = result[0]?.loginCmsReturn;
+    if (!loginResult) throw new Error('AFIP WSAA Padron: Respuesta vacía');
+    const parsed = await parseStringPromise(loginResult);
+    const credentials = parsed.loginTicketResponse?.credentials?.[0];
+    if (!credentials) throw new Error('AFIP WSAA Padron: No se obtuvieron credenciales');
+    padronTokenCache = {
+        token: credentials.token[0],
+        sign: credentials.sign[0],
+        expiresAt: new Date(Date.now() + 11 * 60 * 60 * 1000),
+    };
+    logger.info('AFIP: Token Padron obtenido correctamente');
+    return { token: padronTokenCache.token, sign: padronTokenCache.sign };
+}
+
+// ============================================================
+// CONSTANCIA DE INSCRIPCION (ws_sr_constancia_inscripcion)
+// Reemplaza al Padron A5 deprecado. Devuelve datos impositivos
+// (regimen general / monotributo) para derivar condicion IVA.
+// A13 (consultarPadronA5) queda como fallback de identidad.
+// ============================================================
+
+let constanciaTokenCache = {
+    token: null,
+    sign: null,
+    expiresAt: null,
+};
+
+async function obtenerTokenConstancia() {
+    if (constanciaTokenCache.token && constanciaTokenCache.expiresAt && new Date() < constanciaTokenCache.expiresAt) {
+        return { token: constanciaTokenCache.token, sign: constanciaTokenCache.sign };
+    }
+    logger.info('AFIP: Solicitando token WSAA para ws_sr_constancia_inscripcion...');
+    const tra = generarTRA('ws_sr_constancia_inscripcion');
+    const cms = firmarTRA(tra);
+    const urls = URLS[config.env];
+    const client = await soap.createClientAsync(urls.wsaa);
+    const result = await client.loginCmsAsync({ in0: cms });
+    const loginResult = result[0]?.loginCmsReturn;
+    if (!loginResult) throw new Error('AFIP WSAA Constancia: Respuesta vacia');
+    const parsed = await parseStringPromise(loginResult);
+    const credentials = parsed.loginTicketResponse?.credentials?.[0];
+    if (!credentials) throw new Error('AFIP WSAA Constancia: No se obtuvieron credenciales');
+    constanciaTokenCache = {
+        token: credentials.token[0],
+        sign: credentials.sign[0],
+        expiresAt: new Date(Date.now() + 11 * 60 * 60 * 1000),
+    };
+    logger.info('AFIP: Token Constancia obtenido correctamente');
+    return { token: constanciaTokenCache.token, sign: constanciaTokenCache.sign };
+}
+
+/**
+ * Deriva condicion IVA desde datos impositivos de la constancia.
+ * REGLA DE INTEGRIDAD: sin evidencia => null (decide el humano).
+ * Monotributo => 2 | Impuesto 30 (IVA) => 1 RI | Impuesto 32 => 3 Exento
+ */
+function derivarCondicionIVA(datosMonotributo, datosRegimenGeneral) {
+    if (datosMonotributo) return { id: 2, desc: 'Monotributo' };
+    if (datosRegimenGeneral && datosRegimenGeneral.impuesto) {
+        const impuestos = Array.isArray(datosRegimenGeneral.impuesto)
+            ? datosRegimenGeneral.impuesto
+            : [datosRegimenGeneral.impuesto];
+        for (const imp of impuestos) {
+            if (imp.estadoImpuesto && imp.estadoImpuesto !== 'AC') continue; // solo inscripciones activas
+            const id = parseInt(imp.idImpuesto, 10);
+            if (id === 30) return { id: 1, desc: 'Responsable Inscripto' };
+            if (id === 32) return { id: 3, desc: 'Exento' };
+        }
+    }
+    return { id: null, desc: null };
+}
+
+async function consultarConstancia(cuit, opts) {
+    opts = opts || {};
+    if (config.modoOffline) throw new Error('AFIP en modo offline');
+    const cuitLimpio = cuit.toString().replace(/[-\s]/g, '');
+    const { token, sign } = await obtenerTokenConstancia();
+    const urls = URLS[config.env];
+    const client = await soap.createClientAsync(urls.constancia);
+    const params = { token: token, sign: sign, cuitRepresentada: config.cuit, idPersona: cuitLimpio };
+    const result = await client.getPersona_v2Async(params);
+    const personaReturn = result[0]?.personaReturn;
+    if (!personaReturn) throw new Error('AFIP Constancia: Respuesta vacia');
+    if (opts.raw) return personaReturn;
+    if (personaReturn.errorConstancia) {
+        throw new Error('AFIP Constancia: ' + JSON.stringify(personaReturn.errorConstancia));
+    }
+    const dg = personaReturn.datosGenerales;
+    if (!dg) throw new Error('AFIP Constancia: Persona sin datosGenerales');
+    const tipo_persona = dg.tipoPersona || '';
+    let razon_social = '';
+    if (tipo_persona === 'JURIDICA') {
+        razon_social = dg.razonSocial || '';
+    } else {
+        razon_social = ((dg.apellido || '') + ' ' + (dg.nombre || '')).trim();
+    }
+    const cond = derivarCondicionIVA(personaReturn.datosMonotributo, personaReturn.datosRegimenGeneral);
+    let domicilio = null, localidad = null, provincia = null, codigo_postal = null;
+    const dom = dg.domicilioFiscal;
+    if (dom) {
+        const partes = [];
+        if (dom.direccion) partes.push(dom.direccion);
+        if (dom.localidad) { partes.push(dom.localidad); localidad = dom.localidad; }
+        if (dom.descripcionProvincia) { partes.push(dom.descripcionProvincia); provincia = dom.descripcionProvincia; }
+        if (dom.codPostal) codigo_postal = dom.codPostal;
+        domicilio = partes.join(', ') || null;
+    }
+    return {
+        cuit: cuitLimpio.replace(/(\d{2})(\d{8})(\d{1})/, '$1-$2-$3'),
+        razon_social: razon_social,
+        nombre_fantasia: dg.nombreFantasia || null,
+        tipo_persona: tipo_persona,
+        id_condicion_iva: cond.id,
+        condicion_iva_descripcion: cond.desc,
+        domicilio: domicilio,
+        localidad: localidad,
+        provincia: provincia,
+        codigo_postal: codigo_postal,
+        estado_cuit: dg.estadoClave || 'ACTIVO',
+        origen: 'afip_constancia'
+    };
+}
+
+async function consultarPadronA5(cuit) {
+    if (config.modoOffline) throw new Error('AFIP en modo offline');
+    const cuitLimpio = cuit.toString().replace(/[-\s]/g, '');
+    const { token, sign } = await obtenerTokenPadron();
+    const urls = URLS[config.env];
+    const client = await soap.createClientAsync(urls.padron);
+    const params = {
+        token: token,
+        sign: sign,
+        cuitRepresentada: config.cuit,
+        idPersona: cuitLimpio
+    };
+    const result = await client.getPersonaAsync(params);
+    const persona = result[0]?.personaReturn?.persona;
+    if (!persona) throw new Error('AFIP Padron: Persona no encontrada');
+    // Extraer datos
+    var razon_social = '';
+    var tipo_persona = persona.tipoPersona || '';
+    if (tipo_persona === 'JURIDICA') {
+        razon_social = persona.razonSocial || '';
+    } else {
+        razon_social = ((persona.apellido || '') + ' ' + (persona.nombre || '')).trim();
+    }
+    // Condición IVA
+    var id_condicion_iva = 4; // default CF
+    var condicion_iva_desc = 'Consumidor Final';
+    if (persona.datosRegimenGeneral && persona.datosRegimenGeneral.impuesto) {
+        var impuestos = Array.isArray(persona.datosRegimenGeneral.impuesto) 
+            ? persona.datosRegimenGeneral.impuesto 
+            : [persona.datosRegimenGeneral.impuesto];
+        for (var imp of impuestos) {
+            if (imp.idImpuesto === '30' || imp.idImpuesto === 30) {
+                id_condicion_iva = 1;
+                condicion_iva_desc = 'Responsable Inscripto';
+                break;
+            }
+            if (imp.idImpuesto === '32' || imp.idImpuesto === 32) {
+                id_condicion_iva = 3;
+                condicion_iva_desc = 'Exento';
+                break;
+            }
+        }
+    }
+    if (persona.datosMonotributo) {
+        id_condicion_iva = 2;
+        condicion_iva_desc = 'Monotributo';
+    }
+    // Domicilio fiscal
+    var domicilio = '';
+    var localidad = '';
+    var provincia = '';
+    var codigo_postal = '';
+    if (persona.domicilio && persona.domicilio.length > 0) {
+        var dom = Array.isArray(persona.domicilio) ? persona.domicilio[0] : persona.domicilio;
+        var partes = [];
+        if (dom.direccion) partes.push(dom.direccion);
+        if (dom.localidad) { partes.push(dom.localidad); localidad = dom.localidad; }
+        if (dom.descripcionProvincia) { partes.push(dom.descripcionProvincia); provincia = dom.descripcionProvincia; }
+        if (dom.codPostal) codigo_postal = dom.codPostal;
+        domicilio = partes.join(', ');
+    }
+    return {
+        cuit: cuitLimpio.replace(/(\d{2})(\d{8})(\d{1})/, '$1-$2-$3'),
+        razon_social: razon_social,
+        nombre_fantasia: persona.nombreFantasia || null,
+        tipo_persona: tipo_persona,
+        id_condicion_iva: id_condicion_iva,
+        condicion_iva_descripcion: condicion_iva_desc,
+        domicilio: domicilio || null,
+        localidad: localidad || null,
+        provincia: provincia || null,
+        codigo_postal: codigo_postal || null,
+        estado_cuit: persona.estadoClave || 'ACTIVO',
+        origen: 'afip'
+    };
+}
+
+module.exports = {
+    consultarConstancia,
+    derivarCondicionIVA,
+    // Configuración
+    cargarConfiguracion,
+    config,
+
+    // WSFE
+    solicitarCAE,
+    ultimoComprobante,
+
+    // Utilidades
+    tipoFacturaAFIP,
+    alicuotaAFIP,
+    agruparIVAPorAlicuota,
+    formatearFechaAFIP,
+    parsearFechaAFIP,
+
+    // Validaciones
+    determinarTipoFactura,
+    validarTopeConsumidorFinal,
+    cargarTopesConsumidorFinal,
+    // Padrón A5
+    consultarPadronA5,
+    validarCUIT: (cuit) => /^\d{11}$/.test((cuit||"").toString().replace(/[-\s]/g, "")),
+    formatearCUIT: (cuit) => { var l=(cuit||"").toString().replace(/[-\s]/g,""); return l.length===11 ? l.substring(0,2)+"-"+l.substring(2,10)+"-"+l.substring(10) : cuit; },
+};

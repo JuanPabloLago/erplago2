@@ -1,0 +1,383 @@
+/* ============================================================
+ * erp-lago-design-system.css — Sistema de diseño centralizado
+ * Versión 1.0 (Sesión 1 — 2026-05-25)
+ * CONVIVE con erp-lago-styles.css (legacy). El legacy se elimina
+ * cuando todos los HTMLs estén migrados.
+ * ============================================================ */
+
+:root {
+    /* ===== Paleta semántica (NUNCA cambia por módulo) ===== */
+    --sem-success:        #10b981;
+    --sem-success-soft:   rgba(16, 185, 129, 0.10);
+    --sem-warning:        #f59e0b;
+    --sem-warning-soft:   rgba(245, 158, 11, 0.10);
+    --sem-danger:         #ef4444;
+    --sem-danger-soft:    rgba(239, 68, 68, 0.10);
+    --sem-info:           #3b82f6;
+    --sem-info-soft:      rgba(59, 130, 246, 0.10);
+    --sem-fiado:          #f97316;
+    --sem-fiado-soft:     rgba(249, 115, 22, 0.10);
+    --sem-muted:          #64748b;
+    --sem-dark:           #0f172a;
+    --sem-border:         #e2e8f0;
+    --sem-bg-soft:        #f8fafc;
+
+    /* ===== Acento del módulo activo (lo pisa body[data-grupo]) ===== */
+    --lago-acento:        #1a5f7a;
+    --lago-acento-dark:   #0d3b4f;
+    --lago-acento-soft:   rgba(26, 95, 122, 0.08);
+    --lago-acento-strong: rgba(26, 95, 122, 0.18);
+
+    /* ===== Branding (lo setea navbar.js desde branding.color_*) ===== */
+    --branding-primario:   #1a5f7a;
+    --branding-secundario: #0d3b4f;
+
+    /* ===== Tipografía y espacios ===== */
+    --font-family:    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+    --font-size-base: 16px;
+    --font-size-sm:   0.875rem;
+    --font-size-xs:   0.75rem;
+    --radius-sm:      6px;
+    --radius-md:      8px;
+    --radius-lg:      12px;
+    --shadow-sm:      0 1px 3px rgba(0,0,0,0.06);
+    --shadow-md:      0 2px 8px rgba(0,0,0,0.08);
+    --shadow-lg:      0 8px 24px rgba(0,0,0,0.12);
+}
+
+/* ===== Acentos por grupo: navbar.js setea body[data-grupo="<codigo>"] ===== */
+body[data-grupo="ventas"]     { --lago-acento: #10b981; --lago-acento-dark: #047857; --lago-acento-soft: rgba(16,185,129,0.08);  --lago-acento-strong: rgba(16,185,129,0.18); }
+body[data-grupo="compras"]    { --lago-acento: #3b82f6; --lago-acento-dark: #1d4ed8; --lago-acento-soft: rgba(59,130,246,0.08);  --lago-acento-strong: rgba(59,130,246,0.18); }
+body[data-grupo="inventario"] { --lago-acento: #f97316; --lago-acento-dark: #c2410c; --lago-acento-soft: rgba(249,115,22,0.08);  --lago-acento-strong: rgba(249,115,22,0.18); }
+body[data-grupo="despachos"]  { --lago-acento: #8b5cf6; --lago-acento-dark: #6d28d9; --lago-acento-soft: rgba(139,92,246,0.08);  --lago-acento-strong: rgba(139,92,246,0.18); }
+body[data-grupo="clientes"]   { --lago-acento: #06b6d4; --lago-acento-dark: #0e7490; --lago-acento-soft: rgba(6,182,212,0.08);   --lago-acento-strong: rgba(6,182,212,0.18); }
+body[data-grupo="tesoreria"]  { --lago-acento: #f59e0b; --lago-acento-dark: #b45309; --lago-acento-soft: rgba(245,158,11,0.08);  --lago-acento-strong: rgba(245,158,11,0.18); }
+body[data-grupo="reportes"]   { --lago-acento: #64748b; --lago-acento-dark: #334155; --lago-acento-soft: rgba(100,116,139,0.08); --lago-acento-strong: rgba(100,116,139,0.18); }
+body[data-grupo="admin"]      { --lago-acento: #dc2626; --lago-acento-dark: #991b1b; --lago-acento-soft: rgba(220,38,38,0.08);   --lago-acento-strong: rgba(220,38,38,0.18); }
+
+/* ===== Densidades de listado ===== */
+body[data-densidad="compacta"] { --row-py: 4px;  --row-font: 0.85rem; }
+body[data-densidad="normal"]   { --row-py: 10px; --row-font: 0.95rem; }
+body[data-densidad="comoda"]   { --row-py: 16px; --row-font: 1rem; }
+
+/* ===== Cards ===== */
+.lago-card {
+    background: white;
+    border: 1px solid var(--sem-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+.lago-card-header {
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--sem-border);
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.lago-card-body { padding: 20px; }
+
+.resumen-card {
+    background: white;
+    border: 1px solid var(--sem-border);
+    border-left: 4px solid var(--lago-acento);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.resumen-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.resumen-card .valor    { font-size: 1.8rem; font-weight: 700; color: var(--sem-dark); }
+.resumen-card .etiqueta { font-size: 0.85rem; color: var(--sem-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.resumen-card.success { border-left-color: var(--sem-success); }
+.resumen-card.warning { border-left-color: var(--sem-warning); }
+.resumen-card.danger  { border-left-color: var(--sem-danger); }
+.resumen-card.info    { border-left-color: var(--sem-info); }
+.resumen-card.fiado   { border-left-color: var(--sem-fiado); }
+
+/* ===== Botones ===== */
+.btn-lago {
+    background: linear-gradient(135deg, var(--lago-acento), var(--lago-acento-dark));
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: var(--radius-md);
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.btn-lago:hover   { transform: translateY(-1px); box-shadow: 0 4px 12px var(--lago-acento-strong); color: white; }
+.btn-lago:active  { transform: translateY(0); }
+.btn-lago:disabled{ opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btn-lago-outline {
+    background: transparent;
+    color: var(--lago-acento);
+    border: 2px solid var(--lago-acento);
+    padding: 8px 18px;
+    border-radius: var(--radius-md);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.btn-lago-outline:hover { background: var(--lago-acento); color: white; }
+
+/* ===== Tabla ===== */
+.tabla-lago {
+    width: 100%;
+    background: white;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.tabla-lago thead th {
+    background: var(--sem-bg-soft);
+    color: var(--sem-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 12px 15px;
+    border-bottom: 2px solid var(--sem-border);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+.tabla-lago tbody td {
+    padding: var(--row-py, 12px) 15px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: var(--row-font, 0.95rem);
+    color: var(--sem-dark);
+}
+.tabla-lago tbody tr:hover    { background: var(--lago-acento-soft); }
+.tabla-lago tbody tr.selected { background: var(--lago-acento-strong); }
+
+/* ===== Search bar ===== */
+.lago-search-bar { display: flex; gap: 10px; align-items: center; }
+.lago-search-bar input,
+.lago-search-bar select {
+    border: 1px solid #d1d5db;
+    border-radius: var(--radius-md);
+    padding: 9px 12px;
+    font-size: 0.95rem;
+    background: white;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.lago-search-bar input:focus,
+.lago-search-bar select:focus {
+    outline: none;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.10);
+}
+
+/* ===== Tabs (sub-nav del módulo) ===== */
+.nav-tabs-custom {
+    background: white;
+    border-bottom: 2px solid var(--sem-border);
+    display: flex;
+    gap: 0;
+    padding: 0 1rem;
+}
+.nav-tabs-custom .nav-link {
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--sem-muted);
+    font-weight: 600;
+    padding: 12px 18px;
+    cursor: pointer;
+    background: transparent;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.nav-tabs-custom .nav-link:hover  { color: var(--lago-acento); background: var(--lago-acento-soft); }
+.nav-tabs-custom .nav-link.active {
+    color: var(--lago-acento);
+    border-bottom-color: var(--lago-acento);
+    background: var(--lago-acento-soft);
+}
+
+/* ===== Shortcut bar ===== */
+.lago-shortcut-bar {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: white;
+    border: 1px solid var(--sem-border);
+    border-radius: var(--radius-md);
+    padding: 8px 14px;
+    z-index: 100;
+    display: flex;
+    gap: 14px;
+    box-shadow: var(--shadow-md);
+    font-size: 0.85rem;
+    color: var(--sem-muted);
+}
+.lago-shortcut-bar kbd {
+    background: var(--sem-bg-soft);
+    border: 1px solid var(--sem-border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 0.8rem;
+    color: var(--sem-dark);
+    box-shadow: 0 1px 0 var(--sem-border);
+}
+
+/* ===== Navbar global ===== */
+.lago-navbar {
+    background: linear-gradient(135deg, var(--branding-primario), var(--branding-secundario));
+    color: white;
+    padding: 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: var(--shadow-md);
+}
+.lago-navbar-top {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 10px 1.5rem;
+    max-width: 1800px;
+    margin: 0 auto;
+}
+.lago-navbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: white;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.1rem;
+    white-space: nowrap;
+}
+.lago-navbar-brand img { height: 32px; }
+.lago-navbar-brand:hover { color: rgba(255,255,255,0.9); }
+.lago-navbar-search { flex: 1; max-width: 700px; }
+.lago-navbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-left: auto;
+}
+.lago-navbar-user {
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    background: rgba(255,255,255,0.10);
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-decoration: none;
+}
+.lago-navbar-user:hover { background: rgba(255,255,255,0.18); color: white; }
+
+.lago-navbar-grupos {
+    background: rgba(0,0,0,0.18);
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0 1.5rem;
+    overflow-x: auto;
+    max-width: 1800px;
+    margin: 0 auto;
+}
+.lago-grupo-tab {
+    color: rgba(255,255,255,0.75);
+    padding: 10px 18px;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 3px solid transparent;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 0.92rem;
+    font-weight: 500;
+}
+.lago-grupo-tab:hover  { color: white; background: rgba(255,255,255,0.06); }
+.lago-grupo-tab.active {
+    color: white;
+    border-bottom-color: var(--grupo-color, var(--lago-acento));
+    background: rgba(0,0,0,0.10);
+}
+.lago-grupo-tab .icono-grupo { color: var(--grupo-color, white); font-size: 1rem; }
+
+.lago-submodulos {
+    background: white;
+    border-bottom: 1px solid var(--sem-border);
+    display: flex;
+    gap: 0;
+    padding: 0 1.5rem;
+    overflow-x: auto;
+    box-shadow: 0 1px 0 var(--lago-acento-soft);
+    max-width: 1800px;
+    margin: 0 auto;
+}
+.lago-submodulo-tab {
+    color: var(--sem-muted);
+    padding: 10px 16px;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-bottom: 3px solid transparent;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.lago-submodulo-tab:hover { color: var(--lago-acento); background: var(--lago-acento-soft); }
+.lago-submodulo-tab.active {
+    color: var(--lago-acento);
+    border-bottom-color: var(--lago-acento);
+    background: var(--lago-acento-soft);
+}
+
+/* ===== Header de detalle (ver-*.html) ===== */
+.lago-header-detalle {
+    background: linear-gradient(135deg, var(--lago-acento), var(--lago-acento-dark));
+    color: white;
+    padding: 16px 1.5rem;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.lago-header-detalle .breadcrumb         { color: rgba(255,255,255,0.85); font-size: 0.9rem; margin: 0; }
+.lago-header-detalle .breadcrumb a       { color: rgba(255,255,255,0.85); text-decoration: none; }
+.lago-header-detalle .breadcrumb a:hover { color: white; }
+
+/* ===== Badges de estado ===== */
+.badge-estado {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.badge-estado.ok    { background: var(--sem-success-soft); color: #047857; }
+.badge-estado.pend  { background: var(--sem-warning-soft); color: #b45309; }
+.badge-estado.err   { background: var(--sem-danger-soft);  color: #991b1b; }
+.badge-estado.info  { background: var(--sem-info-soft);    color: #1d4ed8; }
+.badge-estado.fiado { background: var(--sem-fiado-soft);   color: #c2410c; }
+
+/* ===== Impresión ===== */
+@media print {
+    .no-print, .lago-navbar, .lago-shortcut-bar, .lago-submodulos { display: none !important; }
+    body { padding: 0; background: white; }
+    .tabla-lago thead th { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

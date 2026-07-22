@@ -4,423 +4,418 @@
     <script src="js/config.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proveedores - ERP LAGO</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <title>Gestión de Proveedores - ERP Lago</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="css/erp-lago-styles.css">
+    <style>
+        .search-container {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+        }
+        .search-container .form-control {
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+        }
+        .search-container .form-control:focus {
+            box-shadow: 0 0 0 3px rgba(255,255,255,0.3);
+        }
+        .filter-bar {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .stats-badge {
+            background: #e9ecef;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+        }
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        .table thead {
+            background: #343a40;
+            color: white;
+        }
+        .table thead th {
+            border: none;
+            padding: 1rem;
+            font-weight: 500;
+        }
+        .table tbody tr {
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .table tbody tr:hover {
+            background: #f1f3f4;
+        }
+        .table tbody tr.selected {
+            background: #d1e7dd;
+        }
+        .badge-iva {
+            font-size: 0.75rem;
+            padding: 0.35rem 0.65rem;
+        }
+        .btn-afip {
+            background: #1976d2;
+            color: white;
+            border: none;
+        }
+        .btn-afip:hover {
+            background: #1565c0;
+            color: white;
+        }
+        .actions-bar {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            padding: 1rem;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+        .actions-bar.visible {
+            display: block;
+        }
+        .loading-spinner {
+            display: none;
+        }
+        .loading-spinner.active {
+            display: inline-block;
+        }
+        .modal-header {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        .modal-header .btn-close {
+            filter: brightness(0) invert(1);
+        }
+        .form-section {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .form-section-title {
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #495057;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+    </style>
 </head>
 <body>
     <script src="js/connection-indicator.js"></script>
-    <!-- Navbar -->
-    <nav class="navbar navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="dashboard.html">
-                <i class="bi bi-arrow-left-circle"></i> ERP LAGO
-            </a>
-            <span class="navbar-text text-white">
-                <i class="bi bi-truck"></i> Gestión de Proveedores
-            </span>
-            <button class="btn btn-outline-light btn-sm" onclick="cerrarSesion()">
-                <i class="bi bi-box-arrow-right"></i> Salir
-            </button>
+    
+    <div class="container-fluid py-4">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="mb-0"><i class="bi bi-truck text-success"></i> Gestión de Proveedores</h1>
+                <p class="text-muted mb-0">Administra tus proveedores con búsqueda inteligente</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-success" id="btnImportar" title="Importar desde Excel">
+                    <i class="bi bi-file-earmark-excel"></i> Importar
+                </button>
+                <button class="btn btn-outline-primary" id="btnExportar" title="Exportar a Excel">
+                    <i class="bi bi-download"></i> Exportar
+                </button>
+                <button class="btn btn-success" id="btnNuevoProveedor">
+                    <i class="bi bi-plus-circle"></i> Nuevo Proveedor
+                </button>
+            </div>
         </div>
-    </nav>
 
-    <div class="container-fluid mt-4">
-        <div class="row">
-            <!-- Panel de búsqueda y filtros -->
-            <div class="col-md-4">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white">
-                        <i class="bi bi-search"></i> Buscar Proveedor
-                    </div>
-                    <div class="card-body">
-                        <input type="text" class="form-control mb-3" id="buscarProveedor" 
-                               placeholder="Buscar por razón social, CUIT..." onkeyup="buscarProveedores()">
-                        
-                        <button class="btn btn-success w-100" onclick="abrirModalNuevo()">
-                            <i class="bi bi-plus-circle"></i> Nuevo Proveedor
+        <!-- Buscador -->
+        <div class="search-container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-white border-0">
+                            <i class="bi bi-search text-muted"></i>
+                        </span>
+                        <input type="text" id="buscadorGlobal" class="form-control border-0" 
+                               placeholder="Buscar por razón social, CUIT, teléfono, email, dirección..."
+                               autocomplete="off">
+                        <button class="btn btn-light" type="button" id="btnLimpiarBusqueda" title="Limpiar (Esc)">
+                            <i class="bi bi-x-lg"></i>
                         </button>
                     </div>
-                </div>
-
-                <!-- Resumen -->
-                <div class="card shadow-sm mt-3">
-                    <div class="card-header bg-info text-white">
-                        <i class="bi bi-info-circle"></i> Resumen
-                    </div>
-                    <div class="card-body">
-                        <p class="mb-2"><strong>Total Proveedores:</strong> <span id="totalProveedores">0</span></p>
-                        <p class="mb-0"><strong>Activos:</strong> <span id="activosProveedores">0</span></p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tabla de proveedores -->
-            <div class="col-md-8">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-secondary text-white">
-                        <i class="bi bi-list-ul"></i> Lista de Proveedores
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover table-sm">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th>Razón Social</th>
-                                        <th>CUIT</th>
-                                        <th>Teléfono</th>
-                                        <th>Email</th>
-                                        <th>Rubro</th>
-                                        <th>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tablaProveedores">
-                                    <tr>
-                                        <td colspan="6" class="text-center">
-                                            <div class="spinner-border spinner-border-sm" role="status"></div>
-                                            Cargando proveedores...
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                    <div class="text-white-50 small mt-2 text-center">
+                        <kbd>Enter</kbd> para buscar · <kbd>Esc</kbd> para limpiar · <kbd>↑↓</kbd> para navegar
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Modal Crear/Editar Proveedor -->
-    <div class="modal fade" id="modalProveedor" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="modalTitulo">
-                        <i class="bi bi-plus-circle"></i> Nuevo Proveedor
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <!-- Filtros -->
+        <div class="filter-bar">
+            <div class="row align-items-center g-3">
+                <div class="col-auto">
+                    <label class="form-label mb-0 me-2">Filtros:</label>
                 </div>
-                <div class="modal-body">
-                    <form id="formProveedor">
-                        <input type="hidden" id="idProveedor">
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Razón Social <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="razonSocial" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Nombre Fantasía</label>
-                                <input type="text" class="form-control" id="nombreFantasia">
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">CUIT <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="cuit" 
-                                       placeholder="20-12345678-9" maxlength="13" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Condición IVA <span class="text-danger">*</span></label>
-                                <select class="form-select" id="condicionIva" required>
-                                    <option value="">Seleccionar...</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Rubro</label>
-                                <input type="text" class="form-control" id="rubro" placeholder="Ej: Mayorista">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Teléfono</label>
-                                <input type="text" class="form-control" id="telefono">
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email">
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Domicilio</label>
-                            <input type="text" class="form-control" id="domicilio">
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Contacto - Nombre</label>
-                                <input type="text" class="form-control" id="contactoNombre">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Contacto - Puesto</label>
-                                <input type="text" class="form-control" id="contactoPuesto">
-                            </div>
-                        </div>
-                    </form>
+                <div class="col-auto">
+                    <select id="filtroCondicionIVA" class="form-select form-select-sm">
+                        <option value="todos">Todas las condiciones IVA</option>
+                    </select>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="guardarProveedor()">
-                        <i class="bi bi-save"></i> Guardar
+                <div class="col-auto">
+                    <select id="filtroProvincia" class="form-select form-select-sm">
+                        <option value="todos">Todas las provincias</option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <select id="filtroActivo" class="form-select form-select-sm">
+                        <option value="true">Solo activos</option>
+                        <option value="false">Solo inactivos</option>
+                        <option value="todos">Todos</option>
+                    </select>
+                </div>
+                <div class="col-auto ms-auto">
+                    <span class="stats-badge" id="statsProveedores">
+                        <i class="bi bi-truck"></i> <span id="totalProveedores">0</span> proveedores
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla -->
+        <div class="table-container">
+            <table class="table table-hover mb-0" id="tablaProveedores">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">
+                            <input type="checkbox" class="form-check-input" id="checkAll" title="Seleccionar todos">
+                        </th>
+                        <th>Razón Social</th>
+                        <th>CUIT</th>
+                        <th>Condición IVA</th>
+                        <th>Localidad</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th>Contacto</th>
+                        <th style="width: 100px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyProveedores">
+                </tbody>
+            </table>
+            <div class="p-4 text-center" id="loadingProveedores">
+                <div class="spinner-border text-success" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="text-muted mt-2">Cargando proveedores...</p>
+            </div>
+            <div class="p-4 text-center d-none" id="sinResultados">
+                <i class="bi bi-search display-4 text-muted"></i>
+                <p class="text-muted mt-2">No se encontraron proveedores con los filtros aplicados</p>
+            </div>
+        </div>
+
+        <!-- Barra de acciones masivas -->
+        <div class="actions-bar" id="barraAcciones">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="fw-bold"><span id="cantidadSeleccionados">0</span> proveedores seleccionados</span>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-success" id="btnActivarMasivo">
+                        <i class="bi bi-check-circle"></i> Activar
+                    </button>
+                    <button class="btn btn-outline-danger" id="btnDesactivarMasivo">
+                        <i class="bi bi-x-circle"></i> Desactivar
+                    </button>
+                    <button class="btn btn-outline-dark" id="btnExportarSeleccion">
+                        <i class="bi bi-download"></i> Exportar Selección
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        const API_URL = 'http://72.60.148.18:3000/api';
-        let proveedores = [];
-        let condicionesIva = [];
-        let modalProveedor;
+    <!-- Modal Proveedor -->
+    <div class="modal fade" id="modalProveedor" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalProveedorTitulo">
+                        <i class="bi bi-truck"></i> Nuevo Proveedor
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formProveedor">
+                        <input type="hidden" id="proveedorId">
 
-        // Inicializar
-        document.addEventListener('DOMContentLoaded', async () => {
-            const token = localStorage.getItem('authToken');
-            if (!token) {
-                window.location.href = 'login.html';
-                return;
-            }
+                        <!-- Sección CUIT -->
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                <i class="bi bi-building"></i> Datos Fiscales
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">CUIT</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="cuit" 
+                                               placeholder="XX-XXXXXXXX-X" maxlength="13"
+                                               data-next="btnBuscarAFIP">
+                                        <button type="button" class="btn btn-afip" id="btnBuscarAFIP" 
+                                                title="Buscar datos en AFIP" data-next="razonSocial">
+                                            <i class="bi bi-search"></i>
+                                            <span class="loading-spinner spinner-border spinner-border-sm ms-1"></span>
+                                            Buscar AFIP
+                                        </button>
+                                    </div>
+                                    <div class="form-text" id="cuitFeedback"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Condición IVA <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="condicionIVA" required data-next="razonSocial">
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
 
-            modalProveedor = new bootstrap.Modal(document.getElementById('modalProveedor'));
-            
-            await cargarCondicionesIva();
-            await cargarProveedores();
-        });
+                        <!-- Datos principales -->
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                <i class="bi bi-truck"></i> Datos Principales
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <label class="form-label">Razón Social <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="razonSocial" required
+                                           data-next="nombreFantasia">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Nombre Fantasía</label>
+                                    <input type="text" class="form-control" id="nombreFantasia"
+                                           data-next="direccion">
+                                </div>
+                            </div>
+                        </div>
 
-        // Cargar condiciones IVA
-        async function cargarCondicionesIva() {
-            try {
-                const response = await fetch(`${API_URL}/condicionesiva`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    }
-                });
+                        <!-- Dirección -->
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                <i class="bi bi-geo-alt"></i> Dirección
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label">Dirección</label>
+                                    <input type="text" class="form-control" id="direccion"
+                                           data-next="localidad">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Localidad</label>
+                                    <input type="text" class="form-control" id="localidad"
+                                           data-next="provincia">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Provincia</label>
+                                    <input type="text" class="form-control" id="provincia"
+                                           data-next="codigoPostal">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Código Postal</label>
+                                    <input type="text" class="form-control" id="codigoPostal" maxlength="10"
+                                           data-next="telefono">
+                                </div>
+                            </div>
+                        </div>
 
-                if (response.status === 403 || response.status === 401) {
-                    window.location.href = 'login.html';
-                    return;
-                }
+                        <!-- Contacto -->
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                <i class="bi bi-telephone"></i> Contacto
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Teléfono</label>
+                                    <input type="tel" class="form-control" id="telefono"
+                                           data-next="email">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email"
+                                           data-next="contacto">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Persona de Contacto</label>
+                                    <input type="text" class="form-control" id="contacto"
+                                           data-next="notas">
+                                </div>
+                            </div>
+                        </div>
 
-                condicionesIva = await response.json();
-                const select = document.getElementById('condicionIva');
-                
-                condicionesIva.forEach(cond => {
-                    const option = document.createElement('option');
-                    option.value = cond.id_condicion_iva;
-                    option.textContent = cond.nombre;
-                    select.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Error al cargar condiciones IVA:', error);
-            }
-        }
+                        <!-- Notas -->
+                        <div class="mb-3">
+                            <label class="form-label">Notas</label>
+                            <textarea class="form-control" id="notas" rows="2"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <div class="me-auto text-muted small">
+                        <kbd>F2</kbd> Guardar · <kbd>Esc</kbd> Cancelar
+                    </div>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnGuardarProveedor">
+                        <i class="bi bi-check-lg"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        // Cargar proveedores
-        async function cargarProveedores() {
-            try {
-                const response = await fetch(`${API_URL}/proveedores`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    }
-                });
+    <!-- Modal Confirmar Eliminación -->
+    <div class="modal fade" id="modalConfirmarEliminar" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Confirmar</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Está seguro de desactivar a <strong id="nombreProveedorEliminar"></strong>?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="btnConfirmarEliminar">
+                        <i class="bi bi-trash"></i> Desactivar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                if (response.status === 403 || response.status === 401) {
-                    window.location.href = 'login.html';
-                    return;
-                }
+    <!-- Toast -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div class="toast" id="toastNotificacion" role="alert">
+            <div class="toast-header">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong class="me-auto" id="toastTitulo">Notificación</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastMensaje"></div>
+        </div>
+    </div>
 
-                proveedores = await response.json();
-                mostrarProveedores(proveedores);
-                actualizarResumen();
-            } catch (error) {
-                console.error('Error al cargar proveedores:', error);
-                document.getElementById('tablaProveedores').innerHTML = 
-                    '<tr><td colspan="6" class="text-center text-danger">Error al cargar proveedores</td></tr>';
-            }
-        }
-
-        // Mostrar proveedores en la tabla
-        function mostrarProveedores(lista) {
-            const tbody = document.getElementById('tablaProveedores');
-            
-            if (lista.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay proveedores registrados</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = lista.map(p => `
-                <tr>
-                    <td><strong>${p.razon_social}</strong><br><small class="text-muted">${p.nombre_fantasia || ''}</small></td>
-                    <td>${p.cuit}</td>
-                    <td>${p.telefono || '-'}</td>
-                    <td>${p.email || '-'}</td>
-                    <td><span class="badge bg-info">${p.rubro || 'Sin rubro'}</span></td>
-                    <td>
-                        <button class="btn btn-sm btn-warning" onclick="editarProveedor(${p.id_proveedor})" title="Editar">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="eliminarProveedor(${p.id_proveedor}, '${p.razon_social}')" title="Eliminar">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        // Buscar proveedores
-        function buscarProveedores() {
-            const termino = document.getElementById('buscarProveedor').value.toLowerCase();
-            
-            if (termino.length === 0) {
-                mostrarProveedores(proveedores);
-                return;
-            }
-
-            const filtrados = proveedores.filter(p => 
-                p.razon_social.toLowerCase().includes(termino) ||
-                (p.nombre_fantasia && p.nombre_fantasia.toLowerCase().includes(termino)) ||
-                p.cuit.includes(termino) ||
-                (p.email && p.email.toLowerCase().includes(termino)) ||
-                (p.rubro && p.rubro.toLowerCase().includes(termino))
-            );
-
-            mostrarProveedores(filtrados);
-        }
-
-        // Actualizar resumen
-        function actualizarResumen() {
-            document.getElementById('totalProveedores').textContent = proveedores.length;
-            document.getElementById('activosProveedores').textContent = proveedores.filter(p => p.activo).length;
-        }
-
-        // Abrir modal nuevo proveedor
-        function abrirModalNuevo() {
-            document.getElementById('formProveedor').reset();
-            document.getElementById('idProveedor').value = '';
-            document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-plus-circle"></i> Nuevo Proveedor';
-            modalProveedor.show();
-        }
-
-        // Editar proveedor
-        async function editarProveedor(id) {
-            try {
-                const response = await fetch(`${API_URL}/proveedores/${id}`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    }
-                });
-
-                const proveedor = await response.json();
-
-                document.getElementById('idProveedor').value = proveedor.id_proveedor;
-                document.getElementById('razonSocial').value = proveedor.razon_social;
-                document.getElementById('nombreFantasia').value = proveedor.nombre_fantasia || '';
-                document.getElementById('cuit').value = proveedor.cuit;
-                document.getElementById('condicionIva').value = proveedor.id_condicion_iva;
-                document.getElementById('rubro').value = proveedor.rubro || '';
-                document.getElementById('telefono').value = proveedor.telefono || '';
-                document.getElementById('email').value = proveedor.email || '';
-                document.getElementById('domicilio').value = proveedor.domicilio || '';
-                document.getElementById('contactoNombre').value = proveedor.contacto_nombre || '';
-                document.getElementById('contactoPuesto').value = proveedor.contacto_puesto || '';
-
-                document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-pencil"></i> Editar Proveedor';
-                modalProveedor.show();
-            } catch (error) {
-                console.error('Error al cargar proveedor:', error);
-                alert('Error al cargar datos del proveedor');
-            }
-        }
-
-        // Guardar proveedor (crear o actualizar)
-        async function guardarProveedor() {
-            const id = document.getElementById('idProveedor').value;
-            const datos = {
-                razon_social: document.getElementById('razonSocial').value,
-                nombre_fantasia: document.getElementById('nombreFantasia').value,
-                cuit: document.getElementById('cuit').value,
-                id_condicion_iva: parseInt(document.getElementById('condicionIva').value),
-                rubro: document.getElementById('rubro').value,
-                telefono: document.getElementById('telefono').value,
-                email: document.getElementById('email').value,
-                domicilio: document.getElementById('domicilio').value,
-                contacto_nombre: document.getElementById('contactoNombre').value,
-                contacto_puesto: document.getElementById('contactoPuesto').value
-            };
-
-            if (!datos.razon_social || !datos.cuit || !datos.id_condicion_iva) {
-                alert('Por favor complete los campos obligatorios');
-                return;
-            }
-
-            try {
-                const url = id ? `${API_URL}/proveedores/${id}` : `${API_URL}/proveedores`;
-                const method = id ? 'PUT' : 'POST';
-
-                const response = await fetch(url, {
-                    method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    },
-                    body: JSON.stringify(datos)
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    alert(result.message);
-                    modalProveedor.hide();
-                    await cargarProveedores();
-                } else {
-                    alert(result.error || 'Error al guardar proveedor');
-                }
-            } catch (error) {
-                console.error('Error al guardar proveedor:', error);
-                alert('Error al guardar proveedor');
-            }
-        }
-
-        // Eliminar proveedor
-        async function eliminarProveedor(id, nombre) {
-            if (!confirm(`¿Está seguro que desea eliminar al proveedor "${nombre}"?`)) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_URL}/proveedores/${id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    }
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    alert(result.message);
-                    await cargarProveedores();
-                } else {
-                    alert(result.error || 'Error al eliminar proveedor');
-                }
-            } catch (error) {
-                console.error('Error al eliminar proveedor:', error);
-                alert('Error al eliminar proveedor');
-            }
-        }
-
-        // Cerrar sesión
-        function cerrarSesion() {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('username');
-            window.location.href = 'login.html';
-        }
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/proveedores.js"></script>
 </body>
 </html>

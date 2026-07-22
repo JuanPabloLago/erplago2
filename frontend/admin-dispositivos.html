@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Dispositivos - ERP LAGO</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/erp-lago-styles.css">
+    <style>
+        .card-pendiente { border-left: 4px solid #ffc107; }
+        .card-activo { border-left: 4px solid #28a745; }
+        .card-inactivo { border-left: 4px solid #dc3545; }
+        /* fix-texto-cards: el texto de las cards heredaba gris oscuro sobre bg-dark (invisible) */
+        #lista-autorizados .card,
+        #lista-pendientes .card { color: #e9ecef; }
+        #lista-autorizados .card .card-text,
+        #lista-autorizados .card .card-title,
+        #lista-pendientes .card .card-text,
+        #lista-pendientes .card .card-title { color: #e9ecef !important; }
+        #lista-autorizados .card .text-muted,
+        #lista-pendientes .card .text-muted { color: #adb5bd !important; }
+        .badge-nuevo { animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-dark text-light">
+    <nav class="navbar navbar-dark bg-dark border-bottom border-secondary">
+        <div class="container-fluid">
+            <a href="index.html" class="navbar-brand">🏪 ERP LAGO</a>
+            <span class="navbar-text">Gestión de Dispositivos</span>
+            <button class="btn btn-outline-danger btn-sm" onclick="logout()">Salir</button>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-3">
+        <!-- Tabs -->
+        <ul class="nav nav-tabs" id="tabDispositivos">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#pendientes">
+                    ⏳ Pendientes <span id="badge-pendientes" class="badge bg-warning text-dark badge-nuevo">0</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#autorizados">
+                    ✅ Autorizados <span id="badge-autorizados" class="badge bg-success">0</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#cobertura">
+                    🛡️ Cobertura <span id="badge-cobertura" class="badge bg-success">0</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="tab-content mt-3">
+            <!-- Tab Pendientes -->
+            <div class="tab-pane fade show active" id="pendientes">
+                <div class="alert alert-info">
+                    <strong>ℹ️ Solicitudes pendientes:</strong> Cuando un usuario intenta ingresar desde un dispositivo nuevo, aparece aquí para tu autorización.
+                </div>
+                <div id="lista-pendientes" class="row g-3">
+                    <div class="col-12 text-center text-muted py-5">
+                        <span class="spinner-border spinner-border-sm"></span> Cargando...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Autorizados -->
+            <div class="tab-pane fade" id="autorizados">
+                <div class="mb-3">
+                    <input type="text" id="buscar-dispositivo" class="form-control bg-dark text-light" placeholder="🔍 Buscar por usuario o dispositivo...">
+                </div>
+                <div id="lista-autorizados" class="row g-3">
+                    <div class="col-12 text-center text-muted py-5">
+                        <span class="spinner-border spinner-border-sm"></span> Cargando...
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="cobertura">
+                <p class="text-muted mt-3 mb-2">Todos los usuarios y su cantidad de dispositivos autorizados. Resalta en rojo los usuarios (no admin) que entran sin dispositivo registrado y en amarillo los que superan el límite de su rol.</p>
+                <div id="lista-cobertura" class="row g-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Autorizar -->
+    <div class="modal fade" id="modalAutorizar" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark text-light">
+                <div class="modal-header">
+                    <h5 class="modal-title">✅ Autorizar Dispositivo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Usuario:</strong> <span id="modal-usuario"></span></p>
+                    <p><strong>Navegador:</strong> <span id="modal-navegador"></span></p>
+                    <p><strong>Sistema:</strong> <span id="modal-sistema"></span></p>
+                    <p><strong>Fecha intento:</strong> <span id="modal-fecha"></span></p>
+                    <hr>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre del dispositivo (opcional)</label>
+                        <input type="text" id="modal-nombre" class="form-control bg-dark text-light" placeholder="Ej: PC Caja 1, Notebook Juan">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notas (opcional)</label>
+                        <textarea id="modal-notas" class="form-control bg-dark text-light" rows="2" placeholder="Ej: Computadora del mostrador"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" onclick="confirmarAutorizar()">Autorizar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API = '/api/usuarios';
+        let intentoSeleccionado = null;
+        let dispositivosData = [];
+
+        // Verificar auth y rol
+        async function verificarAcceso() {
+            const token = localStorage.getItem('authToken');
+            const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+            
+            if (!token) {
+                window.location.href = 'login.html';
+                return false;
+            }
+            
+            if (usuario.rol !== 'admin' && usuario.rol !== 'administrador') {
+                alert('No tiene permisos para acceder a esta sección');
+                window.location.href = 'index.html';
+                return false;
+            }
+            
+            return true;
+        }
+
+        async function fetchAPI(endpoint, options = {}) {
+            const token = localStorage.getItem('authToken');
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+            // Auth por cookie (erp_token, httpOnly) — alineado con window.API global.
+            // Header Bearer SOLO si hay token en localStorage (compatibilidad).
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const res = await fetch(`${API}${endpoint}`, {
+                ...options,
+                credentials: 'include',
+                headers
+            });
+            if (res.status === 401) {
+                window.location.href = 'login.html';
+            }
+            return res;
+        }
+
+        async function cargarPendientes() {
+            try {
+                const res = await fetchAPI('/dispositivos/pendientes');
+                const data = await res.json();
+                
+                document.getElementById('badge-pendientes').textContent = data.length;
+                
+                const container = document.getElementById('lista-pendientes');
+                
+                if (data.length === 0) {
+                    container.innerHTML = `
+                        <div class="col-12 text-center text-muted py-5">
+                            <h4>✅ No hay solicitudes pendientes</h4>
+                            <p>Cuando un usuario intente ingresar desde un dispositivo nuevo, aparecerá aquí.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = data.map(intento => `
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card bg-dark border-secondary card-pendiente">
+                            <div class="card-body">
+                                <h5 class="card-title">👤 ${intento.nombre_usuario || intento.username}</h5>
+                                <p class="card-text mb-1"><small>Usuario: <strong>${intento.username}</strong></small></p>
+                                <p class="card-text mb-1"><small>Navegador: ${intento.fingerprint_datos?.navegador || 'Desconocido'}</small></p>
+                                <p class="card-text mb-1"><small>Sistema: ${intento.fingerprint_datos?.sistema || 'Desconocido'}</small></p>
+                                <p class="card-text mb-2"><small class="text-muted">Intento: ${formatearFecha(intento.fecha_intento)}</small></p>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-success btn-sm flex-grow-1" onclick="abrirModalAutorizar(${JSON.stringify(intento).replace(/"/g, '&quot;')})">
+                                        ✅ Autorizar
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm" onclick="rechazarIntento(${intento.id_intento})">
+                                        ❌
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Error cargando pendientes:', error);
+            }
+        }
+
+        async function cargarAutorizados() {
+            try {
+                const res = await fetchAPI('/dispositivos');
+                dispositivosData = await res.json();
+                
+                document.getElementById('badge-autorizados').textContent = dispositivosData.filter(d => d.activo).length;
+                
+                renderizarAutorizados(dispositivosData);
+                
+            } catch (error) {
+                console.error('Error cargando autorizados:', error);
+            }
+        }
+
+        function renderizarAutorizados(data) {
+            const container = document.getElementById('lista-autorizados');
+            
+            if (data.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center text-muted py-5">
+                        <h4>📱 No hay dispositivos autorizados</h4>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = data.map(disp => `
+                <div class="col-md-6 col-lg-4">
+                    <div class="card bg-dark border-secondary ${disp.activo ? 'card-activo' : 'card-inactivo'}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title mb-0">
+                                    ${disp.activo ? '✅' : '❌'} ${disp.nombre_dispositivo || 'Dispositivo'}
+                                </h5>
+                                <span class="badge ${disp.activo ? 'bg-success' : 'bg-danger'}">
+                                    ${disp.activo ? 'Activo' : 'Inactivo'}
+                                </span>
+                            </div>
+                            <p class="card-text mb-1"><small>👤 Usuario: <strong>${disp.nombre_usuario || disp.username}</strong></small></p>
+                            <p class="card-text mb-1"><small>🌐 ${disp.navegador} / ${disp.sistema_operativo}</small></p>
+                            <p class="card-text mb-1"><small>📅 Registrado: ${formatearFecha(disp.fecha_registro)}</small></p>
+                            <p class="card-text mb-2"><small class="text-muted">Último acceso: ${formatearFecha(disp.ultimo_acceso)}</small></p>
+                            ${disp.notas ? `<p class="card-text mb-2"><small class="text-info">📝 ${disp.notas}</small></p>` : ''}
+                            <div class="d-flex gap-2">
+                                ${disp.activo 
+                                    ? `<button class="btn btn-outline-warning btn-sm flex-grow-1" onclick="desactivarDispositivo(${disp.id_dispositivo})">⏸️ Desactivar</button>`
+                                    : `<button class="btn btn-outline-success btn-sm flex-grow-1" onclick="reactivarDispositivo(${disp.id_dispositivo})">▶️ Reactivar</button>`
+                                }
+                                <button class="btn btn-outline-danger btn-sm" onclick="eliminarDispositivo(${disp.id_dispositivo})">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function abrirModalAutorizar(intento) {
+            intentoSeleccionado = intento;
+            document.getElementById('modal-usuario').textContent = intento.nombre_usuario || intento.username;
+            document.getElementById('modal-navegador').textContent = intento.fingerprint_datos?.navegador || 'Desconocido';
+            document.getElementById('modal-sistema').textContent = intento.fingerprint_datos?.sistema || 'Desconocido';
+            document.getElementById('modal-fecha').textContent = formatearFecha(intento.fecha_intento);
+            document.getElementById('modal-nombre').value = '';
+            document.getElementById('modal-notas').value = '';
+            
+            new bootstrap.Modal(document.getElementById('modalAutorizar')).show();
+        }
+
+        async function confirmarAutorizar() {
+            if (!intentoSeleccionado) return;
+            
+            const nombre = document.getElementById('modal-nombre').value;
+            const notas = document.getElementById('modal-notas').value;
+            
+            try {
+                const res = await fetchAPI('/dispositivos/autorizar', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        id_intento: intentoSeleccionado.id_intento,
+                        nombre_dispositivo: nombre,
+                        notas: notas
+                    })
+                });
+                
+                if (res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalAutorizar')).hide();
+                    cargarPendientes();
+                    cargarAutorizados();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || 'Error al autorizar');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function rechazarIntento(id_intento) {
+            if (!confirm('¿Rechazar esta solicitud?')) return;
+            
+            try {
+                const res = await fetchAPI('/dispositivos/rechazar', {
+                    method: 'POST',
+                    body: JSON.stringify({ id_intento })
+                });
+                
+                if (res.ok) {
+                    cargarPendientes();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || 'Error al rechazar');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function desactivarDispositivo(id_dispositivo) {
+            if (!confirm('¿Desactivar este dispositivo? El usuario no podrá ingresar desde él.')) return;
+            
+            try {
+                const res = await fetchAPI(`/dispositivos/${id_dispositivo}/desactivar`, { method: 'PUT' });
+                if (res.ok) {
+                    cargarAutorizados();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || 'Error al desactivar');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function reactivarDispositivo(id_dispositivo) {
+            try {
+                const res = await fetchAPI(`/dispositivos/${id_dispositivo}/reactivar`, { method: 'PUT' });
+                if (res.ok) {
+                    cargarAutorizados();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || 'Error al reactivar');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function eliminarDispositivo(id_dispositivo) {
+            if (!confirm('¿Eliminar este dispositivo permanentemente?')) return;
+            
+            try {
+                const res = await fetchAPI(`/dispositivos/${id_dispositivo}`, { method: 'DELETE' });
+                if (res.ok) {
+                    cargarAutorizados();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || 'Error al eliminar');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+
+        let coberturaData = [];
+        const COBERTURA_ESTILOS = {
+            SIN_DISPOSITIVO: { clase: 'table-danger',  label: 'Sin dispositivo', icono: '🔴' },
+            EXCEDE:          { clase: 'table-warning', label: 'Excede límite',   icono: '🟡' },
+            EXENTO:          { clase: 'table-secondary opacity-75', label: 'Exento (admin)', icono: '⚪' },
+            INACTIVO:        { clase: 'opacity-50',     label: 'Inactivo',        icono: '⚫' },
+            OK:              { clase: '',               label: 'OK',              icono: '🟢' }
+        };
+        async function cargarCobertura() {
+            try {
+                const res = await fetchAPI('/dispositivos/cobertura');
+                coberturaData = await res.json();
+                const alertas = coberturaData.filter(u => u.estado_cobertura === 'SIN_DISPOSITIVO' || u.estado_cobertura === 'EXCEDE').length;
+                const badge = document.getElementById('badge-cobertura');
+                if (badge) { badge.textContent = alertas; badge.className = alertas > 0 ? 'badge bg-danger' : 'badge bg-success'; }
+                renderizarCobertura(coberturaData);
+            } catch (error) { console.error('Error cargando cobertura:', error); }
+        }
+        function renderizarCobertura(data) {
+            const container = document.getElementById('lista-cobertura');
+            if (!container) return;
+            if (!Array.isArray(data) || data.length === 0) { container.innerHTML = '<div class="col-12 text-center text-muted py-5"><h4>Sin usuarios</h4></div>'; return; }
+            const filas = data.map(u => {
+                const est = COBERTURA_ESTILOS[u.estado_cobertura] || COBERTURA_ESTILOS.OK;
+                const limTxt = (u.limite === null || u.limite === undefined) ? '<span class="text-muted">sin tope</span>' : u.limite;
+                return `<tr class="${est.clase}"><td><strong>${u.username || ''}</strong></td><td>${u.nombre || ''}</td><td><span class="badge bg-dark">${u.rol || ''}</span></td><td class="text-center">${u.dispositivos_activos}</td><td class="text-center">${limTxt}</td><td>${est.icono} ${est.label}</td></tr>`;
+            }).join('');
+            container.innerHTML = `<div class="col-12"><div class="d-flex justify-content-end mb-2"><button class="btn btn-sm btn-outline-light" onclick="exportarCoberturaCSV()">⬇️ Exportar CSV</button></div><div class="table-responsive"><table class="table table-dark table-hover align-middle"><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th class="text-center">Dispositivos</th><th class="text-center">Límite</th><th>Estado</th></tr></thead><tbody>${filas}</tbody></table></div></div>`;
+        }
+        function exportarCoberturaCSV() {
+            const sep = ';';
+            const head = ['Usuario','Nombre','Rol','Estado_usuario','Dispositivos_activos','Limite','Estado_cobertura'].join(sep);
+            const lineas = coberturaData.map(u => [u.username||'', u.nombre||'', u.rol||'', u.estado||'', u.dispositivos_activos, (u.limite===null||u.limite===undefined)?'':u.limite, u.estado_cobertura].join(sep));
+            const csv = '\uFEFF' + [head].concat(lineas).join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'cobertura_dispositivos.csv'; a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function formatearFecha(fecha) {
+            if (!fecha) return '-';
+            return new Date(fecha).toLocaleString('es-AR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Buscar dispositivos
+        document.getElementById('buscar-dispositivo').addEventListener('input', (e) => {
+            const busqueda = e.target.value.toLowerCase();
+            const filtrados = dispositivosData.filter(d => 
+                (d.username || '').toLowerCase().includes(busqueda) ||
+                (d.nombre_usuario || '').toLowerCase().includes(busqueda) ||
+                (d.nombre_dispositivo || '').toLowerCase().includes(busqueda)
+            );
+            renderizarAutorizados(filtrados);
+        });
+
+        function logout() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('usuario');
+            window.location.href = 'login.html';
+        }
+
+        // Inicializar
+        (async () => {
+            if (await verificarAcceso()) {
+                cargarPendientes();
+                cargarAutorizados();
+                cargarCobertura();
+                
+                // Actualizar cada 30 segundos
+                setInterval(cargarPendientes, 30000);
+            }
+        })();
+    </script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

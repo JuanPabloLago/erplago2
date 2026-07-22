@@ -1,0 +1,7 @@
+id_empresa,clave,valor
+1,ventas.precio.redondeo_unidad,1
+1,ventas.precio.redondeo_modo,HACIA_ARRIBA
+1,ventas.precio.modo_soberano,BRUTO_ENTERO
+1,ventas.precio.aplica_a_listas_costo,false
+1,precios.ancla_canonica,neto_unit
+1,precios.bruto_mostrar_entero,true

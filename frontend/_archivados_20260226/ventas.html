@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script src="js/config.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Punto de Venta - ERP Lago</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body { background-color: #f8fafc; font-family: "Inter", sans-serif; }
+        .main-container { height: 100vh; display: flex; flex-direction: column; padding: 1rem; }
+        .pos-container { display: grid; grid-template-columns: 1.3fr 2.7fr; gap: 1.5rem; flex-grow: 1; min-height: 0; }
+        .search-results {
+            position: absolute; z-index: 1050; width: calc(100% - 40px); max-height: 250px; overflow-y: auto;
+            border: 1px solid #dee2e6; border-top: none; border-radius: 0 0 .375rem .375rem; background-color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        .search-results .list-group-item { cursor: pointer; font-size: 0.9rem; }
+        .search-results .list-group-item:hover, .search-results .list-group-item.active { background-color: #0d6efd; color: white; }
+        #cartItems tr.table-active { background-color: #eaf2ff; }
+        .cart-item-input { width: 70px; text-align: right; padding: 0.25rem; }
+        .cart-total { font-size: 1.8rem; font-weight: 700; color: #198754; }
+        .saldo-pendiente { color: #dc3545; }
+        .btn-lg-main { font-size: 1.1rem; padding: 0.7rem; border-radius: 0.75rem; }
+        .card-body-scroll { overflow-y: auto; }
+        .highlight-input:focus { border-color: #0d6efd; box-shadow: 0 0 0 0.15rem rgba(13,110,253,.25); }
+        .input-with-icon { position: relative; }
+        .input-icon-btn { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); z-index: 10; }
+        .sticky-top { position: sticky; top: 0; z-index: 10; }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="action-bar d-flex gap-2 mb-2">
+            <button id="btnCotizacion" class="btn btn-info btn-sm"><i class="bi bi-file-earmark-text"></i> Cotización</button>
+            <button id="btnSuspender" class="btn btn-warning btn-sm"><i class="bi bi-pause-circle"></i> Suspender</button>
+            <button id="btnLimpiar" class="btn btn-outline-danger btn-sm ms-auto"><i class="bi bi-trash"></i> Limpiar</button>
+        </div>
+
+        <div class="pos-container">
+            <div class="card shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <h5><i class="bi bi-cart-check"></i> Punto de Venta</h5>
+                    <hr>
+                    
+                    <div class="mb-3">
+                        <label for="clienteSearch" class="form-label fw-semibold">Cliente</label>
+                        <div class="input-with-icon position-relative">
+                            <input type="text" id="clienteSearch" class="form-control highlight-input pe-5" placeholder="Buscar cliente (F2)">
+                            <button type="button" class="btn btn-sm btn-primary input-icon-btn" id="btnBuscarClienteModal">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                        <div id="clienteResults" class="search-results list-group"></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="productoSearch" class="form-label fw-semibold">Producto</label>
+                        <div class="input-with-icon position-relative">
+                            <input type="text" id="productoSearch" class="form-control highlight-input pe-5" placeholder="Código o nombre (F3)">
+                            <button type="button" class="btn btn-sm btn-primary input-icon-btn" id="btnBuscarProductoModal">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                        <div id="productoResults" class="search-results list-group"></div>
+                    </div>
+                    
+                    <hr>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de entrega</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="tipo_entrega" id="entregaRetira" value="Retira" checked>
+                            <label class="btn btn-outline-primary btn-sm" for="entregaRetira">Retira</label>
+                            <input type="radio" class="btn-check" name="tipo_entrega" id="entregaEnvio" value="Envío">
+                            <label class="btn btn-outline-primary btn-sm" for="entregaEnvio">Envío</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="observacionesEntrega" class="form-label">Observaciones</label>
+                        <textarea id="observacionesEntrega" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="flex-grow-1"></div>
+                    <div class="input-group mb-3">
+                        <span class="input-group-text">Desc. Gral. (%)</span>
+                        <input type="number" id="descuentoGeneral" class="form-control" value="0" min="0" max="100">
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="h5">Total:</span>
+                        <span class="cart-total" id="cartTotal">$ 0.00</span>
+                    </div>
+                    <button id="btnFinalizarVenta" class="btn btn-success btn-lg-main w-100" disabled>
+                        <i class="bi bi-check-circle-fill"></i> Finalizar Venta (F10)
+                    </button>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                 <div class="card-body d-flex flex-column">
+                    <h6 id="selectedClientName">Cliente: Consumidor Final</h6>
+                    <div class="table-responsive flex-grow-1 card-body-scroll">
+                        <table class="table table-hover table-sm">
+                           <thead class="table-dark sticky-top">
+                               <tr>
+                                   <th>SKU</th>
+                                   <th>Descripción</th>
+                                   <th>Cant.</th>
+                                   <th>P. Unit</th>
+                                   <th>Desc.%</th>
+                                   <th>IVA %</th>
+                                   <th>Total</th>
+                                   <th></th>
+                               </tr>
+                           </thead>
+                           <tbody id="cartItems"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL BÚSQUEDA CLIENTES -->
+    <div class="modal fade" id="buscarClienteModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-people-fill"></i> Buscar Cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="modalClienteSearch" class="form-control mb-3" placeholder="Buscar por nombre, CUIT, domicilio...">
+                    <div id="modalClienteResultados" class="list-group" style="max-height: 400px; overflow-y: auto;">
+                        <div class="text-center text-muted py-3">Escribe para buscar...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL BÚSQUEDA PRODUCTOS -->
+    <div class="modal fade" id="buscarProductoModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-box-seam-fill"></i> Buscar Producto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="modalProductoSearch" class="form-control mb-3" placeholder="Buscar por SKU, nombre...">
+                    <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                        <table class="table table-hover table-sm">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Nombre</th>
+                                    <th>Stock</th>
+                                    <th>Precio</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modalProductoResultados">
+                                <tr><td colspan="5" class="text-center text-muted py-3">Cargando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('authToken');
+            if (!token) { window.location.href = '/login.html'; return; }
+            const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+
+            const buscarClienteModal = new bootstrap.Modal(document.getElementById('buscarClienteModal'));
+            const buscarProductoModal = new bootstrap.Modal(document.getElementById('buscarProductoModal'));
+
+            let cart = [];
+            let allClientes = [];
+            let allProductos = [];
+            let selectedCliente = null;
+            let searchTimeout;
+            let activeCartIndex = -1;
+
+            const clienteSearch = document.getElementById('clienteSearch');
+            const clienteResults = document.getElementById('clienteResults');
+            const productoSearch = document.getElementById('productoSearch');
+            const productoResults = document.getElementById('productoResults');
+            const selectedClientName = document.getElementById('selectedClientName');
+            const cartItems = document.getElementById('cartItems');
+            const cartTotal = document.getElementById('cartTotal');
+            const descuentoGeneralInput = document.getElementById('descuentoGeneral');
+            const btnFinalizarVenta = document.getElementById('btnFinalizarVenta');
+            const btnLimpiar = document.getElementById('btnLimpiar');
+
+            async function init() {
+                try {
+                    const response = await fetch('/api/pedidos/data', { headers });
+                    if (!response.ok) throw new Error('No se pudo cargar data inicial');
+                    
+                    const data = await response.json();
+                    allClientes = data.clientes;
+                    allProductos = data.productos || [];
+                    
+                    const consumidorFinal = allClientes.find(c => c.razon_social.toLowerCase() === 'consumidor final');
+                    selectCliente(consumidorFinal || allClientes[0] || { id_cliente: 1, razon_social: 'Consumidor Final' });
+                    
+                    await cargarProductosModal();
+                } catch (error) { 
+                    console.error('Error:', error); 
+                    alert('Error al cargar datos'); 
+                }
+            }
+
+            async function cargarProductosModal() {
+                try {
+                    const response = await fetch('/api/productos/listar', { headers });
+                    if (!response.ok) throw new Error('Error al cargar productos');
+                    allProductos = await response.json();
+                    renderProductosModal(allProductos);
+                } catch (error) {
+                    console.error('Error:', error);
+                    document.getElementById('modalProductoResultados').innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error al cargar</td></tr>';
+                }
+            }
+
+            function renderProductosModal(productos) {
+                const tbody = document.getElementById('modalProductoResultados');
+                tbody.innerHTML = '';
+                if (!productos || productos.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Sin productos</td></tr>';
+                    return;
+                }
+                productos.forEach(p => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><small>${p.sku}</small></td>
+                        <td>${p.nombre}</td>
+                        <td>${p.stock_real || 0}</td>
+                        <td>$${parseFloat(p.precio || 0).toFixed(2)}</td>
+                        <td><button class="btn btn-sm btn-primary btn-add-modal" data-id="${p.id_producto}">Agregar</button></td>
+                    `;
+                    tr.querySelector('.btn-add-modal').addEventListener('click', () => {
+                        addProductToCart(p);
+                        buscarProductoModal.hide();
+                    });
+                    tbody.appendChild(tr);
+                });
+            }
+
+            function selectCliente(cliente) {
+                selectedCliente = cliente;
+                selectedClientName.textContent = `Cliente: ${cliente.razon_social}`;
+                clienteSearch.value = cliente.razon_social;
+                clienteResults.innerHTML = '';
+                productoSearch.focus();
+            }
+
+            async function handleProductSearch() {
+                const query = productoSearch.value.trim();
+                clearTimeout(searchTimeout);
+                if (query.length === 0) { productoResults.innerHTML = ''; return; }
+                
+                searchTimeout = setTimeout(async () => {
+                    try {
+                        const res = await fetch(`/api/productos/buscar?q=${encodeURIComponent(query)}`, { headers });
+                        const data = await res.json();
+                        
+                        if (data.results && data.results.length > 0 && data.results[0].ranking === 1) {
+                            addProductToCart(data.results[0]);
+                            productoSearch.value = '';
+                            productoResults.innerHTML = '';
+                        } else {
+                            renderProductSuggestions(data.results || []);
+                        }
+                    } catch(err) { 
+                        console.error("Error:", err); 
+                        productoResults.innerHTML = '<a class="list-group-item text-danger">Error al buscar</a>'; 
+                    }
+                }, 300);
+            }
+
+            function renderProductSuggestions(products) {
+                productoResults.innerHTML = '';
+                products.forEach(p => {
+                    const item = document.createElement('a');
+                    item.className = 'list-group-item list-group-item-action';
+                    item.innerHTML = `<strong>${p.nombre}</strong> <small class="text-muted">(${p.sku}) - Stock: ${p.stock_real || 0}</small> <span class="float-end text-primary">$${parseFloat(p.precio || 0).toFixed(2)}</span>`;
+                    item.addEventListener('click', () => { 
+                        addProductToCart(p); 
+                        productoSearch.value = ''; 
+                        productoResults.innerHTML = ''; 
+                        productoSearch.focus(); 
+                    });
+                    productoResults.appendChild(item);
+                });
+            }
+
+            function addProductToCart(product) {
+                if (!product.stock_real || product.stock_real <= 0) { 
+                    alert('Sin stock disponible'); 
+                    return; 
+                }
+                const existing = cart.find(item => item.id_producto === product.id_producto);
+                if (existing) {
+                    if (existing.cantidad >= product.stock_real) { 
+                        alert('Stock máximo alcanzado'); 
+                        return; 
+                    }
+                    existing.cantidad++;
+                } else {
+                    cart.push({ ...product, cantidad: 1, iva: 21, descuento: 0 });
+                }
+                renderCart();
+            }
+
+            function renderCart() {
+                if (cart.length === 0) {
+                    cartItems.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Carrito vacío</td></tr>';
+                    btnFinalizarVenta.disabled = true;
+                } else {
+                    cartItems.innerHTML = '';
+                    cart.forEach((item, index) => {
+                        const row = document.createElement('tr');
+                        row.dataset.index = index;
+                        const precioDesc = item.precio * (1 - (item.descuento || 0) / 100);
+                        const subtotal = item.cantidad * precioDesc;
+                        const totalLinea = subtotal * (1 + (item.iva || 0) / 100);
+                        row.innerHTML = `
+                            <td><small>${item.sku}</small></td>
+                            <td>${item.nombre}</td>
+                            <td><input type="number" class="form-control form-control-sm cart-item-input" data-index="${index}" data-field="cantidad" value="${item.cantidad}" min="1" max="${item.stock_real || 999}"></td>
+                            <td>$${parseFloat(item.precio).toFixed(2)}</td>
+                            <td><input type="number" class="form-control form-control-sm cart-item-input" data-index="${index}" data-field="descuento" value="${item.descuento}" min="0" max="100"></td>
+                            <td><input type="number" class="form-control form-control-sm cart-item-input" data-index="${index}" data-field="iva" value="${item.iva}" min="0"></td>
+                            <td><strong>$${totalLinea.toFixed(2)}</strong></td>
+                            <td><button class="btn btn-sm btn-outline-danger btn-remove" data-index="${index}">&times;</button></td>
+                        `;
+                        cartItems.appendChild(row);
+                    });
+                    btnFinalizarVenta.disabled = false;
+                }
+                calculateTotals();
+            }
+
+            function calculateTotals() {
+                let total = 0;
+                cart.forEach(item => {
+                    const precioDesc = item.precio * (1 - (item.descuento || 0) / 100);
+                    total += item.cantidad * precioDesc * (1 + (item.iva || 0) / 100);
+                });
+                const descGral = parseFloat(descuentoGeneralInput.value) || 0;
+                const grandTotal = total * (1 - descGral / 100);
+                cartTotal.textContent = `$ ${grandTotal.toFixed(2)}`;
+            }
+
+            function resetVenta() {
+                cart = [];
+                renderCart();
+                const cf = allClientes.find(c => c.razon_social.toLowerCase() === 'consumidor final');
+                selectCliente(cf || allClientes[0] || { id_cliente: 1, razon_social: 'Consumidor Final' });
+                descuentoGeneralInput.value = 0;
+                document.getElementById('observacionesEntrega').value = '';
+                productoSearch.focus();
+            }
+
+            // EVENTOS
+            clienteSearch.addEventListener('input', async () => {
+                const query = clienteSearch.value.trim();
+                if (query.length < 2) { clienteResults.innerHTML = ''; return; }
+                try {
+                    const res = await fetch(`/api/clientes/buscar?q=${encodeURIComponent(query)}`, { headers });
+                    const clientes = await res.json();
+                    clienteResults.innerHTML = '';
+                    clientes.forEach(c => {
+                        const item = document.createElement('a');
+                        item.className = 'list-group-item list-group-item-action';
+                        item.innerHTML = `<strong>${c.razon_social}</strong><br><small>${c.cuit_cuil || ''}</small>`;
+                        item.addEventListener('click', () => selectCliente(c));
+                        clienteResults.appendChild(item);
+                    });
+                } catch (err) { console.error(err); }
+            });
+
+            document.getElementById('btnBuscarClienteModal').addEventListener('click', () => {
+                buscarClienteModal.show();
+                setTimeout(() => document.getElementById('modalClienteSearch').focus(), 300);
+            });
+
+            document.getElementById('modalClienteSearch').addEventListener('input', async (e) => {
+                const query = e.target.value.trim();
+                const container = document.getElementById('modalClienteResultados');
+                if (query.length < 2) {
+                    container.innerHTML = '<div class="text-center text-muted py-3">Escribe al menos 2 caracteres...</div>';
+                    return;
+                }
+                try {
+                    const res = await fetch(`/api/clientes/buscar?q=${encodeURIComponent(query)}`, { headers });
+                    const clientes = await res.json();
+                    container.innerHTML = '';
+                    if (clientes.length === 0) {
+                        container.innerHTML = '<div class="text-center text-muted py-3">Sin resultados</div>';
+                        return;
+                    }
+                    clientes.forEach(c => {
+                        const item = document.createElement('a');
+                        item.className = 'list-group-item list-group-item-action';
+                        item.innerHTML = `<strong>${c.razon_social}</strong><br><small>${c.cuit_cuil || ''} - ${c.domicilio || ''}</small>`;
+                        item.addEventListener('click', () => {
+                            selectCliente(c);
+                            buscarClienteModal.hide();
+                        });
+                        container.appendChild(item);
+                    });
+                } catch (err) { console.error(err); }
+            });
+
+            document.getElementById('btnBuscarProductoModal').addEventListener('click', () => {
+                buscarProductoModal.show();
+                setTimeout(() => document.getElementById('modalProductoSearch').focus(), 300);
+            });
+
+            document.getElementById('modalProductoSearch').addEventListener('input', (e) => {
+                const query = e.target.value.trim().toLowerCase();
+                const filtered = allProductos.filter(p => 
+                    p.nombre.toLowerCase().includes(query) || 
+                    p.sku.toLowerCase().includes(query)
+                );
+                renderProductosModal(filtered);
+            });
+
+            productoSearch.addEventListener('input', handleProductSearch);
+            productoSearch.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const active = productoResults.querySelector('.active');
+                    if (active) active.click();
+                }
+            });
+
+            descuentoGeneralInput.addEventListener('input', calculateTotals);
+
+            cartItems.addEventListener('change', (e) => {
+                if (e.target.classList.contains('cart-item-input')) {
+                    const index = parseInt(e.target.dataset.index);
+                    const field = e.target.dataset.field;
+                    let value = parseFloat(e.target.value);
+                    if (isNaN(value) || value < 0) value = 0;
+                    if (field === 'cantidad' && value < 1) value = 1;
+                    cart[index][field] = value;
+                    renderCart();
+                }
+            });
+
+            cartItems.addEventListener('click', (e) => {
+                if (e.target.classList.contains('btn-remove') || e.target.closest('.btn-remove')) {
+                    const btn = e.target.closest('.btn-remove');
+                    const index = parseInt(btn.dataset.index);
+                    cart.splice(index, 1);
+                    renderCart();
+                }
+            });
+
+            btnLimpiar.addEventListener('click', () => { 
+                if(confirm('¿Limpiar pedido actual?')) resetVenta(); 
+            });
+
+            // FINALIZAR VENTA
+            btnFinalizarVenta.addEventListener('click', async () => {
+                if (!selectedCliente || cart.length === 0) {
+                    alert('Debe seleccionar cliente y agregar productos');
+                    return;
+                }
+
+                const totalFinal = parseFloat(cartTotal.textContent.replace('$', '').trim());
+                const tipoEntrega = document.querySelector('input[name="tipo_entrega"]:checked').value;
+                const observaciones = document.getElementById('observacionesEntrega').value;
+                const descGral = parseFloat(descuentoGeneralInput.value) || 0;
+
+                const pedidoData = {
+                    id_cliente: selectedCliente.id_cliente,
+                    items: cart.map(item => ({
+                        id_producto: item.id_producto,
+                        cantidad: item.cantidad,
+                        precio_unitario_congelado: item.precio,
+                        porcentaje_descuento: item.descuento || 0,
+                        iva: item.iva || 21
+                    })),
+                    total: totalFinal,
+                    tipo_entrega: tipoEntrega,
+                    descuento_general: descGral,
+                    observaciones: observaciones,
+                    pagos: [{ id_metodo_pago: 1, monto: totalFinal, recargo: 0 }]
+                };
+
+                if (!confirm(`¿Confirmar venta por $${totalFinal.toFixed(2)}?`)) return;
+
+                try {
+                    btnFinalizarVenta.disabled = true;
+                    btnFinalizarVenta.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+
+                    const response = await fetch('/api/pedidos', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify(pedidoData)
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(result.error || 'Error al crear pedido');
+                    }
+
+                    alert(`✅ Venta #${result.id_pedido} finalizada con éxito`);
+                    resetVenta();
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert(`❌ Error: ${error.message}`);
+                } finally {
+                    btnFinalizarVenta.disabled = false;
+                    btnFinalizarVenta.innerHTML = '<i class="bi bi-check-circle-fill"></i> Finalizar Venta (F10)';
+                }
+            });
+
+            // ATAJOS DE TECLADO
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'F2') { e.preventDefault(); clienteSearch.focus(); }
+                if (e.key === 'F3') { e.preventDefault(); productoSearch.focus(); }
+                if (e.key === 'F10' && !btnFinalizarVenta.disabled) { e.preventDefault(); btnFinalizarVenta.click(); }
+            });
+
+            init();
+        });
+    </script>
+    <script src="js/connection-indicator.js"></script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

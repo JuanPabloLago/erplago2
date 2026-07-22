@@ -1,0 +1,99 @@
+{
+    "documento": {
+        "titulo": "REMITO",
+        "codigo_afip": "91",
+        "letra": "X"
+    },
+    "copias": [
+        {
+            "nombre": "PAGINA",
+            "color": "#000"
+        }
+    ],
+    "papel": {
+        "tamaño": "A4",
+        "orientacion": "portrait",
+        "margenes": {
+            "superior": "10mm",
+            "inferior": "10mm",
+            "izquierdo": "10mm",
+            "derecho": "10mm"
+        }
+    },
+    "mostrar": {
+        "logo_empresa": true,
+        "cuit_empresa": true,
+        "condicion_iva_empresa": true,
+        "ingresos_brutos_empresa": true,
+        "fecha_inicio_actividades": true,
+        "cuit_cliente": true,
+        "condicion_iva_cliente": true,
+        "telefono_cliente": true,
+        "email_cliente": false,
+        "codigo_producto": true,
+        "precio_unitario": true,
+        "subtotal_item": false,
+        "iva_item": false,
+        "total_item": true,
+        "subtotal_documento": false,
+        "iva_documento": false,
+        "total_documento": true,
+        "observaciones_pedido": true,
+        "observaciones_remito": true,
+        "transportista": true,
+        "chofer": true,
+        "patente": true,
+        "numero_pedido": true,
+        "firma_receptor": true,
+        "firma_transportista": true,
+        "aclaracion": true,
+        "dni": true,
+        "veces_impreso": true
+    },
+    "etiquetas": {
+        "cliente": "SEÑOR/ES",
+        "domicilio": "DOMICILIO",
+        "localidad": "LOCALIDAD",
+        "cuit": "CUIT/CUIL",
+        "condicion_iva": "COND. IVA",
+        "telefono": "TELÉFONO",
+        "email": "EMAIL",
+        "fecha_emision": "FECHA",
+        "codigo": "CÓDIGO",
+        "descripcion": "DESCRIPCIÓN",
+        "cantidad": "CANTIDAD",
+        "unidad": "UNIDAD",
+        "precio_unitario": "P. UNIT.",
+        "total": "TOTAL",
+        "subtotal": "SUBTOTAL",
+        "iva": "IVA 21%",
+        "total_general": "TOTAL",
+        "observaciones": "OBSERVACIONES",
+        "pedido": "PEDIDO N°",
+        "transportista": "TRANSPORTISTA",
+        "chofer": "CHOFER",
+        "patente": "PATENTE",
+        "firma_receptor": "FIRMA RECEPTOR",
+        "firma_transportista": "FIRMA TRANSPORTISTA",
+        "aclaracion": "ACLARACIÓN",
+        "dni": "DNI",
+        "recibe_conforme": "RECIBÍ CONFORME"
+    },
+    "formato_numeros": {
+        "moneda": "ARS",
+        "separador_miles": ".",
+        "separador_decimal": ",",
+        "decimales_cantidad": 2,
+        "decimales_precio": 2
+    },
+    "textos_legales": {
+        "pie_pagina": "Este documento no tiene validez fiscal • Sistema de Gestión DATRIC"
+    },
+    "plantilla_activa": "6535",
+    "plantillas": {
+        "normal": "remito.template.html",
+        "compacto": "remito.template.compacto.html",
+        "6535": "remito.template.6535.html"
+    },
+    "minimo_filas_items": 10
+}

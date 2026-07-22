@@ -1,627 +1,570 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Compras - ERP Lago</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <style>
-        .producto-item {
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .producto-item:hover, .producto-item.active {
-            background-color: #e3f2fd;
-        }
-        .producto-precio {
-            font-weight: bold;
-            color: #28a745;
-        }
-        .producto-descuento {
-            color: #dc3545;
-            font-size: 0.85em;
-        }
-        #resultadosBusqueda {
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .keyboard-shortcut {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 3px;
-            padding: 2px 6px;
-            font-size: 0.85em;
-            font-family: monospace;
-        }
-        .shortcuts-hint {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 0.85em;
-            z-index: 9999;
-        }
-    </style>
+<script src="js/config.js?v=20260422224913"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compras — ERP LAGO</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+<link rel="stylesheet" href="css/erp-lago-styles.css">
+<style>
+:root {
+    --lago-900:#064e32;--lago-800:#0a5c3b;--lago-700:#0d6b45;--lago-600:#10854f;--lago-500:#15a35e;
+    --lago-400:#48c78e;--lago-300:#7edcb0;--lago-200:#b5edcf;--lago-100:#d9f5e8;--lago-50:#edf9f3;
+    --text-primary:#1a1a1a;--text-secondary:#555;--text-muted:#888;
+    --bg-page:#f4f6f5;--bg-card:#fff;--border:#dde3df;--border-focus:var(--lago-500);
+    --danger:#dc3545;--warning:#e89b0c;--success:#0d6b45;
+}
+*{box-sizing:border-box}
+body{background:var(--bg-page);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:var(--text-primary);margin:0;padding:0 0 28px 0}
+.lago-navbar{background:var(--lago-700);padding:0 1rem;height:44px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.lago-navbar .brand{color:#fff;font-weight:600;font-size:.95rem;display:flex;align-items:center;gap:8px}
+.lago-navbar .nav-actions{display:flex;gap:4px}
+.lago-navbar .nav-btn{background:rgba(255,255,255,.15);border:none;color:#fff;padding:4px 10px;border-radius:4px;font-size:.8rem;cursor:pointer;display:flex;align-items:center;gap:4px}
+.lago-navbar .nav-btn:hover{background:rgba(255,255,255,.25)}
+.lago-tabs{display:flex;gap:0;background:var(--lago-800);padding:0 1rem}
+.lago-tab{padding:8px 20px;color:rgba(255,255,255,.7);font-size:.82rem;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:.15s}
+.lago-tab:hover{color:#fff}
+.lago-tab.active{color:#fff;border-bottom-color:var(--lago-300);background:rgba(255,255,255,.08)}
+.lago-tab kbd{font-size:.6rem;background:rgba(255,255,255,.15);padding:0 4px;border-radius:2px}
+.tab-content{display:none}.tab-content.active{display:block}
+.content-area{padding:10px;max-width:1600px;margin:0 auto}
+.layout-crear{display:grid;grid-template-columns:1fr 280px;gap:10px}
+.panel-form{display:flex;flex-direction:column;gap:8px;min-width:0}
+.lago-card{background:var(--bg-card);border:1px solid var(--border);border-radius:6px;}
+.lago-card-header{background:var(--lago-50);padding:6px 10px;border-bottom:1px solid var(--border);font-weight:600;font-size:.78rem;color:var(--lago-800);text-transform:uppercase;letter-spacing:.3px;display:flex;align-items:center;justify-content:space-between}
+.lago-card-body{padding:8px 10px}
+.form-row{display:flex;gap:6px;flex-wrap:wrap}
+.form-group{flex:1;min-width:80px}
+.form-group label{display:block;font-size:.68rem;font-weight:600;color:var(--text-muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:.3px}
+.form-group input,.form-group select{width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:.85rem;transition:.15s;background:#fff}
+.form-group input:focus,.form-group select:focus{border-color:var(--border-focus);outline:none;box-shadow:0 0 0 2px rgba(21,163,94,.12)}
+.lago-search{display:flex;align-items:center;border:1px solid var(--border);border-radius:4px;padding:0 8px;background:#fff;transition:.15s;gap:6px}
+.lago-search:focus-within{border-color:var(--border-focus);box-shadow:0 0 0 2px rgba(21,163,94,.12)}
+.lago-search i{color:var(--text-muted);font-size:.85rem}
+.lago-search input{flex:1;border:none;outline:none;padding:6px 0;font-size:.85rem;background:transparent}
+.suggestions-wrap{position:relative}
+.suggestions-drop{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:0 0 6px 6px;box-shadow:0 6px 16px rgba(0,0,0,.12);max-height:240px;overflow-y:auto;z-index:200;display:none}
+.suggestions-drop.open{display:block}
+.sug-item{padding:6px 10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:.82rem;border-bottom:1px solid #f5f5f5}
+.sug-item:hover,.sug-item.active{background:var(--lago-50)}
+.sug-item .name{font-weight:500}.sug-item .meta{color:var(--text-muted);font-size:.72rem}
+.sug-item .saldo{font-weight:600}.sug-item .saldo.deudor{color:var(--danger)}
+.prov-banner{display:none;background:var(--lago-50);border:1px solid var(--lago-200);border-radius:4px;padding:6px 10px;font-size:.82rem;align-items:center;justify-content:space-between}
+.prov-banner.visible{display:flex}
+.prov-banner .prov-data{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.prov-banner .prov-name{font-weight:600;color:var(--lago-800)}
+.prov-banner .prov-cuit{color:var(--text-muted)}
+.prov-banner .prov-saldo{font-weight:700}.prov-banner .prov-saldo.deudor{color:var(--danger)}
+.prov-banner .btn-cambiar{background:none;border:none;color:var(--danger);font-size:.75rem;cursor:pointer;padding:2px 6px}
+.grilla-items{width:100%;font-size:.82rem;border-collapse:collapse}
+.grilla-items thead{background:var(--lago-700);color:#fff}
+.grilla-items th{padding:6px;font-weight:500;font-size:.7rem;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+.grilla-items td{padding:2px 3px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+.grilla-items tbody tr:hover{background:#fafffe}
+.grilla-items tbody tr.row-active{background:#fffde7}
+.grilla-items .cell-input{width:100%;padding:4px 6px;border:1px solid transparent;border-radius:2px;font-size:.82rem;background:transparent;transition:border-color .1s}
+.grilla-items .cell-input:focus{border-color:var(--border-focus);background:#fff;outline:none;box-shadow:inset 0 0 0 1px var(--lago-400)}
+.grilla-items .cell-input:hover:not(:focus){border-color:#e0e0e0}
+.grilla-items .cell-select{width:100%;padding:3px 2px;border:1px solid transparent;border-radius:2px;font-size:.82rem;background:transparent;cursor:pointer;text-align:center;-webkit-appearance:none;appearance:none}
+.grilla-items .cell-select:focus{border-color:var(--border-focus);background:#fff;outline:none}
+.grilla-items .cell-select:hover:not(:focus){border-color:#e0e0e0}
+.col-codigo{width:15%;text-align:left}.col-cant{width:10%;text-align:right}.col-desc{width:25%;text-align:left}
+.col-precio{width:15%;text-align:right}.col-dto{width:10%;text-align:center}.col-iva{width:10%;text-align:center}
+.col-total{width:10%;text-align:right;font-weight:600}.col-act{width:5%;text-align:center}
+.cell-total{padding:4px 6px;font-weight:600;font-size:.82rem}
+.precio-ref{font-size:.65rem;color:var(--text-muted);line-height:1.2}
+.precio-ref .up{color:var(--danger)}.precio-ref .down{color:var(--success)}
+.btn-del{background:none;border:none;color:var(--danger);cursor:pointer;opacity:.4;padding:2px;font-size:.85rem}
+.btn-del:hover{opacity:1}
+.empty-row td{text-align:center;color:var(--text-muted);padding:20px;font-size:.82rem}
+.panel-resumen{position:sticky;top:54px;display:flex;flex-direction:column;gap:8px}
+.resumen-card{background:var(--bg-card);border:2px solid var(--lago-500);border-radius:6px;}
+.resumen-header{background:var(--lago-700);color:#fff;padding:6px 10px;font-weight:600;font-size:.78rem;text-align:center}
+.resumen-body{padding:8px 10px}
+.resumen-line{display:flex;justify-content:space-between;padding:3px 0;font-size:.82rem}
+.resumen-line .lbl{color:var(--text-muted)}.resumen-line .val{font-weight:600}
+.resumen-line.iva .val{color:var(--warning)}
+.resumen-line.sep{border-top:1px dashed var(--border);margin-top:4px;padding-top:6px}
+.resumen-total{background:var(--lago-700);color:#fff;padding:10px;text-align:center}
+.resumen-total .label{font-size:.7rem;opacity:.8}
+.resumen-total .amount{font-size:1.5rem;font-weight:700}
+.resumen-diff{padding:4px 10px;font-size:.75rem;text-align:center}
+.resumen-diff.ok{background:#d1e7dd;color:var(--success)}
+.resumen-diff.warn{background:#fff3cd;color:#856404}
+.resumen-diff.err{background:#f8d7da;color:var(--danger)}
+.opciones{padding:8px 10px;border-top:1px solid var(--border)}
+.opt-check{display:flex;align-items:center;gap:6px;font-size:.78rem;padding:2px 0;cursor:pointer}
+.opt-check input[type="checkbox"]{width:14px;height:14px;accent-color:var(--lago-600)}
+.total-comp-group{padding:6px 10px;border-top:1px dashed var(--border)}
+.total-comp-group label{font-size:.68rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:2px}
+.total-comp-group input{width:100%;padding:6px 8px;font-size:1.1rem;font-weight:600;text-align:right;border:1px solid var(--border);border-radius:4px}
+.total-comp-group input:focus{border-color:var(--border-focus);outline:none}
+.acciones{padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.btn-guardar{background:var(--lago-600);border:none;color:#fff;padding:10px;font-size:.9rem;font-weight:600;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:.15s}
+.btn-guardar:hover{background:var(--lago-700)}
+.btn-guardar:disabled{opacity:.5;cursor:not-allowed}
+.btn-guardar .kbd{background:rgba(255,255,255,.2);padding:1px 6px;border-radius:3px;font-size:.7rem}
+.btn-row{display:flex;gap:6px}
+.btn-sec{flex:1;background:#f8f9fa;border:1px solid var(--border);color:var(--text-secondary);padding:6px;font-size:.78rem;border-radius:4px;cursor:pointer;text-align:center}
+.btn-sec:hover{background:#eee}
+.percepciones-row{display:flex;gap:6px;align-items:end}
+.percepciones-row .form-group{min-width:90px;flex:1}
+.moneda-selector{display:flex;align-items:center;gap:4px;font-size:.78rem}
+.moneda-selector select,.moneda-selector input{padding:3px 6px;font-size:.78rem;border:1px solid var(--border);border-radius:3px}
+.moneda-selector input{width:80px;text-align:right}
+.metrics-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:10px}
+.metric-card{background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:10px 12px;display:flex;align-items:center;gap:10px}
+.metric-icon{width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.metric-icon.pendiente{background:#fff3cd;color:#856404}
+.metric-icon.pagado{background:#d1e7dd;color:var(--lago-800)}
+.metric-icon.anulado{background:#f8d7da;color:#721c24}
+.metric-icon.total{background:var(--lago-100);color:var(--lago-700)}
+.metric-value{font-size:1.15rem;font-weight:700;line-height:1.2}
+.metric-label{font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px}
+.filtros-bar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:end}
+.tabla-listado{width:100%;font-size:.82rem;border-collapse:collapse;background:#fff;border:1px solid var(--border);border-radius:6px;}
+.tabla-listado thead{background:#f8f9fa}
+.tabla-listado th{padding:8px;font-weight:600;font-size:.72rem;text-transform:uppercase;color:var(--text-muted);border-bottom:2px solid var(--border)}
+.tabla-listado td{padding:6px 8px;border-bottom:1px solid #eee}
+.tabla-listado tbody tr:hover{background:var(--lago-50);cursor:pointer}
+.badge-estado{padding:2px 8px;border-radius:3px;font-size:.7rem;font-weight:600}
+.badge-estado.pendiente{background:#fff3cd;color:#856404}
+.badge-estado.pagado{background:#d1e7dd;color:var(--lago-800)}
+.badge-estado.pagado_parcial{background:#cff4fc;color:#055160}
+.badge-estado.anulado{background:#f8d7da;color:#721c24}
+.btn-accion{background:none;border:1px solid var(--border);border-radius:3px;padding:2px 8px;font-size:.72rem;cursor:pointer;color:var(--text-secondary)}
+.btn-accion:hover{background:var(--lago-50);border-color:var(--lago-400);color:var(--lago-700)}
+.btn-accion.danger:hover{background:#fff5f5;border-color:var(--danger);color:var(--danger)}
+.lago-shortcut-bar{position:fixed;bottom:0;left:0;right:0;background:var(--lago-900);color:#fff;padding:4px 12px;display:flex;justify-content:center;gap:20px;font-size:.72rem;z-index:100}
+.shortcut{display:flex;align-items:center;gap:4px;opacity:.8}
+.shortcut kbd{background:rgba(255,255,255,.15);padding:1px 6px;border-radius:3px;font-family:monospace;font-size:.68rem}
+@media(max-width:1100px){.layout-crear{grid-template-columns:1fr}.panel-resumen{position:static}.lago-shortcut-bar{display:none}}
+
+.cotiz-badge{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:10px;font-size:.72rem;font-weight:600;background:#e7f5ec;color:#0f5132;border:1px solid #bbddc7}
+.cotiz-badge.cotiz-vieja{background:#fff3cd;color:#664d03;border-color:#ffe69c}
+.cotiz-badge.cotiz-error{background:#f8d7da;color:#842029;border-color:#f5c2c7}
+.cotiz-badge i{font-size:.7rem}
+.btn-cotiz-refresh{background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;color:#666;font-size:.75rem;transition:all .15s}
+.btn-cotiz-refresh:hover{background:var(--lago-50);color:var(--lago-700);border-color:var(--lago-700)}
+.btn-cotiz-refresh:disabled{opacity:.5;cursor:wait}
+.resumen-usd{font-size:.72rem;color:#888;font-weight:400;margin-left:4px}
+</style>
 </head>
 <body>
-    <div class="container-fluid p-4">
-        <!-- Atajos de teclado -->
-        <div class="shortcuts-hint" id="shortcutsHint" style="display: none;">
-            <strong>Atajos:</strong> 
-            <span class="keyboard-shortcut">F2</span> Guardar | 
-            <span class="keyboard-shortcut">Esc</span> Cancelar | 
-            <span class="keyboard-shortcut">↑↓</span> Navegar
+<script src="js/connection-indicator.js?v=20260422224913"></script>
+
+<nav class="lago-navbar" data-erp-header>
+    <div class="brand"><i class="bi bi-box-seam"></i> Compras</div>
+    <div class="nav-actions">
+        <button class="nav-btn" onclick="location.href='dashboard.html'"><i class="bi bi-house"></i></button>
+        <button class="nav-btn" onclick="location.href='cc-proveedores.html'"><i class="bi bi-wallet2"></i> CC Prov</button>
+        <button class="nav-btn" onclick="location.href='pagos-proveedores.html'"><i class="bi bi-cash-stack"></i> Pagos</button>
+    </div>
+</nav>
+
+<div class="lago-tabs">
+    <div class="lago-tab active" onclick="switchTab('crear')" id="tabCrear"><i class="bi bi-plus-circle me-1"></i>Crear <kbd>Ins</kbd></div>
+    <div class="lago-tab" onclick="switchTab('listado');cargarListado()" id="tabListado"><i class="bi bi-list-ul me-1"></i>Listado <kbd>F5</kbd></div>
+</div>
+
+<!-- ══════ TAB CREAR ══════ -->
+<div class="tab-content active" id="panelCrear">
+<div class="content-area"><div class="layout-crear"><div class="panel-form">
+
+    <!-- PROVEEDOR -->
+    <div class="lago-card">
+        <div class="lago-card-header">
+            <span><i class="bi bi-truck me-1"></i>Proveedor <kbd style="font-size:.6rem">F3</kbd></span>
+            <span class="moneda-selector">
+                <select id="selMoneda"><option value="1">ARS $</option></select>
+                <input type="text" id="inputCotiz" value="1" placeholder="Cotiz." readonly
+                    title="Cotización capturada automáticamente. Se guarda como snapshot del comprobante.">
+                <span id="cotizBadge" class="cotiz-badge" title="Cotización USD blue venta vigente">
+                    <i class="bi bi-currency-dollar"></i>
+                    <span id="cotizBadgeTxt">—</span>
+                </span>
+                <button type="button" id="btnRefreshCotiz" class="btn-cotiz-refresh"
+                    title="Refrescar cotización desde DolarAPI" onclick="refrescarCotizacion(true)">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+            </span>
         </div>
-
-        <div class="row">
-            <div class="col-md-7">
-                <h3>
-                    <i class="bi bi-bag-plus-fill"></i> Nueva Orden de Compra
-                    <small class="text-muted fs-6">(Navegación: <span class="keyboard-shortcut">Tab</span> <span class="keyboard-shortcut">Enter</span> <span class="keyboard-shortcut">F2</span>)</small>
-                </h3>
-                
-                <!-- 1. Seleccionar Proveedor -->
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <label for="proveedorSelect" class="form-label">
-                            <b>1. Seleccionar Proveedor</b>
-                            <span class="text-muted small">(Enter para abrir)</span>
-                        </label>
-                        <select id="proveedorSelect" class="form-select" autofocus>
-                            <option selected disabled value="">-- Seleccione un proveedor --</option>
-                        </select>
-                    </div>
+        <div class="lago-card-body" style="padding:6px 8px">
+            <div class="suggestions-wrap" id="searchProv">
+                <div class="lago-search">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="inputProv" placeholder="Buscar proveedor: nombre, CUIT, teléfono..." autocomplete="off">
+                    <button style="background:none;border:none;color:var(--lago-600);cursor:pointer;font-size:.9rem" onclick="abrirAltaProveedor()" title="Nuevo proveedor (+)"><i class="bi bi-plus-circle-fill"></i></button>
                 </div>
-
-                <!-- 2. Buscar y Añadir Productos -->
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">2. Añadir Productos</h5>
-                    </div>
-                    <div class="card-body">
-                        <!-- Búsqueda -->
-                        <div class="mb-3 position-relative">
-                            <label for="buscarProducto" class="form-label">
-                                Buscar Producto
-                                <span class="text-muted small">(Escribe para buscar, ↑↓ para navegar)</span>
-                            </label>
-                            <input 
-                                type="text" 
-                                class="form-control" 
-                                id="buscarProducto" 
-                                placeholder="Buscar por nombre, SKU o código del proveedor..."
-                                autocomplete="off"
-                                disabled
-                            >
-                            <!-- Resultados de búsqueda -->
-                            <div id="resultadosBusqueda" class="list-group position-absolute w-100" style="z-index: 1000; max-height: 400px; overflow-y: auto; display: none;"></div>
-                        </div>
-
-                        <!-- Producto seleccionado -->
-                        <div id="productoSeleccionado" style="display: none;">
-                            <div class="card bg-light">
-                                <div class="card-body">
-                                    <div class="row align-items-center">
-                                        <div class="col-md-6">
-                                            <h6 class="mb-1" id="nombreProductoSeleccionado"></h6>
-                                            <small class="text-muted">
-                                                SKU: <span id="skuProductoSeleccionado"></span>
-                                                <span id="codigoProveedorInfo" style="display: none;">
-                                                    | Cód. Prov: <span id="codigoProveedor"></span>
-                                                </span>
-                                            </small><br>
-                                            <small class="text-muted">
-                                                Stock: <span id="stockProductoSeleccionado"></span>
-                                            </small>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="row">
-                                                <div class="col-4">
-                                                    <label class="form-label small">Cantidad <span class="text-muted">(Tab)</span></label>
-                                                    <input type="number" class="form-control form-control-sm" id="cantidadProducto" value="1" min="0.001" step="0.001">
-                                                </div>
-                                                <div class="col-4">
-                                                    <label class="form-label small">Precio Unit. <span class="text-muted">(Tab)</span></label>
-                                                    <input type="number" class="form-control form-control-sm" id="precioProducto" step="0.01" min="0">
-                                                    <small class="text-muted" id="infoDescuento" style="display: none;"></small>
-                                                </div>
-                                                <div class="col-4">
-                                                    <label class="form-label small">&nbsp;</label>
-                                                    <button type="button" class="btn btn-success btn-sm w-100" id="btnAgregarProducto">
-                                                        <i class="bi bi-plus-circle"></i> Agregar <span class="keyboard-shortcut">Enter</span>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div class="suggestions-drop" id="dropProv"></div>
             </div>
-
-            <!-- Panel derecho: Orden Actual -->
-            <div class="col-md-5">
-                <h3><i class="bi bi-clipboard-check"></i> Orden Actual</h3>
-                <div class="card">
-                    <div class="card-body">
-                        <h5 id="proveedorSeleccionadoNombre">Seleccione un proveedor</h5>
-                        <hr>
-                        <div id="ordenItems" style="max-height: 50vh; overflow-y: auto;">
-                            <p class="text-center text-muted">Añada productos a la orden</p>
-                        </div>
-                        <hr>
-                        <div class="d-flex justify-content-between fs-4">
-                            <b>TOTAL:</b>
-                            <b id="totalOrden">$0.00</b>
-                        </div>
-                        <div class="d-grid gap-2 mt-3">
-                            <button id="btnCrearOrden" class="btn btn-primary btn-lg" disabled>
-                                <i class="bi bi-save"></i> Crear Orden <span class="keyboard-shortcut">F2</span>
-                            </button>
-                        </div>
-                    </div>
+            <div class="prov-banner" id="provBanner">
+                <div class="prov-data">
+                    <span class="prov-name">—</span>
+                    <span class="prov-cuit">—</span>
+                    <span class="prov-saldo">—</span>
                 </div>
+                <button class="btn-cambiar" onclick="limpiarProveedor()"><i class="bi bi-x-circle"></i> Cambiar</button>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const token = localStorage.getItem('authToken');
-            if (!token) { 
-                window.location.href = '/login.html'; 
-                return; 
-            }
-            
-            const headers = { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${token}` 
-            };
+    <!-- DATOS COMPROBANTE -->
+    <div class="lago-card"><div class="lago-card-body">
+        <div class="form-row">
+            <div class="form-group" style="min-width:140px"><label>Tipo comprobante</label><select id="selTipo"><option value="">Seleccione...</option></select></div>
+            <div class="form-group" style="max-width:70px"><label>PV</label><input type="text" id="inputPV" maxlength="4" style="text-align:center"></div>
+            <div class="form-group" style="max-width:140px"><label>Número</label><div style="display:flex;gap:2px"><input type="text" id="inputNumero" maxlength="8" style="text-align:center;flex:1"><button type="button" id="btnAutoNum" onclick="autoGenerarNumero()" style="background:var(--lago-600);border:none;color:#fff;border-radius:4px;padding:0 8px;cursor:pointer;font-size:.72rem;white-space:nowrap" title="Auto-generar siguiente número"><i class="bi bi-lightning-fill"></i></button></div></div>
+            <div class="form-group" style="max-width:120px"><label>Emisión</label><input type="date" id="inputFechaEmision"></div>
+            <div class="form-group" style="max-width:120px"><label>Vto. pago</label><input type="date" id="inputFechaVto"></div>
+        </div>
+    </div></div>
 
-            // Elementos DOM
-            const proveedorSelect = document.getElementById('proveedorSelect');
-            const buscarProducto = document.getElementById('buscarProducto');
-            const resultadosBusqueda = document.getElementById('resultadosBusqueda');
-            const productoSeleccionado = document.getElementById('productoSeleccionado');
-            const nombreProductoSeleccionado = document.getElementById('nombreProductoSeleccionado');
-            const skuProductoSeleccionado = document.getElementById('skuProductoSeleccionado');
-            const stockProductoSeleccionado = document.getElementById('stockProductoSeleccionado');
-            const codigoProveedorInfo = document.getElementById('codigoProveedorInfo');
-            const codigoProveedor = document.getElementById('codigoProveedor');
-            const cantidadProducto = document.getElementById('cantidadProducto');
-            const precioProducto = document.getElementById('precioProducto');
-            const infoDescuento = document.getElementById('infoDescuento');
-            const btnAgregarProducto = document.getElementById('btnAgregarProducto');
-            const proveedorSeleccionadoNombre = document.getElementById('proveedorSeleccionadoNombre');
-            const ordenItemsDiv = document.getElementById('ordenItems');
-            const totalOrden = document.getElementById('totalOrden');
-            const btnCrearOrden = document.getElementById('btnCrearOrden');
-            const shortcutsHint = document.getElementById('shortcutsHint');
+    <!-- BUSCADOR PRODUCTOS -->
+    <div class="lago-card"><div class="lago-card-body" style="padding:4px 8px">
+        <div class="suggestions-wrap" id="searchProd">
+            <div class="lago-search">
+                <i class="bi bi-upc-scan"></i>
+                <input type="text" id="inputProd" placeholder="Buscar producto: nombre, SKU, código barras... (Ins = línea manual)" autocomplete="off">
+                <button style="background:none;border:none;color:var(--lago-600);cursor:pointer;font-size:.85rem" onclick="agregarLineaVacia()" title="Agregar línea manual (Ins)"><i class="bi bi-plus-circle"></i></button>
+            </div>
+            <div class="suggestions-drop" id="dropProd"></div>
+        </div>
+    </div></div>
 
-            let proveedorSeleccionadoId = null;
-            let productoActualSeleccionado = null;
-            let orden = [];
-            let resultadosActuales = [];
-            let indiceResultadoActivo = -1;
+    <!-- GRILLA ITEMS -->
+    <div class="lago-card" style="flex:1">
+        <div class="lago-card-header">
+            <span><i class="bi bi-list-check me-1"></i>Items (<span id="itemCount">0</span>)</span>
+            <label style="font-size:.72rem;display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin-right:10px">
+                <input type="checkbox" id="chkModoIVA" style="cursor:pointer"> Mostrar precios c/IVA
+            </label>
+            <span style="font-size:.68rem;color:var(--text-muted)">F4=buscar SKU · -1 en dto=cadena · ↑↓←→ navega</span>
+        </div>
+        <div style="overflow-x:auto">
+        <table class="grilla-items" id="grillaItems">
+            <thead><tr>
+                <th class="col-codigo">Código/SKU</th>
+                <th class="col-cant">Cant.</th>
+                <th class="col-desc">Descripción</th>
+                <th class="col-precio">Precio Unit.</th>
+                <th class="col-dto">Dto%</th>
+                <th class="col-iva">IVA%</th>
+                <th class="col-total">Total</th>
+                <th class="col-act"></th>
+            </tr></thead>
+            <tbody id="tbItems">
+                <tr id="rowEmpty"><td colspan="8" class="empty-row"><i class="bi bi-inbox" style="font-size:1.5rem"></i><br>Busque productos arriba o presione Ins</td></tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
 
-            // Mostrar hints de atajos
-            setTimeout(() => {
-                shortcutsHint.style.display = 'block';
-                setTimeout(() => {
-                    shortcutsHint.style.display = 'none';
-                }, 5000);
-            }, 1000);
+    <!-- PERCEPCIONES + OBS -->
+    <div class="lago-card"><div class="lago-card-body">
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div style="flex:1;min-width:300px">
+                <div class="percepciones-row">
+                    <div class="form-group"><label>Perc. IVA</label><input type="number" id="inputPercIVA" value="0" step="0.01"></div>
+                    <div class="form-group"><label>Perc. IIBB</label><input type="number" id="inputPercIIBB" value="0" step="0.01"></div>
+                    <div class="form-group"><label>Jurisdicción</label><input type="text" id="inputJurisd" value="" style="text-align:left"></div>
+                    <div class="form-group"><label>Imp. Internos</label><input type="number" id="inputImpInt" value="0" step="0.01"></div>
+                </div>
+            </div>
+            <div style="flex:1;min-width:200px">
+                <div class="form-group"><label>Observaciones</label><textarea id="inputObs" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:.82rem;resize:none" rows="2" placeholder="Notas internas..."></textarea></div>
+            </div>
+        </div>
+    </div></div>
 
-            // ====================================================================
-            // NAVEGACIÓN POR TECLADO - GLOBAL
-            // ====================================================================
-            document.addEventListener('keydown', (e) => {
-                // F2 - Guardar orden
-                if (e.key === 'F2') {
-                    e.preventDefault();
-                    if (!btnCrearOrden.disabled) {
-                        btnCrearOrden.click();
-                    }
-                    return;
-                }
+</div>
 
-                // ESC - Cancelar/Limpiar
-                if (e.key === 'Escape') {
-                    e.preventDefault();
-                    if (resultadosBusqueda.style.display === 'block') {
-                        resultadosBusqueda.style.display = 'none';
-                        indiceResultadoActivo = -1;
-                    } else if (productoSeleccionado.style.display === 'block') {
-                        productoSeleccionado.style.display = 'none';
-                        buscarProducto.value = '';
-                        buscarProducto.focus();
-                    }
-                    return;
-                }
-            });
+<!-- PANEL RESUMEN -->
+<div class="panel-resumen">
+    <div class="resumen-card">
+        <div class="resumen-header"><i class="bi bi-calculator me-1"></i> RESUMEN</div>
+        <div class="resumen-body">
+            <div class="resumen-line"><span class="lbl">Subtotal neto</span><span class="val" id="resSubtotal">$0,00</span></div>
+            <div class="resumen-line iva"><span class="lbl">IVA 21%</span><span class="val" id="resIVA21">$0,00</span></div>
+            <div class="resumen-line iva"><span class="lbl">IVA 10.5%</span><span class="val" id="resIVA105">$0,00</span></div>
+            <div class="resumen-line iva"><span class="lbl">IVA 27%</span><span class="val" id="resIVA27">$0,00</span></div>
+            <div class="resumen-line sep"><span class="lbl">Percepciones</span><span class="val" id="resPerc">$0,00</span></div>
+        </div>
+        <div class="resumen-total"><div class="label">TOTAL CALCULADO</div><div class="amount" id="resTotalCalc">$0,00</div></div>
+        <div class="total-comp-group">
+            <label>Total según comprobante</label>
+            <input type="number" id="inputTotalComp" step="0.01" placeholder="0.00">
+        </div>
+        <div class="resumen-diff ok" id="resDiff"><i class="bi bi-info-circle"></i> Ingrese total del comprobante físico</div>
+        <div class="opciones">
+            <label class="opt-check"><input type="checkbox" id="chkPrecios"> <i class="bi bi-tag"></i> Actualizar costos prov.</label>
+            <label class="opt-check"><input type="checkbox" id="chkPreferido"> <i class="bi bi-star"></i> Marcar proveedor preferido</label>
+            <label class="opt-check"><input type="checkbox" id="chkNCDev"> <i class="bi bi-arrow-repeat"></i> NC devuelve mercadería</label>
+        </div>
+        <div class="acciones">
+            <button class="btn-guardar" id="btnGuardar" onclick="guardarComprobante()"><i class="bi bi-check-lg"></i> GUARDAR <span class="kbd">F2</span></button>
+            <div class="btn-row">
+                <button class="btn-sec" onclick="suspenderComprobante()" title="Guarda y limpia — se recupera al volver"><i class="bi bi-pause-circle"></i> Suspender</button>
+                <button class="btn-sec" onclick="limpiarFormulario()"><i class="bi bi-trash3"></i> Limpiar</button>
+                <button class="btn-sec" onclick="switchTab('listado');cargarListado()"><i class="bi bi-list-ul"></i> Listado</button>
+                <button class="btn-sec" onclick="abrirModalImport()"><i class="bi bi-file-earmark-excel"></i> Excel</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-            // ====================================================================
-            // PROVEEDOR SELECT - Navegación
-            // ====================================================================
-            proveedorSelect.addEventListener('change', function() {
-                proveedorSeleccionadoId = this.value;
-                proveedorSeleccionadoNombre.textContent = this.options[this.selectedIndex].text;
-                
-                // Habilitar búsqueda
-                buscarProducto.disabled = !proveedorSeleccionadoId;
-                
-                // Auto-focus en búsqueda
-                if (proveedorSeleccionadoId) {
-                    setTimeout(() => buscarProducto.focus(), 100);
-                }
-                
-                validarBoton();
-            });
+</div></div></div>
 
-            // ====================================================================
-            // BÚSQUEDA - Con navegación por teclado
-            // ====================================================================
-            let timeoutBusqueda;
-            buscarProducto.addEventListener('input', function() {
-                clearTimeout(timeoutBusqueda);
-                const busqueda = this.value.trim();
-                
-                if (busqueda.length < 2) {
-                    resultadosBusqueda.style.display = 'none';
-                    indiceResultadoActivo = -1;
-                    return;
-                }
-                
-                timeoutBusqueda = setTimeout(() => buscarProductos(busqueda), 300);
-            });
+<!-- ══════ TAB LISTADO ══════ -->
+<div class="tab-content" id="panelListado">
+<div class="content-area">
+    <div class="metrics-row">
+        <div class="metric-card"><div class="metric-icon pendiente"><i class="bi bi-clock-history"></i></div><div><div class="metric-value" id="statPendientes">0</div><div class="metric-label">Pendientes</div></div></div>
+        <div class="metric-card"><div class="metric-icon" style="background:#cff4fc;color:#055160"><i class="bi bi-hourglass-split"></i></div><div><div class="metric-value" id="statParcial">0</div><div class="metric-label">Pag. parcial</div></div></div>
+        <div class="metric-card"><div class="metric-icon pagado"><i class="bi bi-check-circle"></i></div><div><div class="metric-value" id="statPagados">0</div><div class="metric-label">Pagados</div></div></div>
+        <div class="metric-card"><div class="metric-icon anulado"><i class="bi bi-x-circle"></i></div><div><div class="metric-value" id="statAnulados">0</div><div class="metric-label">Anulados</div></div></div>
+        <div class="metric-card"><div class="metric-icon total"><i class="bi bi-currency-dollar"></i></div><div><div class="metric-value" id="statDeuda">$0</div><div class="metric-label">Deuda total</div></div></div>
+    </div>
+    <div class="filtros-bar">
+        <div class="form-group" style="flex:2;min-width:200px"><label>Buscar</label><div class="lago-search"><i class="bi bi-search"></i><input type="text" id="filtroQ" placeholder="Nro, proveedor, CUIT..." onkeydown="if(event.key==='Enter')cargarListado()"></div></div>
+        <div class="form-group" style="max-width:120px"><label>Tipo</label><select id="filtroTipo" onchange="cargarListado()"><option value="">Todos</option></select></div>
+        <div class="form-group" style="max-width:110px"><label>Estado</label><select id="filtroEstado" onchange="cargarListado()"><option value="">Todos</option><option value="pendiente">Pendiente</option><option value="pagado">Pagado</option><option value="pagado_parcial">Pag. Parcial</option><option value="anulado">Anulado</option></select></div>
+        <div class="form-group" style="max-width:130px"><label>Desde</label><input type="date" id="filtroDesde" onchange="cargarListado()"></div>
+        <div class="form-group" style="max-width:130px"><label>Hasta</label><input type="date" id="filtroHasta" onchange="cargarListado()"></div>
+        <div class="form-group" style="max-width:200px;align-self:end"><div class="btn-row"><button class="btn-sec" style="font-size:11px" onclick="exportarExcelCompras('comprobantes')"><i class="bi bi-file-earmark-excel"></i> Comprobantes</button><button class="btn-sec" style="font-size:11px" onclick="exportarExcelCompras('items')"><i class="bi bi-file-earmark-excel"></i> Items</button><button class="btn-sec" style="font-size:11px" onclick="imprimirListadoCompras()"><i class="bi bi-printer"></i> Imprimir</button></div></div>
+    </div>
+    <table class="tabla-listado">
+        <thead><tr><th>Tipo</th><th>Número</th><th>Fecha</th><th>Proveedor</th><th style="text-align:right">Total</th><th style="text-align:right">Saldo</th><th>Estado</th><th style="text-align:center">Acciones</th></tr></thead>
+        <tbody id="tbListado"><tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px">Presione F5 o la pestaña Listado</td></tr></tbody>
+    </table>
+    <div style="margin-top:8px;font-size:.78rem;color:var(--text-muted)" id="listadoInfo"></div>
+</div></div>
 
-            // Navegación en resultados con flechas
-            buscarProducto.addEventListener('keydown', (e) => {
-                if (resultadosBusqueda.style.display !== 'block') return;
+<!-- SHORTCUT BAR -->
+<div class="lago-shortcut-bar">
+    <div class="shortcut"><kbd>F2</kbd> Guardar</div>
+    <div class="shortcut"><kbd>F3</kbd> Proveedor</div>
+    <div class="shortcut"><kbd>F4</kbd> Buscar SKU</div>
+    <div class="shortcut"><kbd>F5</kbd> Listado</div>
+    <div class="shortcut"><kbd>Ins</kbd> Crear</div>
+    <div class="shortcut"><kbd>↑↓←→</kbd> Navegar</div>
+    <div class="shortcut"><kbd>Enter</kbd> Siguiente</div>
+    <div class="shortcut"><kbd>Esc</kbd> Cancelar</div>
+</div>
 
-                if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    navegarResultados(1);
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    navegarResultados(-1);
-                } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (indiceResultadoActivo >= 0 && resultadosActuales[indiceResultadoActivo]) {
-                        seleccionarProducto(resultadosActuales[indiceResultadoActivo]);
-                    }
-                }
-            });
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/auth.js?v=20260422224913"></script>
+<script src="js/qrcode.min.js?v=20260423135828"></script>
+<script src="js/compra-print.js?v=20260423135828"></script>
+<script src="js/compras.js?v=20260422224913"></script>
 
-            function navegarResultados(direccion) {
-                const items = resultadosBusqueda.querySelectorAll('.producto-item');
-                if (items.length === 0) return;
+<!-- MODAL ALTA RÁPIDA PROVEEDOR -->
+<div class="modal fade" id="modalAltaProv" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+    <div class="modal-header" style="background:var(--lago-700);color:#fff;padding:8px 12px">
+        <h6 class="modal-title" style="margin:0"><i class="bi bi-plus-circle me-1"></i>Nuevo Proveedor</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    </div>
+    <div class="modal-body" style="padding:12px">
+        <div class="form-row" style="display:flex;gap:6px;margin-bottom:8px">
+            <div class="form-group" style="flex:1"><label>CUIT *</label><input type="text" id="apCuit" maxlength="13" placeholder="30-12345678-9"></div>
+            <div class="form-group" style="flex:1"><label>Condición IVA *</label><select id="apCondIVA"><option value="1">Responsable Inscripto</option><option value="2">Monotributo</option><option value="3">Exento</option><option value="4">Consumidor Final</option></select></div>
+        </div>
+        <div class="form-group" style="margin-bottom:8px"><label>Razón Social *</label><input type="text" id="apRazonSocial" placeholder="Nombre legal"></div>
+        <div class="form-group" style="margin-bottom:8px"><label>Nombre Fantasía</label><input type="text" id="apFantasia" placeholder="Opcional"></div>
+        <div class="form-row" style="display:flex;gap:6px;margin-bottom:8px">
+            <div class="form-group" style="flex:1"><label>Teléfono</label><input type="text" id="apTelefono" placeholder="Opcional"></div>
+            <div class="form-group" style="flex:1"><label>Email</label><input type="email" id="apEmail" placeholder="Opcional"></div>
+        </div>
+        <div class="form-group"><label>Domicilio</label><input type="text" id="apDomicilio" placeholder="Opcional"></div>
+    </div>
+    <div class="modal-footer" style="padding:8px 12px">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-sm text-white" style="background:var(--lago-600)" onclick="guardarNuevoProveedor()">
+            <i class="bi bi-check-lg"></i> Guardar y Seleccionar
+        </button>
+    </div>
+</div></div></div>
 
-                // Quitar clase active del actual
-                if (indiceResultadoActivo >= 0 && items[indiceResultadoActivo]) {
-                    items[indiceResultadoActivo].classList.remove('active');
-                }
 
-                // Calcular nuevo índice
-                indiceResultadoActivo += direccion;
-                
-                if (indiceResultadoActivo < 0) {
-                    indiceResultadoActivo = items.length - 1;
-                } else if (indiceResultadoActivo >= items.length) {
-                    indiceResultadoActivo = 0;
-                }
+<!-- ══════ MODAL PAGO AL CONFIRMAR COMPROBANTE ══════ -->
+<div class="modal fade" id="modalPagoCompra" tabindex="-1" data-bs-backdrop="static">
+<div class="modal-dialog modal-lg">
+<div class="modal-content" style="border:2px solid var(--lago-500)">
+    <div class="modal-header" style="background:var(--lago-700);color:#fff;padding:8px 16px">
+        <h6 class="modal-title" style="margin:0"><i class="bi bi-cash-stack me-1"></i> Como se paga? — <span id="mpNumero"></span></h6>
+    </div>
+    <div class="modal-body" style="padding:12px 16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:10px;background:var(--lago-50);border-radius:6px">
+            <div>
+                <div style="font-size:.75rem;color:var(--text-muted)">TOTAL COMPROBANTE</div>
+                <div style="font-size:1.6rem;font-weight:700;color:var(--lago-800)" id="mpTotal">$0,00</div>
+            </div>
+            <div style="text-align:right">
+                <div style="font-size:.75rem;color:var(--text-muted)">PROVEEDOR</div>
+                <div style="font-weight:600" id="mpProveedor">—</div>
+            </div>
+        </div>
 
-                // Agregar clase active al nuevo
-                if (items[indiceResultadoActivo]) {
-                    items[indiceResultadoActivo].classList.add('active');
-                    items[indiceResultadoActivo].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                }
-            }
+        <!-- FORMAS DE PAGO -->
+        <div id="mpFormasPagoSection">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="font-weight:600;font-size:.85rem"><i class="bi bi-wallet2 me-1"></i>Formas de pago</span>
+                <button class="btn-sec" style="font-size:.72rem;padding:2px 8px" onclick="agregarFPModal()"><i class="bi bi-plus"></i> Agregar</button>
+            </div>
+            <div id="mpListaFP"></div>
+        </div>
 
-            async function buscarProductos(busqueda) {
-                if (!proveedorSeleccionadoId) {
-                    alert('Primero selecciona un proveedor');
-                    return;
-                }
+        <!-- RESUMEN -->
+        <div style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:6px;background:#fafafa">
+            <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:4px">
+                <span>Total formas de pago:</span>
+                <span style="font-weight:700" id="mpTotalFP">$0,00</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:.85rem">
+                <span>Resta a Cuenta Corriente:</span>
+                <span style="font-weight:700;color:var(--danger)" id="mpRestoCC">$0,00</span>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer" style="padding:8px 16px;display:flex;gap:8px;justify-content:space-between">
+        <button class="btn-sec" style="font-size:.82rem" onclick="enviarComoCC()" id="mpBtnCC">
+            <i class="bi bi-wallet2"></i> Todo a Cuenta Corriente
+        </button>
+        <div style="display:flex;gap:8px">
+            <button class="btn-sec" onclick="cerrarModalPago()" style="font-size:.82rem">
+                <i class="bi bi-x"></i> Cancelar
+            </button>
+            <button class="btn-guardar" style="font-size:.85rem;padding:6px 16px" onclick="confirmarPagoModal()" id="mpBtnPagar">
+                <i class="bi bi-check-lg"></i> Confirmar Pago <span class="kbd">F2</span>
+            </button>
+        </div>
+    </div>
+</div>
+</div>
+</div>
 
-                try {
-                    const response = await fetch(
-                        `/api/compras/productos-proveedor?id_proveedor=${proveedorSeleccionadoId}&busqueda=${encodeURIComponent(busqueda)}`,
-                        { headers }
-                    );
-                    
-                    const data = await response.json();
-                    resultadosActuales = data.productos;
-                    mostrarResultados(data.productos);
-                } catch (error) {
-                    console.error('Error al buscar productos:', error);
-                }
-            }
+<style>
+.mp-fp-row{display:flex;gap:8px;align-items:end;margin-bottom:8px;padding:8px;background:#fff;border:1px solid var(--border);border-radius:4px}
+.mp-fp-row .form-group{margin:0}
+.mp-fp-row .form-group label{font-size:.65rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:1px}
+.mp-fp-row .form-group input,.mp-fp-row .form-group select{padding:4px 6px;font-size:.85rem;border:1px solid var(--border);border-radius:3px}
+.mp-fp-row .btn-del{align-self:center}
+</style>
 
-            function mostrarResultados(productos) {
-                resultadosBusqueda.innerHTML = '';
-                indiceResultadoActivo = -1;
-                
-                if (productos.length === 0) {
-                    resultadosBusqueda.innerHTML = '<div class="list-group-item text-muted">No se encontraron productos</div>';
-                    resultadosBusqueda.style.display = 'block';
-                    return;
-                }
-                
-                productos.forEach((producto, index) => {
-                    const item = document.createElement('button');
-                    item.type = 'button';
-                    item.className = 'list-group-item list-group-item-action producto-item';
-                    item.dataset.index = index;
-                    
-                    const precioMostrar = producto.tiene_precio_proveedor 
-                        ? parseFloat(producto.precio_neto).toFixed(2)
-                        : parseFloat(producto.precio_final).toFixed(2);
-                    
-                    const tipoPreci = producto.tiene_precio_proveedor ? '' : ' (Lista)';
-                    const codigoProveedor = producto.codigo_proveedor 
-                        ? `<br><small class="text-info">Cód. Prov: ${producto.codigo_proveedor}</small>` 
-                        : '';
-                    
-                    item.innerHTML = `
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <strong>${producto.nombre}</strong><br>
-                                <small class="text-muted">SKU: ${producto.sku} | Stock: ${producto.stock_real}</small>
-                                ${codigoProveedor}
-                            </div>
-                            <div class="text-end">
-                                <span class="producto-precio">$${precioMostrar}</span>${tipoPreci}
-                                ${producto.descuento_porcentaje > 0 ? `<br><span class="producto-descuento">-${producto.descuento_porcentaje}%</span>` : ''}
-                            </div>
-                        </div>
-                    `;
-                    
-                    item.addEventListener('click', () => seleccionarProducto(producto));
-                    resultadosBusqueda.appendChild(item);
-                });
-                
-                resultadosBusqueda.style.display = 'block';
-            }
 
-            function seleccionarProducto(producto) {
-                productoActualSeleccionado = producto;
-                
-                // Ocultar resultados
-                resultadosBusqueda.style.display = 'none';
-                indiceResultadoActivo = -1;
-                
-                // Mostrar producto seleccionado
-                productoSeleccionado.style.display = 'block';
-                nombreProductoSeleccionado.textContent = producto.nombre;
-                skuProductoSeleccionado.textContent = producto.sku;
-                stockProductoSeleccionado.textContent = producto.stock_real;
-                
-                if (producto.codigo_proveedor) {
-                    codigoProveedorInfo.style.display = 'inline';
-                    codigoProveedor.textContent = producto.codigo_proveedor;
-                } else {
-                    codigoProveedorInfo.style.display = 'none';
-                }
-                
-                const precioFinal = producto.tiene_precio_proveedor ? producto.precio_neto : producto.precio_final;
-                precioProducto.value = parseFloat(precioFinal).toFixed(2);
-                
-                if (producto.descuento_porcentaje > 0) {
-                    infoDescuento.style.display = 'block';
-                    infoDescuento.textContent = `Desc: ${producto.descuento_porcentaje}% (Base: $${parseFloat(producto.precio_compra).toFixed(2)})`;
-                } else {
-                    infoDescuento.style.display = 'none';
-                }
-                
-                if (producto.cantidad_minima && producto.cantidad_minima > 1) {
-                    cantidadProducto.value = producto.cantidad_minima;
-                    cantidadProducto.min = producto.cantidad_minima;
-                } else {
-                    cantidadProducto.value = 1;
-                    cantidadProducto.min = 0.001;
-                }
-                
-                // Auto-focus en cantidad
-                setTimeout(() => cantidadProducto.focus(), 100);
-            }
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Descuentos en Cadena (sucesivos multiplicativos)         -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalDescCadena" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title">Descuentos en cadena <span class="text-muted ms-1" style="font-size:0.85em">(sucesivos)</span></h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body py-2">
+        <div class="text-muted mb-2" style="font-size:0.85em">
+          Cada descuento se aplica sobre el resultado del anterior.<br>
+          Ej: <code>10 + 10 = 19%</code> &nbsp;|&nbsp; <code>30 + (-5) = 26,5%</code> &nbsp;<span class="badge bg-light text-dark" style="font-size:.7em">Negativo = recargo</span>
+        </div>
+        <div class="row g-2 align-items-center">
+          <div class="col-2 text-muted small">D1</div>
+          <div class="col-10"><input type="number" class="form-control form-control-sm dc-input" id="dc1" min="-99" max="99" step="0.01" placeholder="%" autofocus title="Positivo=descuento. Negativo=recargo."></div>
+          <div class="col-2 text-muted small">D2</div>
+          <div class="col-10"><input type="number" class="form-control form-control-sm dc-input" id="dc2" min="-99" max="99" step="0.01" placeholder="%" title="Positivo=descuento. Negativo=recargo."></div>
+          <div class="col-2 text-muted small">D3</div>
+          <div class="col-10"><input type="number" class="form-control form-control-sm dc-input" id="dc3" min="-99" max="99" step="0.01" placeholder="%" title="Positivo=descuento. Negativo=recargo."></div>
+          <div class="col-2 text-muted small">D4</div>
+          <div class="col-10"><input type="number" class="form-control form-control-sm dc-input" id="dc4" min="-99" max="99" step="0.01" placeholder="%" title="Positivo=descuento. Negativo=recargo."></div>
+          <div class="col-2 text-muted small">D5</div>
+          <div class="col-10"><input type="number" class="form-control form-control-sm dc-input" id="dc5" min="-99" max="99" step="0.01" placeholder="%" title="Positivo=descuento. Negativo=recargo."></div>
+        </div>
+        <hr class="my-2">
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="text-muted" id="dcEquivalenteLabel">Descuento equivalente:</span>
+          <strong id="dcEquivalente" style="font-size:1.3em; color:var(--lago-700, #198754)">0,00%</strong>
+        </div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnDescCadenaLimpiar">Limpiar</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-sm btn-success" id="btnDescCadenaAplicar">Aplicar (Enter)</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-            // ====================================================================
-            // CANTIDAD Y PRECIO - Navegación con Enter
-            // ====================================================================
-            cantidadProducto.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    precioProducto.focus();
-                }
-            });
-
-            precioProducto.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    btnAgregarProducto.click();
-                }
-            });
-
-            // ====================================================================
-            // AGREGAR PRODUCTO
-            // ====================================================================
-            btnAgregarProducto.addEventListener('click', () => {
-                if (!productoActualSeleccionado) return;
-                
-                const cantidad = parseFloat(cantidadProducto.value);
-                const precio = parseFloat(precioProducto.value);
-                
-                if (isNaN(cantidad) || cantidad <= 0) {
-                    alert('Ingrese una cantidad válida');
-                    cantidadProducto.focus();
-                    return;
-                }
-                
-                if (isNaN(precio) || precio < 0) {
-                    alert('Ingrese un precio válido');
-                    precioProducto.focus();
-                    return;
-                }
-                
-                const subtotal = cantidad * precio;
-                
-                orden.push({
-                    id_producto: productoActualSeleccionado.id_producto,
-                    nombre: productoActualSeleccionado.nombre,
-                    sku: productoActualSeleccionado.sku,
-                    cantidad: cantidad,
-                    precio_unitario: precio,
-                    subtotal: subtotal
-                });
-                
-                renderizarOrden();
-                
-                // Limpiar y volver a búsqueda
-                productoSeleccionado.style.display = 'none';
-                buscarProducto.value = '';
-                productoActualSeleccionado = null;
-                
-                // Auto-focus en búsqueda
-                setTimeout(() => buscarProducto.focus(), 100);
-            });
-
-            // ====================================================================
-            // RENDERIZAR ORDEN
-            // ====================================================================
-            function renderizarOrden() {
-                if (orden.length === 0) {
-                    ordenItemsDiv.innerHTML = '<p class="text-center text-muted">Añada productos a la orden</p>';
-                } else {
-                    ordenItemsDiv.innerHTML = '';
-                    orden.forEach((item, index) => {
-                        const itemDiv = document.createElement('div');
-                        itemDiv.className = 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded';
-                        itemDiv.innerHTML = `
-                            <div>
-                                <strong>${item.nombre}</strong><br>
-                                <small class="text-muted">
-                                    $${item.precio_unitario.toFixed(2)} x ${item.cantidad} = $${item.subtotal.toFixed(2)}
-                                </small>
-                            </div>
-                            <button class="btn btn-sm btn-outline-danger btn-quitar" data-index="${index}" title="Presione Delete para quitar">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        `;
-                        ordenItemsDiv.appendChild(itemDiv);
-                    });
-                }
-                
-                actualizarTotal();
-                validarBoton();
-            }
-
-            ordenItemsDiv.addEventListener('click', (e) => {
-                const btnQuitar = e.target.closest('.btn-quitar');
-                if (btnQuitar) {
-                    const index = parseInt(btnQuitar.dataset.index);
-                    orden.splice(index, 1);
-                    renderizarOrden();
-                }
-            });
-
-            function actualizarTotal() {
-                const total = orden.reduce((sum, item) => sum + item.subtotal, 0);
-                totalOrden.textContent = `$${total.toFixed(2)}`;
-            }
-
-            function validarBoton() {
-                btnCrearOrden.disabled = (orden.length === 0 || !proveedorSeleccionadoId);
-            }
-
-            // ====================================================================
-            // CREAR ORDEN
-            // ====================================================================
-            btnCrearOrden.addEventListener('click', async () => {
-                if (orden.length === 0) return;
-                
-                const total = orden.reduce((sum, item) => sum + item.subtotal, 0);
-                
-                const ordenCompra = {
-                    id_proveedor: parseInt(proveedorSeleccionadoId),
-                    items: orden,
-                    total: total
-                };
-
-                if (confirm('¿Confirmar la creación de esta Orden de Compra? (Presione Enter)')) {
-                    try {
-                        const response = await fetch('/api/compras/ordenes', {
-                            method: 'POST',
-                            headers,
-                            body: JSON.stringify(ordenCompra)
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (response.ok) {
-                            alert(`¡Orden de Compra N° ${result.id_orden_compra} creada exitosamente!`);
-                            
-                            // Limpiar y volver al inicio
-                            orden = [];
-                            proveedorSelect.value = '';
-                            proveedorSeleccionadoId = null;
-                            proveedorSeleccionadoNombre.textContent = 'Seleccione un proveedor';
-                            buscarProducto.disabled = true;
-                            buscarProducto.value = '';
-                            
-                            renderizarOrden();
-                            
-                            // Auto-focus en proveedor
-                            setTimeout(() => proveedorSelect.focus(), 100);
-                        } else {
-                            alert(`Error: ${result.error}`);
-                        }
-                    } catch (error) {
-                        console.error('Error al crear orden:', error);
-                        alert('Error al crear la orden de compra');
-                    }
-                }
-            });
-
-            // ====================================================================
-            // CARGAR PROVEEDORES
-            // ====================================================================
-            const cargarProveedores = async () => {
-                try {
-                    const response = await fetch('/api/compras/datos-iniciales', { headers });
-                    const data = await response.json();
-                    
-                    proveedorSelect.innerHTML = '<option selected disabled value="">-- Seleccione un proveedor --</option>';
-                    data.proveedores.forEach(p => {
-                        const option = document.createElement('option');
-                        option.value = p.id_proveedor;
-                        option.textContent = `${p.razon_social} ${p.nombre_fantasia ? '(' + p.nombre_fantasia + ')' : ''}`;
-                        proveedorSelect.appendChild(option);
-                    });
-                } catch (error) {
-                    console.error('Error al cargar proveedores:', error);
-                    alert('Error al cargar proveedores');
-                }
-            };
-
-            // Cerrar resultados al hacer click fuera
-            document.addEventListener('click', function(e) {
-                if (!buscarProducto.contains(e.target) && !resultadosBusqueda.contains(e.target)) {
-                    resultadosBusqueda.style.display = 'none';
-                    indiceResultadoActivo = -1;
-                }
-            });
-
-            // Inicializar
-            cargarProveedores();
-        });
-    </script>
-    <script src="js/connection-indicator.js"></script>
 </body>
+<!-- Modal Import Excel -->
+<div class="modal fade" id="modalImportExcel" tabindex="-1"><div class="modal-dialog modal-xl"><div class="modal-content">
+<div class="modal-header" style="background:var(--lago-700);color:#fff;padding:10px 16px"><h6 class="modal-title mb-0"><i class="bi bi-file-earmark-excel"></i> Importar Items desde Excel</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+<div class="modal-body" style="padding:12px">
+<div id="importPaso1">
+<div class="alert alert-info py-2 px-3 mb-3" style="font-size:12px;line-height:1.4;border:1px solid #b6e0fe">
+<div style="font-weight:600;margin-bottom:4px;font-size:13px"><i class="bi bi-info-circle"></i> Formato esperado del Excel</div>
+<div>Este importador agrega <strong>solo &iacute;tems</strong> a la grilla. Proveedor, n&uacute;mero, fecha y descuentos generales se cargan a mano arriba.</div>
+<div style="margin-top:6px"><strong>Columnas en orden A &rarr; E &middot; fila 1 = encabezado:</strong></div>
+<table style="width:100%;border-collapse:collapse;margin-top:4px;background:#fff;border:1px solid #b6e0fe;border-radius:3px;font-family:monospace;font-size:11px">
+<tr style="background:#e7f3ff"><td style="padding:3px 6px;border-right:1px solid #d0e3f5"><strong>A</strong></td><td style="padding:3px 6px;border-right:1px solid #d0e3f5"><strong>B</strong></td><td style="padding:3px 6px;border-right:1px solid #d0e3f5"><strong>C</strong></td><td style="padding:3px 6px;border-right:1px solid #d0e3f5"><strong>D</strong></td><td style="padding:3px 6px"><strong>E</strong></td></tr>
+<tr><td style="padding:3px 6px;border-right:1px solid #e0e7ed">SKU *</td><td style="padding:3px 6px;border-right:1px solid #e0e7ed">Descripci&oacute;n</td><td style="padding:3px 6px;border-right:1px solid #e0e7ed">Cantidad *</td><td style="padding:3px 6px;border-right:1px solid #e0e7ed">P. Unit. *</td><td style="padding:3px 6px">Desc. %</td></tr>
+</table>
+<div style="margin-top:6px;font-size:11px;color:#555">* Obligatorios. El c&oacute;digo se busca contra <strong>SKU</strong>, <strong>c&oacute;digo del proveedor</strong> y <strong>c&oacute;digo de barras</strong>. Para cambiar el orden de columnas o la estrategia de matcheo, ir a <em>Configuraciones &rarr; Compras</em>.</div>
+<div style="margin-top:6px;font-size:11px"><i class="bi bi-lightbulb"></i> Si no ten&eacute;s un Excel propio, descarg&aacute; la plantilla en blanco con el bot&oacute;n de abajo.</div>
+</div>
+<div style="margin-bottom:10px"><label class="form-label" style="font-weight:600;font-size:13px">Archivo Excel (.xlsx)</label><input type="file" class="form-control form-control-sm" id="importFile" accept=".xlsx,.xls"></div>
+<div style="display:flex;gap:6px"><button class="btn-sec" onclick="descargarPlantillaImport()"><i class="bi bi-download"></i> Plantilla</button><button class="btn-guardar" style="font-size:12px;padding:4px 12px" onclick="previsualizarImport()" id="btnPreview"><i class="bi bi-eye"></i> Previsualizar</button></div>
+</div>
+<div id="importPaso2" style="display:none">
+<div style="display:flex;gap:8px;margin-bottom:10px"><span class="badge bg-success" id="importOk">0 válidos</span><span class="badge bg-danger" id="importErr">0 errores</span><span class="badge bg-secondary" id="importTotal">0 filas</span></div>
+<div id="importErrores" style="display:none;margin-bottom:10px"><div style="font-size:12px;color:#dc3545;font-weight:600;margin-bottom:4px"><i class="bi bi-exclamation-triangle"></i> Filas con errores:</div><div style="max-height:150px;overflow-y:auto"><table class="tabla-listado" style="font-size:11px"><thead><tr><th>Fila</th><th>Código</th><th>Errores</th></tr></thead><tbody id="tbImportErr"></tbody></table></div></div>
+<div id="importValidos"><div style="font-size:12px;color:var(--lago-700);font-weight:600;margin-bottom:4px"><i class="bi bi-check-circle"></i> Items a importar:</div><div style="max-height:300px;overflow-y:auto"><table class="tabla-listado" style="font-size:11px"><thead><tr><th>Código</th><th>Descripción</th><th>Cant.</th><th>Precio</th><th>Dto%</th><th>IVA%</th><th>Total</th></tr></thead><tbody id="tbImportOk"></tbody></table></div></div>
+</div>
+</div>
+<div class="modal-footer" style="padding:8px 12px"><button class="btn-sec" data-bs-dismiss="modal">Cancelar</button><button class="btn-guardar" id="btnConfirmarImport" style="display:none;font-size:12px;padding:4px 12px" onclick="confirmarImportItems()"><i class="bi bi-check-lg"></i> Agregar a Grilla</button></div>
+</div></div></div>
+<!-- Modal Historial Compras Producto (v2 — tabs + filtros + stats + export) -->
+<div class="modal fade" id="modalHistProd" tabindex="-1"><div class="modal-dialog modal-dialog-scrollable" style="max-width:95vw"><div class="modal-content">
+  <div class="modal-header" style="background:var(--lago-700);color:#fff;padding:10px 16px">
+    <h6 class="modal-title mb-0"><i class="bi bi-clock-history"></i> Historial Compras: <span id="histProdNombre"></span> <small id="histProdSku" style="opacity:.8"></small></h6>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+  </div>
+  <div class="modal-body p-2">
+    <!-- Tabs -->
+    <ul class="nav nav-tabs nav-fill mb-2" id="histTabs" role="tablist" style="font-size:13px">
+      <li class="nav-item" role="presentation"><button class="nav-link" id="histTabProvBtn" data-bs-toggle="tab" data-bs-target="#histPanelProv" type="button" role="tab" data-tab="este_proveedor"><i class="bi bi-person-badge"></i> Este proveedor: <span id="histProvNombre" class="fw-bold ms-1">—</span></button></li>
+      <li class="nav-item" role="presentation"><button class="nav-link" id="histTabGralBtn" data-bs-toggle="tab" data-bs-target="#histPanelGral" type="button" role="tab" data-tab="general"><i class="bi bi-globe"></i> Todos los proveedores</button></li>
+    </ul>
+
+    <!-- Filtros -->
+    <div class="row g-2 mb-2" style="font-size:12px">
+      <div class="col-auto"><label class="form-label mb-0 small">Desde</label><input type="date" id="histDesde" class="form-control form-control-sm"></div>
+      <div class="col-auto"><label class="form-label mb-0 small">Hasta</label><input type="date" id="histHasta" class="form-control form-control-sm"></div>
+      <div class="col-auto"><label class="form-label mb-0 small">Límite</label><input type="number" id="histLimite" class="form-control form-control-sm" min="1" max="500" style="width:80px"></div>
+      <div class="col-auto d-flex align-items-end"><div class="form-check"><input type="checkbox" id="histIncAnul" class="form-check-input"><label class="form-check-label small" for="histIncAnul">Incluir anulados</label></div></div>
+      <div class="col-auto d-flex align-items-end"><button class="btn btn-sm btn-success" onclick="recargarHistorial()" title="Aplicar filtros"><i class="bi bi-arrow-clockwise"></i> Aplicar</button></div>
+      <div class="col d-flex align-items-end justify-content-end"><button class="btn btn-sm btn-outline-secondary" onclick="exportarHistorialCSV()" title="Exportar CSV"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button></div>
+    </div>
+
+    <!-- Stats -->
+    <div id="histStats" class="row g-1 mb-2 text-center" style="font-size:11px"></div>
+
+    <!-- Loading/vacio -->
+    <div id="histProdLoading" class="text-center py-3" style="display:none"><div class="spinner-border spinner-border-sm text-success"></div> <span class="small text-muted">Cargando...</span></div>
+    <div id="histProdVacio" class="text-center py-3" style="display:none;color:#999;font-size:13px">Sin compras registradas para los filtros aplicados</div>
+
+    <!-- Tabla (única, contenido cambia según tab) -->
+    <div class="tab-content active" style="min-height:400px;display:block !important">
+      <div class="tab-pane fade show active" id="histPanelProv" role="tabpanel">
+        <div style="max-height:500px;min-height:300px;overflow:auto;border:1px solid #ddd"><table class="tabla-listado" style="font-size:11px;width:100%;white-space:nowrap"><thead><tr><th>Fecha</th><th>Comprobante</th><th>Proveedor</th><th style="text-align:right">Cant.</th><th style="text-align:right">P.Unit.</th><th style="text-align:center">Dto%</th><th style="text-align:right">Dto $</th><th style="text-align:right">P.Neto</th><th style="text-align:right;background:#e7f5ec;color:#0f5132" title="Precio neto en USD — snapshot del momento de la compra">P.Neto USD</th><th style="text-align:center">IVA%</th><th style="text-align:right">Total</th><th style="text-align:right;background:#e7f5ec;color:#0f5132" title="Total en USD — snapshot">Total USD</th><th style="text-align:center">Cotiz.</th><th style="text-align:center">Estado</th></tr></thead><tbody id="tbHistProd"></tbody></table></div>
+      </div>
+      <div class="tab-pane fade" id="histPanelGral" role="tabpanel">
+        <!-- Mismo tbody id — se llena según tab activa, evitamos duplicar markup -->
+      </div>
+    </div>
+  </div>
+</div></div></div>
 </html>

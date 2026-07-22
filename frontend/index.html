@@ -1,98 +1,38 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <script src="js/config.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Inventario - Mi ERP</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f7f9; color: #333; }
-        header { background-color: #2c3e50; color: white; padding: 1rem 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-        main { padding: 2rem; max-width: 1200px; margin: auto; }
-        .container { background-color: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 2rem; }
-        h1 { margin: 0; }
-        h2 { border-bottom: 2px solid #3498db; padding-bottom: 0.5rem; margin-top: 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background-color: #ecf0f1; font-weight: bold; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 4px; color: white; background-color: #3498db; font-size: 1rem; cursor: pointer; transition: background-color 0.2s; text-decoration: none; }
-        .btn:hover { background-color: #2980b9; }
-        .table-controls { margin-bottom: 1rem; display: flex; gap: 10px; }
-    </style>
+    <title>ERP LAGO</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
-
-    <header>
-        <h1>Panel de Control de Inventario</h1>
-        <a href="/dashboard.html" class="btn">Volver al Dashboard</a>
-    </header>
-
-    <main>
-        <div class="container">
-            <h2>Lista de Productos</h2>
-            <p>Vista general del inventario con la lista de precios por defecto.</p>
-             <div class="table-controls">
-                <button id="recargar" class="btn">Recargar Lista</button>
-            </div>
-            <table>
-                <thead>
-                    <tr><th>SKU</th><th>Nombre</th><th>Stock Actual</th><th>Precio de Venta</th></tr>
-                </thead>
-                <tbody id="tabla-inventario-body">
-                    <!-- El contenido se cargará dinámicamente con JavaScript -->
-                </tbody>
-            </table>
+<body class="bg-dark text-light">
+    <nav class="navbar navbar-dark bg-dark border-bottom border-secondary">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">🏪 ERP LAGO</span>
+            <button class="btn btn-outline-danger" onclick="logout()">Cerrar Sesión</button>
         </div>
-    </main>
-    
+    </nav>
+    <div class="container mt-5">
+        <div class="row g-4">
+            <div class="col-md-6">
+                <a href="venta-rapida.html" class="btn btn-lg btn-success w-100 py-5">
+                    <div class="h3">🛒 Venta Rápida</div>
+                </a>
+            </div>
+            <div class="col-md-6">
+                <a href="dashboard.html" class="btn btn-lg btn-info w-100 py-5">
+                    <div class="h3">📊 Dashboard</div>
+                </a>
+            </div>
+        </div>
+    </div>
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-            window.location.href = '/login.html';
-            return;
+        if (!localStorage.getItem('authToken')) window.location.href = 'login.html';
+        function logout() {
+            localStorage.removeItem('authToken');
+            window.location.href = 'login.html';
         }
-
-        const tbody = document.getElementById('tabla-inventario-body');
-        const btnRecargar = document.getElementById('recargar');
-
-        const cargarInventario = () => {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Cargando...</td></tr>`;
-            fetch('/api/inventario', { // Llama sin clienteId para obtener la lista por defecto
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
-            .then(response => {
-                if (!response.ok) throw new Error('Error de red o del servidor');
-                return response.json();
-            })
-            .then(data => {
-                tbody.innerHTML = '';
-                if (!data || data.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No hay productos en el inventario.</td></tr>`;
-                    return;
-                }
-                data.forEach(producto => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${producto.sku}</td>
-                        <td>${producto.nombre}</td>
-                        <td>${producto.stock_real}</td>
-                        <td>$${Number(producto.precio_venta || 0).toFixed(2)}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            }).catch(error => {
-                console.error('Error al cargar inventario:', error);
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Error al cargar los datos.</td></tr>`;
-            });
-        };
-
-        btnRecargar.addEventListener('click', cargarInventario);
-        
-        cargarInventario(); // Carga inicial
-    });
     </script>
-    <script src="js/connection-indicator.js"></script>
 </body>
 </html>

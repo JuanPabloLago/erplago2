@@ -1,184 +1,317 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <script src="js/config.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Listas de Precios - ERP LAGO</title>
+    <title>Listas de Precios — ERP LAGO</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/erp-lago-styles.css" rel="stylesheet">
     <style>
-        .lista-card {
-            transition: all 0.3s;
-            border-left: 4px solid #dee2e6;
+        :root {
+            --lago-primary: #2e7d32;
+            --lago-primary-light: #4caf50;
+            --lago-primary-dark: #1b5e20;
+            --lago-bg: #f5f7f5;
+            --lago-card-shadow: 0 2px 8px rgba(46,125,50,0.08);
         }
-        .lista-card.activa {
-            border-left-color: #28a745;
-            background-color: #f0fff4;
-        }
-        .lista-card.inactiva {
-            border-left-color: #dc3545;
-            background-color: #fff5f5;
-        }
+        body { background: var(--lago-bg); font-size: 16px; color: #333; }
+
+        .lago-navbar { background: linear-gradient(135deg, var(--lago-primary-dark), var(--lago-primary)); }
+        .lago-navbar .nav-link { color: rgba(255,255,255,0.85); font-size: 0.9rem; }
+        .lago-navbar .nav-link:hover, .lago-navbar .nav-link.active { color: #fff; }
+
+        .resumen-card { background: #fff; border-radius: 12px; padding: 1.2rem; box-shadow: var(--lago-card-shadow); border-left: 4px solid var(--lago-primary); }
+        .resumen-card .valor { font-size: 1.8rem; font-weight: 700; color: var(--lago-primary-dark); }
+        .resumen-card .label { font-size: 0.85rem; color: #666; }
+
+        .tabla-lago { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: var(--lago-card-shadow); }
+        .tabla-lago thead th { background: var(--lago-primary); color: #fff; font-weight: 600; font-size: 0.85rem; white-space: nowrap; border: none; }
+        .tabla-lago tbody tr:hover { background: #e8f5e9; }
+        .tabla-lago tbody td { vertical-align: middle; font-size: 0.9rem; }
+        .table-active { background: #c8e6c9 !important; }
+
+        .panel-detalle { background: #fff; border-radius: 12px; box-shadow: var(--lago-card-shadow); }
+
+        .btn-lago { background: var(--lago-primary); color: #fff; border: none; }
+        .btn-lago:hover { background: var(--lago-primary-dark); color: #fff; }
+        .btn-lago-outline { border: 2px solid var(--lago-primary); color: var(--lago-primary); background: transparent; }
+        .btn-lago-outline:hover { background: var(--lago-primary); color: #fff; }
+
+        .lago-shortcut-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #263238; color: #fff; padding: 8px 20px; font-size: 0.8rem; z-index: 1050; display: flex; gap: 20px; }
+        .lago-shortcut-bar kbd { background: #455a64; padding: 2px 6px; border-radius: 3px; margin-right: 4px; }
+
+        .badge-pct-pos { background: #e8f5e9; color: #2e7d32; }
+        .badge-pct-neg { background: #fce4ec; color: #c62828; }
+
+        /* Precio editado pendiente */
+        input.border-warning { border-color: #ff9800 !important; box-shadow: 0 0 0 2px rgba(255,152,0,0.2); }
     </style>
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-dark bg-primary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="dashboard.html">
-                <i class="bi bi-arrow-left"></i> Volver al Dashboard
-            </a>
-            <span class="navbar-text text-white">
-                <i class="bi bi-tag-fill"></i> Gestión de Listas de Precios
-            </span>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-expand-lg lago-navbar px-3 py-2">
+        <a class="navbar-brand text-white fw-bold" href="/dashboard.html"><i class="bi bi-grid-3x3-gap-fill me-2"></i>LAGO</a>
+        <div class="navbar-nav ms-auto d-flex flex-row gap-2">
+            <a class="nav-link" href="/productos.html"><i class="bi bi-box-seam me-1"></i>Productos</a>
+            <a class="nav-link active" href="/admin-listas-precios.html"><i class="bi bi-tags me-1"></i>Listas Precios</a>
+            <a class="nav-link" href="/clientes.html"><i class="bi bi-people me-1"></i>Clientes</a>
+            <a class="nav-link" href="/facturas.html"><i class="bi bi-receipt me-1"></i>Facturas</a>
         </div>
     </nav>
 
-    <div class="container my-4">
-        <div class="row">
-            <div class="col-12">
-                <div class="card shadow">
-                    <div class="card-header bg-primary text-white">
-                        <h4 class="mb-0">
-                            <i class="bi bi-tags"></i> Listas de Precios del Sistema
-                        </h4>
-                    </div>
-                    <div class="card-body">
-                        <p class="text-muted">
-                            <i class="bi bi-info-circle"></i> 
-                            Activa o desactiva las listas de precios. Solo las listas activas aparecerán en el POS.
-                        </p>
-                        
-                        <div id="listasContainer" class="row g-3">
-                            <!-- Las listas se cargarán aquí -->
+    <div class="container-fluid px-4 py-3" style="margin-bottom: 50px;">
+        <!-- TÍTULO -->
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h4 class="mb-0"><i class="bi bi-tags-fill me-2" style="color:var(--lago-primary)"></i>Listas de Precios</h4>
+            <button class="btn btn-lago" onclick="abrirModalCrear()"><i class="bi bi-plus-lg me-1"></i>Nueva Lista <kbd class="ms-2" style="font-size:0.7rem">Ins</kbd></button>
+        </div>
+
+        <!-- METRIC CARDS -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="resumen-card">
+                    <div class="valor" id="statListasActivas">—</div>
+                    <div class="label">Listas Activas</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="resumen-card">
+                    <div class="valor" id="statListasInactivas">—</div>
+                    <div class="label">Listas Inactivas</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="resumen-card">
+                    <div class="valor" id="statProductosConPrecio">—</div>
+                    <div class="label">Productos con Precio</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="resumen-card">
+                    <div class="valor" id="statClientesConLista">—</div>
+                    <div class="label">Clientes con Lista</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <!-- PANEL IZQUIERDO: TABLA LISTAS -->
+            <div class="col-lg-5">
+                <div class="tabla-lago">
+                    <div class="d-flex align-items-center justify-content-between p-3 pb-2">
+                        <h6 class="mb-0">Listas</h6>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="chkInactivas">
+                            <label class="form-check-label small" for="chkInactivas">Mostrar inactivas</label>
                         </div>
                     </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>%</th>
+                                    <th>Base</th>
+                                    <th class="text-end">Prods</th>
+                                    <th class="text-end">Clientes</th>
+                                    <th>Redond.</th>
+                                    <th>Estado</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyListas">
+                                <tr><td colspan="8" class="text-center py-4 text-muted">Cargando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL DERECHO: DETALLE LISTA SELECCIONADA -->
+            <div class="col-lg-7">
+                <div id="panelPrecios" class="panel-detalle p-3" style="display:none">
+                    <!-- Header detalle -->
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="mb-0">
+                            <i class="bi bi-tag-fill me-1" style="color:var(--lago-primary)"></i>
+                            <span id="nombreListaSeleccionada"></span>
+                        </h5>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-lago-outline" onclick="ejecutarRecalculo()" title="Recalcular desde lista base">
+                                <i class="bi bi-arrow-repeat me-1"></i>Recalcular
+                            </button>
+                            <button class="btn btn-sm btn-lago-outline" onclick="ejecutarRedondeo()" title="Aplicar redondeo argentino">
+                                <i class="bi bi-currency-dollar me-1"></i>Redondear
+                            </button>
+                            <button class="btn btn-sm btn-lago-outline" onclick="abrirModalAjuste()" title="Ajustar % directo">
+                                <i class="bi bi-percent me-1"></i>Ajustar %
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Búsqueda precios -->
+                    <div class="input-group mb-3">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" id="busquedaPrecios" placeholder="Buscar producto por nombre, SKU o código..." autofocus>
+                        <button class="btn btn-lago" onclick="guardarPreciosCambiados()"><i class="bi bi-save me-1"></i>Guardar cambios</button>
+                    </div>
+
+                    <!-- Tabla precios -->
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="sticky-top" style="background: var(--lago-primary);">
+                                <tr>
+                                    <th style="color:#fff">SKU</th>
+                                    <th style="color:#fff">Producto</th>
+                                    <th style="color:#fff">Categoría</th>
+                                    <th style="color:#fff" class="text-end">Precio Base</th>
+                                    <th style="color:#fff" class="text-end">Precio</th>
+                                    <th style="color:#fff" class="text-end">Dif%</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyPrecios">
+                                <tr><td colspan="6" class="text-center py-3 text-muted">Seleccione una lista</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Paginación -->
+                    <div class="d-flex align-items-center justify-content-between mt-2">
+                        <small class="text-muted" id="infoPagina"></small>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" id="btnPrevPag" onclick="cambiarPagina(-1)"><i class="bi bi-chevron-left"></i></button>
+                            <button class="btn btn-outline-secondary" id="btnNextPag" onclick="cambiarPagina(1)"><i class="bi bi-chevron-right"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Clientes asignados -->
+                    <div class="mt-3 pt-3 border-top">
+                        <h6><i class="bi bi-people me-1"></i>Clientes con esta lista</h6>
+                        <div id="listaClientes"><p class="text-muted small">Seleccione una lista</p></div>
+                    </div>
+                </div>
+
+                <!-- Placeholder cuando no hay lista seleccionada -->
+                <div id="placeholderPrecios" class="panel-detalle p-5 text-center" style="display:block">
+                    <i class="bi bi-hand-index-thumb" style="font-size:3rem; color:#ccc"></i>
+                    <p class="text-muted mt-2">Seleccione una lista para ver y editar precios</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
-    <script>
-        const API_URL = 'http://72.60.148.18:3000';
-        let token = localStorage.getItem('authToken');
-
-        // Verificar autenticación
-        if (!token) {
-            window.location.href = 'login.html';
-        }
-
-        // Cargar listas
-        async function cargarListas() {
-            try {
-                const response = await fetch(`${API_URL}/api/admin/listas-precios`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Error al cargar listas');
-                }
-
-                const listas = await response.json();
-                mostrarListas(listas);
-            } catch (error) {
-                console.error('Error:', error);
-                Swal.fire('Error', 'No se pudieron cargar las listas de precios', 'error');
-            }
-        }
-
-        // Mostrar listas
-        function mostrarListas(listas) {
-            const container = document.getElementById('listasContainer');
-            container.innerHTML = '';
-
-            listas.forEach(lista => {
-                const card = document.createElement('div');
-                card.className = 'col-md-6 col-lg-4';
-                
-                const estadoClass = lista.activa ? 'activa' : 'inactiva';
-                const estadoBadge = lista.activa 
-                    ? '<span class="badge bg-success">Activa</span>' 
-                    : '<span class="badge bg-danger">Desactivada</span>';
-                
-                const switchChecked = lista.activa ? 'checked' : '';
-                
-                card.innerHTML = `
-                    <div class="card lista-card ${estadoClass} h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <h5 class="card-title mb-0">
-                                    <i class="bi bi-tag"></i> ${lista.nombre}
-                                </h5>
-                                ${estadoBadge}
+    <!-- MODAL: Crear/Editar Lista -->
+    <div class="modal fade" id="modalLista" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" style="background: var(--lago-primary); color: #fff;">
+                    <h5 class="modal-title" id="modalListaTitulo">Nueva Lista de Precios</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formLista" onsubmit="event.preventDefault(); guardarLista();">
+                        <input type="hidden" id="formListaId">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nombre *</label>
+                            <input type="text" class="form-control" id="inputNombreLista" required maxlength="100">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descripción</label>
+                            <input type="text" class="form-control" id="inputDescripcion" maxlength="255">
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label class="form-label">Lista base</label>
+                                <select class="form-select" id="selectListaBase">
+                                    <option value="">— Sin lista base —</option>
+                                </select>
                             </div>
-                            
-                            <p class="card-text text-muted small">
-                                ${lista.descripcion || 'Sin descripción'}
-                            </p>
-                            
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" 
-                                       type="checkbox" 
-                                       id="switch${lista.id_lista_precio}"
-                                       ${switchChecked}
-                                       onchange="toggleLista(${lista.id_lista_precio}, this.checked)">
-                                <label class="form-check-label" for="switch${lista.id_lista_precio}">
-                                    ${lista.activa ? 'Desactivar' : 'Activar'} lista
-                                </label>
+                            <div class="col-6">
+                                <label class="form-label">% sobre base</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="inputPorcentaje" step="0.001" placeholder="Ej: -7 o +15">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <small class="text-muted">Negativo = descuento, Positivo = recargo</small>
                             </div>
                         </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label class="form-label fw-bold">Margen sobre costo %</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="inputMargenCosto" step="0.1" placeholder="Ej: 75 (fallback para productos sin margen)">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <small class="text-muted">Fallback para productos nuevos sin margen individual</small>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Orden</label>
+                                <input type="number" class="form-control" id="inputOrden" min="0">
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6 d-flex align-items-end">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="chkRedondeo" checked>
+                                    <label class="form-check-label" for="chkRedondeo">Redondeo argentino</label>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar <kbd>Esc</kbd></button>
+                    <button type="button" class="btn btn-lago" onclick="guardarLista()">Guardar <kbd>F2</kbd></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Ajuste Porcentual -->
+    <div class="modal fade" id="modalAjuste" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header" style="background: var(--lago-primary); color: #fff;">
+                    <h5 class="modal-title">Ajuste Porcentual</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Ajustar todos los precios de <strong id="ajusteNombreLista"></strong>:</p>
+                    <div class="input-group mb-3">
+                        <input type="number" class="form-control form-control-lg text-center" id="inputAjustePct" step="0.1" placeholder="Ej: 10 o -5">
+                        <span class="input-group-text">%</span>
                     </div>
-                `;
-                
-                container.appendChild(card);
-            });
-        }
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="chkAjusteRedondeo" checked>
+                        <label class="form-check-label" for="chkAjusteRedondeo">Aplicar redondeo argentino</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-lago" onclick="ejecutarAjustePorcentaje()">Aplicar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        // Activar/Desactivar lista
-        async function toggleLista(id, activa) {
-            try {
-                const response = await fetch(`${API_URL}/api/admin/listas-precios/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ activa })
-                });
+    <!-- SHORTCUT BAR -->
+    <div class="lago-shortcut-bar">
+        <span><kbd>Ins</kbd> Nueva lista</span>
+        <span><kbd>F2</kbd> Guardar</span>
+        <span><kbd>F5</kbd> Refrescar</span>
+        <span><kbd>Esc</kbd> Cerrar modal</span>
+    </div>
 
-                if (!response.ok) {
-                    throw new Error('Error al actualizar lista');
-                }
+    <!-- Toast container -->
+    <div id="toastContainer"></div>
 
-                const data = await response.json();
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: '¡Éxito!',
-                    text: data.message,
-                    timer: 2000,
-                    showConfirmButton: false
-                });
+    <!-- Scripts -->
+    <script src="/js/config.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/connection-indicator.js"></script>
+    <script src="/js/admin-listas-precios.js"></script>
 
-                // Recargar listas
-                setTimeout(() => cargarListas(), 2000);
-
-            } catch (error) {
-                console.error('Error:', error);
-                Swal.fire('Error', 'No se pudo actualizar la lista', 'error');
-                
-                // Revertir el switch
-                const checkbox = document.getElementById(`switch${id}`);
-                checkbox.checked = !activa;
-            }
-        }
-
-        // Cargar al iniciar
-        cargarListas();
-    </script>
-    <script src="js/connection-indicator.js"></script>
 </body>
 </html>

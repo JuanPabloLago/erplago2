@@ -1,0 +1,267 @@
+/**
+ * GENERAR-CATALOGO-WEB.js — ERP LAGO
+ * Genera catalogo.json para la web pública lago.ar
+ *
+ * Lee configuraciones desde configuraciones_empresa (clave catalogo_web.*)
+ * para decidir qué productos incluir sin hardcodear filtros.
+ *
+ * Configuraciones leídas:
+ *   catalogo_web.excluir_sin_precio     (true/false)
+ *   catalogo_web.excluir_sin_stock      (true/false)
+ *   catalogo_web.excluir_categorias     (nombres separados por |)
+ *   catalogo_web.productos_por_pagina   (número, se embebe en el JSON para el frontend)
+ *   catalogo_web.max_chips_categorias   (número, se embebe en el JSON para el frontend)
+ *   catalogo_web.mostrar_solo_con_imagen (true/false)
+ */
+const { Pool } = require('pg');
+const fs = require('fs');
+const path = require('path');
+
+const STATIC_CONFIG = {
+  id_empresa: 1,
+  id_lista_precio_web: 1,
+  output_dir: path.join(__dirname, '..', 'catalogo-web'),
+  output_file: 'catalogo.json'
+};
+
+const pool = new Pool({
+  host: 'localhost',
+  user: 'juanpablo',
+  password: 'Huu3697debian@',
+  database: 'erplago',
+  port: 5432
+});
+
+async function cargarConfiguracion(client, idEmpresa) {
+  const { rows } = await client.query(
+    `SELECT clave, valor FROM configuraciones_empresa WHERE id_empresa = $1 AND clave LIKE 'catalogo_web.%'`,
+    [idEmpresa]
+  );
+  const config = {};
+  rows.forEach(r => {
+    const key = r.clave.replace('catalogo_web.', '');
+    config[key] = r.valor;
+  });
+  return config;
+}
+
+async function cargarDatosEmpresa(client, idEmpresa) {
+  const { rows } = await client.query(
+    `SELECT clave, valor FROM configuraciones_empresa WHERE id_empresa = $1 AND clave LIKE 'empresa.%'`,
+    [idEmpresa]
+  );
+  // Fallback hardcoded solo si no hay configuración
+  const empresa = {
+    nombre: 'LAGO',
+    slogan: 'Ferretería desde 2003 | Mayorista y Minorista',
+    whatsapp: '5401163035258',
+    telefono: '011 6303-5258',
+    email: 'venta@lago.ar',
+    direccion: 'Roger 3498, Glew',
+    horarios: 'Lunes a Viernes 8:30 a 17:00 hs',
+    razon_social: 'LAGO JUAN PABLO',
+    cuit: '20-29628492-1',
+    condicion_iva: 'IVA Responsable Inscripto',
+    domicilio_legal: 'Av. Argentina 1622 esq. Roger, Glew (1856), Buenos Aires'
+  };
+  rows.forEach(r => {
+    const key = r.clave.replace('empresa.', '');
+    empresa[key] = r.valor;
+  });
+  return empresa;
+}
+
+async function generarCatalogo() {
+  const client = await pool.connect();
+  const inicio = Date.now();
+
+  try {
+    console.log(`[${new Date().toISOString()}] Generando catálogo web...`);
+
+    // 1. Cargar configuración dinámica
+    const config = await cargarConfiguracion(client, STATIC_CONFIG.id_empresa);
+    const empresa = await cargarDatosEmpresa(client, STATIC_CONFIG.id_empresa);
+
+    const excluirSinPrecio = config.excluir_sin_precio === 'true';
+    const excluirSinStock = config.excluir_sin_stock === 'true';
+    const excluirCategorias = (config.excluir_categorias || '')
+      .split('|').map(s => s.trim().toUpperCase()).filter(Boolean);
+    const productosPorPagina = parseInt(config.productos_por_pagina) || 48;
+    const maxChipsCategorias = parseInt(config.max_chips_categorias) || 30;
+    const soloConImagen = config.mostrar_solo_con_imagen === 'true';
+
+    console.log(`  Config: excluirSinPrecio=${excluirSinPrecio}, excluirSinStock=${excluirSinStock}`);
+    console.log(`  Config: excluirCategorias=[${excluirCategorias.join(', ')}]`);
+    console.log(`  Config: productosPorPagina=${productosPorPagina}, maxChips=${maxChipsCategorias}`);
+    console.log(`  Config: soloConImagen=${soloConImagen}`);
+
+    // 2. Construir condiciones dinámicas para la query
+    const condiciones = ['p.visible_web = true', 'p.activo = true'];
+    const params = [STATIC_CONFIG.id_empresa, STATIC_CONFIG.id_lista_precio_web];
+    let paramIdx = 3;
+
+    if (excluirSinPrecio) {
+      condiciones.push(`pr.precio IS NOT NULL AND pr.precio > 0`);
+    }
+    if (excluirSinStock) {
+      condiciones.push(`COALESCE(inv.stock_real, 0) > 0`);
+    }
+    if (excluirCategorias.length > 0) {
+      condiciones.push(`(c.nombre IS NULL OR UPPER(c.nombre) NOT IN (${excluirCategorias.map(() => `$${paramIdx++}`).join(',')}))`);
+      params.push(...excluirCategorias);
+    }
+    if (soloConImagen) {
+      condiciones.push(`(p.url_imagen IS NOT NULL AND p.url_imagen != '')`);
+    }
+
+    const whereClause = condiciones.join(' AND ');
+
+    // 3. Query principal con filtros configurables
+    const { rows: productos } = await client.query(`
+      SELECT
+        p.id_producto AS id, p.sku, p.nombre, p.descripcion, p.id_categoria,
+        c.nombre AS categoria, p.unidad_medida AS unidad, m.nombre AS marca,
+        p.url_imagen AS imagen,
+        padre.url_imagen AS imagen_padre,
+        p.tiene_variantes, p.id_producto_padre,
+        pr.precio AS precio_neto,
+        COALESCE(iva.porcentaje, 21) AS iva_porcentaje,
+        ROUND(pr.precio * (1 + COALESCE(iva.porcentaje, 21) / 100), 2) AS precio_con_iva,
+        COALESCE(inv.stock_real, 0) > 0 AS hay_stock
+      FROM productos p
+      LEFT JOIN productos padre ON padre.id_producto = p.id_producto_padre
+      LEFT JOIN categorias c ON c.id_categoria = p.id_categoria
+      LEFT JOIN marcas m ON m.id_marca = p.id_marca
+      LEFT JOIN alicuotasiva iva ON iva.id_alicuota = p.id_alicuota_iva
+      LEFT JOIN precios pr ON pr.id_producto = p.id_producto
+        AND pr.id_empresa = $1 AND pr.id_lista_precio = $2
+      LEFT JOIN inventario inv ON inv.id_producto = p.id_producto
+        AND inv.id_empresa = $1
+      WHERE ${whereClause}
+      ORDER BY p.nombre
+    `, params);
+
+    // 4. Variantes (solo de productos incluidos)
+    const productIds = productos.filter(p => p.tiene_variantes).map(p => p.id);
+    let variantes = [];
+    if (productIds.length > 0) {
+      const { rows } = await client.query(`
+        SELECT pv.id_variante AS id, pv.id_producto, pv.nombre_variante AS nombre,
+          pv.sku, pv.precio, COALESCE(pv.stock, 0) > 0 AS hay_stock
+        FROM producto_variantes pv
+        WHERE pv.id_producto = ANY($1) AND pv.activo = true
+        ORDER BY pv.id_producto, pv.nombre_variante
+      `, [productIds]);
+      variantes = rows;
+    }
+
+    // 5. Conjuntos
+    const { rows: conjuntos } = await client.query(`
+      SELECT id_conjunto AS id, nombre, descripcion
+      FROM conjuntos WHERE activo = true AND id_empresa = $1 ORDER BY nombre
+    `, [STATIC_CONFIG.id_empresa]);
+
+    const conjuntoIds = conjuntos.map(c => c.id);
+    let conjuntoItems = [];
+    if (conjuntoIds.length > 0) {
+      const { rows } = await client.query(`
+        SELECT id_conjunto, id_producto FROM conjunto_items
+        WHERE id_conjunto = ANY($1) AND id_empresa = $2
+      `, [conjuntoIds, STATIC_CONFIG.id_empresa]);
+      conjuntoItems = rows;
+    }
+
+    // 6. Solo categorías y marcas que tienen productos en el set filtrado
+    const catIdsEnUso = new Set(productos.map(p => p.id_categoria).filter(Boolean));
+    const { rows: todasCategorias } = await client.query(
+      `SELECT id_categoria AS id, nombre, id_categoria_padre AS id_padre, orden FROM categorias WHERE activo = true ORDER BY orden, nombre`
+    );
+    // Incluir categorías en uso + sus padres para la jerarquía
+    const categoriasEnUso = todasCategorias.filter(c => {
+      if (catIdsEnUso.has(c.id)) return true;
+      // Incluir padre si algún hijo está en uso
+      return todasCategorias.some(h => h.id_padre === c.id && catIdsEnUso.has(h.id));
+    });
+
+    const marcaNombresEnUso = new Set(productos.map(p => p.marca).filter(Boolean));
+    const { rows: todasMarcas } = await client.query(
+      `SELECT id_marca AS id, nombre FROM marcas WHERE activo = true ORDER BY nombre`
+    );
+    const marcasEnUso = todasMarcas.filter(m => marcaNombresEnUso.has(m.nombre));
+
+    // 7. Armar lookups
+    const variantesPorProducto = {};
+    variantes.forEach(v => {
+      if (!variantesPorProducto[v.id_producto]) variantesPorProducto[v.id_producto] = [];
+      variantesPorProducto[v.id_producto].push({
+        id: v.id, nombre: v.nombre, sku: v.sku,
+        precio: v.precio ? parseFloat(v.precio) : null, hay_stock: v.hay_stock
+      });
+    });
+
+    const conjuntosPorProducto = {};
+    conjuntoItems.forEach(ci => {
+      if (!conjuntosPorProducto[ci.id_producto]) conjuntosPorProducto[ci.id_producto] = [];
+      conjuntosPorProducto[ci.id_producto].push(ci.id_conjunto);
+    });
+
+    // 8. Construir JSON de productos
+    let heredaronImagen = 0;
+    const productosJson = productos.map(p => {
+      let imagen = p.imagen || '';
+      if (!imagen && p.imagen_padre) {
+        imagen = p.imagen_padre;
+        heredaronImagen++;
+      }
+      return {
+        id: p.id, sku: p.sku, nombre: p.nombre, descripcion: p.descripcion || '',
+        id_categoria: p.id_categoria, categoria: p.categoria || '', marca: p.marca || '',
+        unidad: p.unidad || 'unidades', imagen,
+        precio: p.precio_con_iva ? parseFloat(p.precio_con_iva) : null,
+        hay_stock: p.hay_stock,
+        conjuntos: conjuntosPorProducto[p.id] || [],
+        variantes: variantesPorProducto[p.id] || []
+      };
+    });
+
+    // 9. JSON final con config embebida para el frontend
+    const catalogo = {
+      generado: new Date().toISOString(),
+      version: 2,
+      config: {
+        productos_por_pagina: productosPorPagina,
+        max_chips_categorias: maxChipsCategorias
+      },
+      empresa,
+      categorias: categoriasEnUso.map(c => ({ id: c.id, nombre: c.nombre, id_padre: c.id_padre, orden: c.orden })),
+      conjuntos: conjuntos.map(c => ({ id: c.id, nombre: c.nombre, descripcion: c.descripcion || '' })),
+      marcas: marcasEnUso.map(m => ({ id: m.id, nombre: m.nombre })),
+      productos: productosJson
+    };
+
+    // 10. Escribir
+    if (!fs.existsSync(STATIC_CONFIG.output_dir)) fs.mkdirSync(STATIC_CONFIG.output_dir, { recursive: true });
+    const outputPath = path.join(STATIC_CONFIG.output_dir, STATIC_CONFIG.output_file);
+    fs.writeFileSync(outputPath, JSON.stringify(catalogo));
+    fs.writeFileSync(path.join(STATIC_CONFIG.output_dir, 'catalogo-debug.json'), JSON.stringify(catalogo, null, 2));
+
+    const conImagen = productosJson.filter(p => p.imagen).length;
+    const sizeKB = (Buffer.byteLength(JSON.stringify(catalogo)) / 1024).toFixed(1);
+    const elapsed = ((Date.now() - inicio) / 1000).toFixed(2);
+
+    console.log(`[OK] Catálogo generado en ${elapsed}s:`);
+    console.log(`     ${productosJson.length} productos (de ${productos.length} consultados)`);
+    console.log(`     ${variantes.length} variantes, ${categoriasEnUso.length} categorías, ${marcasEnUso.length} marcas`);
+    console.log(`     Imágenes: ${conImagen} con imagen (${heredaronImagen} heredadas del padre)`);
+    console.log(`     Tamaño: ${sizeKB} KB`);
+    console.log(`     Archivo: ${outputPath}`);
+
+  } catch (error) {
+    console.error(`[ERROR]`, error.message);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+generarCatalogo().then(() => { pool.end(); process.exit(0); }).catch(err => { console.error(err); pool.end(); process.exit(1); });

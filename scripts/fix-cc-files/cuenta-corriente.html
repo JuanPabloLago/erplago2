@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script src="js/config.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuenta Corriente - ERP LAGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/erp-lago-styles.css">
+    <style>
+        .saldo-positivo { color: #dc3545; font-weight: bold; }
+        .saldo-negativo, .saldo-cero { color: #28a745; font-weight: bold; }
+        .card-resumen { border-left: 4px solid #0d6efd; }
+        .card-resumen.debe { border-left-color: #dc3545; }
+        .card-resumen.haber { border-left-color: #28a745; }
+        .card-resumen.saldo { border-left-color: #0d6efd; }
+        .mov-debe { color: #dc3545; }
+        .mov-haber { color: #28a745; }
+        .search-results-cc { position: absolute; z-index: 1050; width: 100%; max-height: 300px; overflow-y: auto; background: #fff; border: 1px solid #dee2e6; border-radius: 0 0 .375rem .375rem; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+        .search-results-cc .list-group-item { cursor: pointer; padding: .5rem .75rem; }
+        .search-results-cc .list-group-item:hover,
+        .search-results-cc .list-group-item.active { background-color: #e8f4fe; }
+        .tabla-movimientos th { font-size: 0.85rem; background: #f8f9fa; position: sticky; top: 0; }
+        .tabla-movimientos td { font-size: 0.85rem; }
+        .tabla-container { max-height: 60vh; overflow-y: auto; }
+        .badge-debe { background-color: #dc3545; color: #fff; }
+        .badge-haber { background-color: #28a745; color: #fff; }
+        .btn-volver { position: fixed; bottom: 20px; right: 20px; z-index: 1000; }
+        .nav-tabs .nav-link.active { font-weight: 600; border-bottom: 3px solid #0d6efd; }
+        .filtros-fecha { background: #f8f9fa; border-radius: .375rem; padding: .75rem; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="dashboard.html"><i class="bi bi-shop"></i> ERP LAGO</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="dashboard.html">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="tesoreria.html">Tesorería</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="cuenta-corriente.html">Cuenta Corriente</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="cerrarSesion()">Salir</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-3">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0"><i class="bi bi-journal-text"></i> Cuenta Corriente de Clientes</h4>
+            <div>
+                <kbd>F3</kbd> Buscar &nbsp;
+                <kbd>Esc</kbd> Limpiar
+            </div>
+        </div>
+
+        <!-- Búsqueda de Cliente -->
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <div class="row align-items-end">
+                    <div class="col-md-6 position-relative">
+                        <label class="form-label mb-1 small fw-bold">Buscar Cliente</label>
+                        <input type="text" id="buscarCliente" class="form-control"
+                               placeholder="Nombre, CUIT, teléfono..." autofocus>
+                        <div id="resultadosBusqueda" class="search-results-cc" style="display:none;"></div>
+                    </div>
+                    <div class="col-md-6" id="datosCliente" style="display:none;">
+                        <div class="d-flex align-items-center gap-3">
+                            <div>
+                                <strong id="nombreCliente"></strong>
+                                <small class="text-muted d-block">CUIT: <span id="cuitCliente"></span></small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="deseleccionarCliente()" title="Cambiar cliente">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resumen (visible al seleccionar cliente) -->
+        <div id="panelResumen" style="display:none;">
+            <!-- Cards de Resumen -->
+            <div class="row mb-3" id="cardsResumen">
+                <div class="col-md-3">
+                    <div class="card card-resumen saldo">
+                        <div class="card-body py-2">
+                            <small class="text-muted">Saldo CC</small>
+                            <h4 id="saldoCC" class="mb-0">$0</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card card-resumen debe">
+                        <div class="card-body py-2">
+                            <small class="text-muted">Total Facturado</small>
+                            <h5 id="totalFacturado" class="mb-0">$0</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card card-resumen haber">
+                        <div class="card-body py-2">
+                            <small class="text-muted">Total Cobrado</small>
+                            <h5 id="totalCobrado" class="mb-0">$0</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body py-2">
+                            <small class="text-muted">Pagos a Cuenta</small>
+                            <h5 id="pagosACuenta" class="mb-0">$0</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabMovimientos">
+                        <i class="bi bi-list-ul"></i> Movimientos CC
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabFacturas">
+                        <i class="bi bi-receipt"></i> Facturas Pendientes
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabRecibos">
+                        <i class="bi bi-cash-coin"></i> Recibos
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content border border-top-0 rounded-bottom">
+                <!-- Tab Movimientos CC -->
+                <div class="tab-pane fade show active p-3" id="tabMovimientos">
+                    <div class="filtros-fecha mb-3">
+                        <div class="row align-items-end g-2">
+                            <div class="col-auto">
+                                <label class="form-label mb-0 small">Desde</label>
+                                <input type="date" id="movFechaDesde" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label mb-0 small">Hasta</label>
+                                <input type="date" id="movFechaHasta" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-sm btn-primary" onclick="cargarMovimientos()">
+                                    <i class="bi bi-funnel"></i> Filtrar
+                                </button>
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="setPreset('todo')">Todo</button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="setPreset('mes')">Este mes</button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="setPreset('semana')">Semana</button>
+                            </div>
+                            <div class="col-auto ms-auto">
+                                <span class="text-muted small" id="movCount"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tabla-container">
+                        <table class="table table-sm table-hover tabla-movimientos mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width:130px;">Fecha</th>
+                                    <th>Concepto</th>
+                                    <th style="width:50px;">Ref</th>
+                                    <th class="text-end" style="width:120px;">Debe</th>
+                                    <th class="text-end" style="width:120px;">Haber</th>
+                                    <th class="text-end" style="width:130px;">Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaMovimientos">
+                                <tr><td colspan="6" class="text-center text-muted py-4">Seleccioná un cliente</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab Facturas Pendientes -->
+                <div class="tab-pane fade p-3" id="tabFacturas">
+                    <div class="tabla-container">
+                        <table class="table table-sm table-hover tabla-movimientos mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Nº Factura</th>
+                                    <th>Emisión</th>
+                                    <th>Vencimiento</th>
+                                    <th>Estado</th>
+                                    <th class="text-end">Total</th>
+                                    <th class="text-end">Pagado</th>
+                                    <th class="text-end">Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaFacturas">
+                                <tr><td colspan="7" class="text-center text-muted py-4">Seleccioná un cliente</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab Recibos -->
+                <div class="tab-pane fade p-3" id="tabRecibos">
+                    <div class="tabla-container">
+                        <table class="table table-sm table-hover tabla-movimientos mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Nº Recibo</th>
+                                    <th>Fecha</th>
+                                    <th class="text-end">Total</th>
+                                    <th>Concepto</th>
+                                    <th>Fact. Aplicadas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaRecibos">
+                                <tr><td colspan="5" class="text-center text-muted py-4">Seleccioná un cliente</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botones de acción -->
+            <div class="mt-3 d-flex gap-2">
+                <a id="btnCobrar" href="#" class="btn btn-success" style="display:none;">
+                    <i class="bi bi-cash-coin"></i> Cobrar
+                </a>
+                <button class="btn btn-outline-secondary" onclick="exportarCC()" id="btnExportar" style="display:none;">
+                    <i class="bi bi-file-excel"></i> Exportar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botón Volver a Tesorería -->
+    <a href="tesoreria.html" class="btn btn-primary btn-volver shadow" title="Volver a Tesorería">
+        <i class="bi bi-arrow-left"></i> Tesorería
+    </a>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    'use strict';
+
+    // ============================================================
+    // CONFIG
+    // ============================================================
+    const API_URL = window.API_URL || window.CONFIG?.API_BASE_URL || '/api';
+    const token = localStorage.getItem('authToken');
+    if (!token) window.location.href = 'login.html';
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+    let clienteSeleccionado = null;
+    let timeoutBusqueda = null;
+    let searchResultIndex = -1;
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', () => {
+        configurarBusqueda();
+        configurarAtajos();
+
+        // Si viene con ?id_cliente=X, cargar directo
+        const params = new URLSearchParams(window.location.search);
+        const idCliente = params.get('id_cliente');
+        if (idCliente) {
+            cargarClienteDirecto(parseInt(idCliente, 10));
+        }
+    });
+
+    // ============================================================
+    // BÚSQUEDA DE CLIENTES
+    // ============================================================
+    function configurarBusqueda() {
+        const input = document.getElementById('buscarCliente');
+        const resultados = document.getElementById('resultadosBusqueda');
+
+        input.addEventListener('input', (e) => {
+            clearTimeout(timeoutBusqueda);
+            const q = e.target.value.trim();
+            if (q.length < 2) { resultados.style.display = 'none'; return; }
+            timeoutBusqueda = setTimeout(() => buscarClientes(q), 300);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (!resultados.style.display || resultados.style.display === 'none') return;
+            const items = resultados.querySelectorAll('.list-group-item');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                searchResultIndex = Math.min(searchResultIndex + 1, items.length - 1);
+                actualizarActivo(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                searchResultIndex = Math.max(searchResultIndex - 1, 0);
+                actualizarActivo(items);
+            } else if (e.key === 'Enter' && searchResultIndex >= 0) {
+                e.preventDefault();
+                items[searchResultIndex]?.click();
+            } else if (e.key === 'Escape') {
+                resultados.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.position-relative')) resultados.style.display = 'none';
+        });
+    }
+
+    function actualizarActivo(items) {
+        items.forEach((item, i) => {
+            item.classList.toggle('active', i === searchResultIndex);
+            if (i === searchResultIndex) item.scrollIntoView({ block: 'nearest' });
+        });
+    }
+
+    async function buscarClientes(q) {
+        const div = document.getElementById('resultadosBusqueda');
+        try {
+            const res = await fetch(`${API_URL}/clientes/buscar-cobranzas?q=${encodeURIComponent(q)}`, { headers });
+            if (!res.ok) return;
+            const clientes = await res.json();
+
+            if (clientes.length === 0) {
+                div.innerHTML = '<div class="list-group-item text-muted">No se encontraron clientes</div>';
+            } else {
+                div.innerHTML = clientes.slice(0, 10).map(c => `
+                    <div class="list-group-item d-flex justify-content-between align-items-center"
+                         onclick="seleccionarCliente(${c.id_cliente})">
+                        <div>
+                            <strong>${c.razon_social}</strong>
+                            <small class="text-muted d-block">CUIT: ${c.cuit_cuil || 'N/A'}${c.telefono ? ' · Tel: ' + c.telefono : ''}</small>
+                        </div>
+                        ${c.saldo_pendiente > 0
+                            ? `<span class="badge bg-danger">$${fmtNum(c.saldo_pendiente)}</span>`
+                            : '<span class="badge bg-success">Sin deuda</span>'
+                        }
+                    </div>
+                `).join('');
+            }
+            div.style.display = 'block';
+            searchResultIndex = -1;
+        } catch (err) {
+            console.error('Error búsqueda:', err);
+        }
+    }
+
+    async function seleccionarCliente(idCliente) {
+        document.getElementById('resultadosBusqueda').style.display = 'none';
+        await cargarClienteDirecto(idCliente);
+    }
+
+    async function cargarClienteDirecto(idCliente) {
+        try {
+            const res = await fetch(`${API_URL}/clientes/${idCliente}`, { headers });
+            if (!res.ok) throw new Error('Cliente no encontrado');
+            const cliente = await res.json();
+
+            clienteSeleccionado = cliente;
+            document.getElementById('buscarCliente').style.display = 'none';
+            document.getElementById('datosCliente').style.display = 'block';
+            document.getElementById('nombreCliente').textContent = cliente.razon_social;
+            document.getElementById('cuitCliente').textContent = cliente.cuit_cuil || '-';
+            document.getElementById('panelResumen').style.display = 'block';
+
+            // Botones de acción
+            document.getElementById('btnCobrar').href = `tesoreria.html?id_cliente=${idCliente}`;
+            document.getElementById('btnCobrar').style.display = 'inline-block';
+            document.getElementById('btnExportar').style.display = 'inline-block';
+
+            // Cargar datos en paralelo
+            await Promise.all([
+                cargarResumen(idCliente),
+                cargarMovimientos(),
+                cargarRecibos(idCliente)
+            ]);
+        } catch (err) {
+            console.error(err);
+            alert('Error al cargar cliente');
+        }
+    }
+
+    function deseleccionarCliente() {
+        clienteSeleccionado = null;
+        document.getElementById('buscarCliente').style.display = 'block';
+        document.getElementById('buscarCliente').value = '';
+        document.getElementById('datosCliente').style.display = 'none';
+        document.getElementById('panelResumen').style.display = 'none';
+        document.getElementById('buscarCliente').focus();
+    }
+
+    // ============================================================
+    // RESUMEN (desde facturas/recibos via cobranzas)
+    // ============================================================
+    async function cargarResumen(idCliente) {
+        try {
+            const res = await fetch(`${API_URL}/cobranzas/cuenta-corriente/${idCliente}`, { headers });
+            if (!res.ok) throw new Error('Error');
+            const data = await res.json();
+
+            const r = data.resumen;
+            document.getElementById('totalFacturado').textContent = fmtMoney(r.total_facturado);
+            document.getElementById('totalCobrado').textContent = fmtMoney(r.total_cobrado);
+            document.getElementById('pagosACuenta').textContent = fmtMoney(r.pagos_a_cuenta);
+
+            // Facturas pendientes
+            const tbody = document.getElementById('tablaFacturas');
+            if (data.facturas.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-check-circle text-success"></i> Sin facturas pendientes</td></tr>';
+            } else {
+                tbody.innerHTML = data.facturas.map(f => `
+                    <tr>
+                        <td><strong>${f.numero_completo || f.id_factura}</strong></td>
+                        <td>${fmtDate(f.fecha_emision)}</td>
+                        <td>${f.fecha_vencimiento ? fmtDate(f.fecha_vencimiento) : '-'}</td>
+                        <td><span class="badge ${f.estado === 'parcial' ? 'bg-warning' : 'bg-info'}">${f.estado}</span></td>
+                        <td class="text-end">${fmtMoney(f.total)}</td>
+                        <td class="text-end">${fmtMoney(f.pagado)}</td>
+                        <td class="text-end fw-bold">${fmtMoney(f.saldo)}</td>
+                    </tr>
+                `).join('');
+            }
+        } catch (err) {
+            console.error('Error resumen:', err);
+        }
+    }
+
+    // ============================================================
+    // MOVIMIENTOS CC (desde tabla cuentacorrienteclientes)
+    // ============================================================
+    async function cargarMovimientos() {
+        if (!clienteSeleccionado) return;
+        const idCliente = clienteSeleccionado.id_cliente;
+        const tbody = document.getElementById('tablaMovimientos');
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3">Cargando...</td></tr>';
+
+        const desde = document.getElementById('movFechaDesde').value;
+        const hasta = document.getElementById('movFechaHasta').value;
+
+        let url = `${API_URL}/cobranzas/cuenta-corriente/${idCliente}/movimientos?limite=500`;
+        if (desde) url += `&fecha_desde=${desde}`;
+        if (hasta) url += `&fecha_hasta=${hasta}`;
+
+        try {
+            const res = await fetch(url, { headers });
+            if (!res.ok) throw new Error('Error');
+            const data = await res.json();
+
+            // Actualizar saldo CC en card
+            const saldoEl = document.getElementById('saldoCC');
+            saldoEl.textContent = fmtMoney(data.saldo_actual);
+            saldoEl.className = data.saldo_actual > 0.01 ? 'mb-0 saldo-positivo' : 'mb-0 saldo-cero';
+
+            document.getElementById('movCount').textContent = `${data.movimientos.length} de ${data.total} movimientos`;
+
+            if (data.movimientos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4"><i class="bi bi-inbox"></i> Sin movimientos</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.movimientos.map(m => {
+                const debe = parseFloat(m.debe) || 0;
+                const haber = parseFloat(m.haber) || 0;
+                const saldo = parseFloat(m.saldo) || 0;
+                const ref = m.factura_numero || m.recibo_numero || '';
+
+                return `
+                    <tr>
+                        <td>${fmtDateTime(m.fecha)}</td>
+                        <td>${m.concepto || '-'}</td>
+                        <td><small class="text-muted">${ref}</small></td>
+                        <td class="text-end mov-debe">${debe > 0 ? fmtMoney(debe) : ''}</td>
+                        <td class="text-end mov-haber">${haber > 0 ? fmtMoney(haber) : ''}</td>
+                        <td class="text-end fw-bold ${saldo > 0.01 ? 'text-danger' : 'text-success'}">${fmtMoney(saldo)}</td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (err) {
+            console.error('Error movimientos:', err);
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error al cargar movimientos</td></tr>';
+        }
+    }
+
+    // ============================================================
+    // RECIBOS DEL CLIENTE
+    // ============================================================
+    async function cargarRecibos(idCliente) {
+        const tbody = document.getElementById('tablaRecibos');
+        try {
+            const res = await fetch(`${API_URL}/recibos/cliente/${idCliente}`, { headers });
+            if (!res.ok) throw new Error('Error');
+            const recibos = await res.json();
+
+            if (recibos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Sin recibos</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = recibos.map(r => `
+                <tr>
+                    <td><strong>${r.numero_completo || r.id_recibo}</strong></td>
+                    <td>${fmtDate(r.fecha_recibo)}</td>
+                    <td class="text-end fw-bold">${fmtMoney(r.total_recibo)}</td>
+                    <td>${r.concepto || '-'}</td>
+                    <td>${r.facturas_aplicadas > 0
+                        ? `<span class="badge bg-info">${r.facturas_aplicadas} fact.</span>`
+                        : '<span class="text-muted">A cuenta</span>'}</td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error('Error recibos:', err);
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error al cargar</td></tr>';
+        }
+    }
+
+    // ============================================================
+    // FILTROS DE FECHA
+    // ============================================================
+    function setPreset(preset) {
+        const hoy = new Date();
+        let desde = '', hasta = '';
+
+        if (preset === 'todo') {
+            desde = ''; hasta = '';
+        } else if (preset === 'mes') {
+            desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10);
+            hasta = hoy.toISOString().slice(0, 10);
+        } else if (preset === 'semana') {
+            const inicio = new Date(hoy);
+            inicio.setDate(hoy.getDate() - hoy.getDay());
+            desde = inicio.toISOString().slice(0, 10);
+            hasta = hoy.toISOString().slice(0, 10);
+        }
+
+        document.getElementById('movFechaDesde').value = desde;
+        document.getElementById('movFechaHasta').value = hasta;
+        cargarMovimientos();
+    }
+
+    // ============================================================
+    // EXPORTAR
+    // ============================================================
+    function exportarCC() {
+        if (!clienteSeleccionado) return;
+        alert('Exportar a Excel: próximamente');
+    }
+
+    // ============================================================
+    // ATAJOS DE TECLADO
+    // ============================================================
+    function configurarAtajos() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'F3') {
+                e.preventDefault();
+                deseleccionarCliente();
+            }
+            if (e.key === 'Escape') {
+                document.getElementById('resultadosBusqueda').style.display = 'none';
+            }
+        });
+    }
+
+    // ============================================================
+    // UTILIDADES
+    // ============================================================
+    function fmtMoney(n) {
+        return '$' + (parseFloat(n) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function fmtNum(n) {
+        return (parseFloat(n) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function fmtDate(d) {
+        if (!d) return '-';
+        return new Date(d).toLocaleDateString('es-AR');
+    }
+    function fmtDateTime(d) {
+        if (!d) return '-';
+        const dt = new Date(d);
+        return dt.toLocaleDateString('es-AR') + ' ' + dt.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    }
+    function cerrarSesion() {
+        localStorage.removeItem('authToken');
+        window.location.href = 'login.html';
+    }
+    </script>
+</body>
+</html>

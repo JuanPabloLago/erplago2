@@ -1,0 +1,1 @@
+[ALERTA LAGO] Pedido web #{{nro_pedido}} sin atender hace +{{horas_espera}}h

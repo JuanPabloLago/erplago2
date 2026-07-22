@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuenta Corriente - ERP LAGO</title>
+    <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/erp-lago-styles.css">
+    <style>
+        .card-saldo { border-left: 4px solid #0d6efd; }
+        .card-debe { border-left: 4px solid #dc3545; }
+        .card-haber { border-left: 4px solid #198754; }
+        .card-facturado { border-left: 4px solid #6f42c1; }
+        .monto { font-size: 1.3rem; font-weight: 700; }
+        .monto.positivo { color: #dc3545; }
+        .monto.cero { color: #198754; }
+        .badge-debe { background: #dc354520; color: #dc3545; font-weight: 600; }
+        .badge-haber { background: #19875420; color: #198754; font-weight: 600; }
+        .filtros-bar { background: #f8f9fa; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+        .filtros-bar .form-control, .filtros-bar .form-select { font-size: 0.85rem; }
+        .tabla-cc th { font-size: 0.8rem; text-transform: uppercase; color: #6c757d; }
+        .tabla-cc td { font-size: 0.9rem; vertical-align: middle; }
+        .tabla-cc .col-fecha { width: 140px; }
+        .tabla-cc .col-concepto { min-width: 300px; }
+        .tabla-cc .col-monto { width: 130px; text-align: right; }
+        .tabla-cc .col-saldo { width: 140px; text-align: right; font-weight: 600; }
+        .tab-content { min-height: 400px; }
+        .btn-filtro-activo { background: #0d6efd; color: white !important; }
+        .resumen-filtrado { font-size: 0.85rem; color: #6c757d; }
+        @media print { .no-print { display: none !important; } }
+    </style>
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary no-print">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/"><i class="bi bi-building"></i> ERP LAGO</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/dashboard.html">Dashboard</a>
+                <a class="nav-link" href="/tesoreria.html">Tesorería</a>
+                <a class="nav-link active" href="/cuenta-corriente.html">Cuenta Corriente</a>
+                <a class="nav-link" href="/logout">Salir</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid py-3">
+        <!-- HEADER -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0"><i class="bi bi-journal-text"></i> Cuenta Corriente de Clientes</h4>
+            <div class="no-print">
+                <kbd>F3</kbd> Buscar &nbsp; <kbd>Esc</kbd> Limpiar
+            </div>
+        </div>
+
+        <!-- BUSCAR CLIENTE -->
+        <div class="card mb-3 no-print">
+            <div class="card-body py-2">
+                <div class="row align-items-center">
+                    <div class="col-md-5">
+                        <label class="form-label mb-0 small">Buscar Cliente</label>
+                        <input type="text" id="inputBuscarCliente" class="form-control"
+                               placeholder="Nombre, CUIT o código..." autocomplete="off">
+                        <div id="listaClientes" class="list-group position-absolute" style="z-index:100; max-height:300px; overflow-y:auto; display:none;"></div>
+                    </div>
+                    <div class="col-md-5">
+                        <div id="clienteSeleccionado" class="d-none">
+                            <strong id="clienteNombre"></strong><br>
+                            <small class="text-muted" id="clienteCuit"></small>
+                        </div>
+                    </div>
+                    <div class="col-md-2 text-end">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="limpiarCliente()">
+                            <i class="bi bi-x-lg"></i> Limpiar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARDS RESUMEN -->
+        <div class="row mb-3" id="cardsResumen" style="display:none;">
+            <div class="col-md-3">
+                <div class="card card-saldo h-100">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Saldo CC</small>
+                        <div id="saldoCC" class="monto">$0,00</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-debe h-100">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Total Debe</small>
+                        <div id="totalDebe" class="monto">$0,00</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-haber h-100">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Total Haber</small>
+                        <div id="totalHaber" class="monto">$0,00</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-facturado h-100">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Total Facturado</small>
+                        <div id="totalFacturado" class="monto">$0,00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABS -->
+        <div id="seccionTabs" style="display:none;">
+            <ul class="nav nav-tabs no-print" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabMovimientos">
+                        <i class="bi bi-list-ul"></i> Movimientos CC
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabRecibos">
+                        <i class="bi bi-receipt"></i> Recibos
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content pt-3">
+                <!-- TAB MOVIMIENTOS CC -->
+                <div class="tab-pane fade show active" id="tabMovimientos">
+                    <!-- FILTROS -->
+                    <div class="filtros-bar no-print">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-auto">
+                                <label class="form-label mb-0 small">Desde</label>
+                                <input type="date" id="filtroDesde" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label mb-0 small">Hasta</label>
+                                <input type="date" id="filtroHasta" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label mb-0 small">Tipo</label>
+                                <select id="filtroTipo" class="form-select form-select-sm">
+                                    <option value="todos">Todos</option>
+                                    <option value="debe">Solo Debe</option>
+                                    <option value="haber">Solo Haber</option>
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label mb-0 small">Método Pago</label>
+                                <select id="filtroMetodo" class="form-select form-select-sm">
+                                    <option value="">Todos</option>
+                                    <option value="Efectivo">Efectivo</option>
+                                    <option value="MercadoPago">MercadoPago</option>
+                                    <option value="Transferencia">Transferencia</option>
+                                    <option value="Crédito">Crédito</option>
+                                    <option value="Débito">Débito</option>
+                                    <option value="Cobro en calle">Cobro en calle</option>
+                                </select>
+                            </div>
+                            <div class="col">
+                                <label class="form-label mb-0 small">Buscar en concepto</label>
+                                <input type="text" id="filtroBusqueda" class="form-control form-control-sm"
+                                       placeholder="Nro pedido, recibo...">
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-primary btn-sm" onclick="cargarMovimientos()">
+                                    <i class="bi bi-funnel"></i> Filtrar
+                                </button>
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-outline-secondary btn-sm" onclick="limpiarFiltros()">
+                                    Todo
+                                </button>
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-outline-secondary btn-sm" onclick="filtroRapido('semana')">
+                                    Semana
+                                </button>
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-outline-secondary btn-sm" onclick="filtroRapido('mes')">
+                                    Este mes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RESUMEN FILTRADO -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span id="contadorMovimientos" class="resumen-filtrado"></span>
+                        <span id="resumenFiltrado" class="resumen-filtrado"></span>
+                    </div>
+
+                    <!-- TABLA MOVIMIENTOS -->
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm tabla-cc">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="col-fecha">Fecha</th>
+                                    <th class="col-concepto">Concepto</th>
+                                    <th>Ref</th>
+                                    <th class="col-monto">Debe</th>
+                                    <th class="col-monto">Haber</th>
+                                    <th class="col-saldo">Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyMovimientos">
+                                <tr><td colspan="6" class="text-center text-muted py-4">Seleccioná un cliente</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB RECIBOS -->
+                <div class="tab-pane fade" id="tabRecibos">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Nº Recibo</th>
+                                    <th>Fecha</th>
+                                    <th class="text-end">Total</th>
+                                    <th>Concepto</th>
+                                    <th>Fact. Aplicadas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyRecibos">
+                                <tr><td colspan="5" class="text-center text-muted py-4">Seleccioná un cliente</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCIONES -->
+        <div class="mt-3 no-print" id="seccionAcciones" style="display:none;">
+            <button class="btn btn-success" onclick="irACobrar()">
+                <i class="bi bi-cash-coin"></i> Cobrar
+            </button>
+            <button class="btn btn-outline-secondary ms-2" onclick="exportarMovimientos()">
+                <i class="bi bi-file-earmark-excel"></i> Exportar
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER con link a Tesorería -->
+    <div class="position-fixed bottom-0 end-0 m-3 no-print">
+        <a href="/tesoreria.html" class="btn btn-primary">
+            ← Tesorería
+        </a>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    // ════════════════════════════════════════════════════════════════════
+    // CONFIGURACIÓN
+    // ════════════════════════════════════════════════════════════════════
+    const API_URL = window.API_URL || window.CONFIG?.API_BASE_URL || '/api';
+    let clienteActual = null;
+    let movimientosData = [];
+
+    // ════════════════════════════════════════════════════════════════════
+    // INIT
+    // ════════════════════════════════════════════════════════════════════
+    document.addEventListener('DOMContentLoaded', () => {
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'F3') { e.preventDefault(); document.getElementById('inputBuscarCliente').focus(); }
+            if (e.key === 'Escape') { limpiarCliente(); }
+        });
+
+        // Auto-load si viene ?id_cliente=X
+        const params = new URLSearchParams(window.location.search);
+        const idCliente = params.get('id_cliente');
+        if (idCliente) {
+            cargarClienteDirecto(parseInt(idCliente));
+        }
+
+        // Buscar al tipear
+        const inputBuscar = document.getElementById('inputBuscarCliente');
+        let timeout;
+        inputBuscar.addEventListener('input', () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => buscarClientes(inputBuscar.value), 300);
+        });
+        inputBuscar.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') buscarClientes(inputBuscar.value);
+        });
+
+        // Filtrar con Enter en campos de filtro
+        ['filtroBusqueda', 'filtroDesde', 'filtroHasta'].forEach(id => {
+            document.getElementById(id)?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') cargarMovimientos();
+            });
+        });
+        ['filtroTipo', 'filtroMetodo'].forEach(id => {
+            document.getElementById(id)?.addEventListener('change', () => cargarMovimientos());
+        });
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // BUSCAR CLIENTES
+    // ════════════════════════════════════════════════════════════════════
+    async function buscarClientes(termino) {
+        const lista = document.getElementById('listaClientes');
+        if (!termino || termino.length < 2) { lista.style.display = 'none'; return; }
+
+        try {
+            const res = await fetch(`${API_URL}/clientes/buscar?q=${encodeURIComponent(termino)}`, {
+                headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
+            });
+            const clientes = await res.json();
+
+            if (clientes.length === 0) {
+                lista.innerHTML = '<div class="list-group-item text-muted">Sin resultados</div>';
+            } else {
+                lista.innerHTML = clientes.map(c => `
+                    <button class="list-group-item list-group-item-action" onclick="seleccionarCliente(${JSON.stringify(c).replace(/"/g, '&quot;')})">
+                        <strong>${c.razon_social}</strong>
+                        ${c.cuit_cuil ? `<small class="text-muted ms-2">CUIT: ${c.cuit_cuil}</small>` : ''}
+                    </button>
+                `).join('');
+            }
+            lista.style.display = 'block';
+        } catch (err) {
+            console.error('Error buscando clientes:', err);
+        }
+    }
+
+    function seleccionarCliente(cliente) {
+        clienteActual = cliente;
+        document.getElementById('listaClientes').style.display = 'none';
+        document.getElementById('inputBuscarCliente').value = '';
+        document.getElementById('clienteSeleccionado').classList.remove('d-none');
+        document.getElementById('clienteNombre').textContent = cliente.razon_social;
+        document.getElementById('clienteCuit').textContent = cliente.cuit_cuil ? `CUIT: ${cliente.cuit_cuil}` : '';
+        document.getElementById('cardsResumen').style.display = '';
+        document.getElementById('seccionTabs').style.display = '';
+        document.getElementById('seccionAcciones').style.display = '';
+
+        cargarResumen(cliente.id_cliente);
+        cargarMovimientos();
+        cargarRecibos(cliente.id_cliente);
+    }
+
+    async function cargarClienteDirecto(idCliente) {
+        try {
+            const res = await fetch(`${API_URL}/cobranzas/cuenta-corriente/${idCliente}`, {
+                headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
+            });
+            const data = await res.json();
+            if (data.cliente) {
+                seleccionarCliente(data.cliente);
+            }
+        } catch (err) {
+            console.error('Error cargando cliente:', err);
+        }
+    }
+
+    function limpiarCliente() {
+        clienteActual = null;
+        document.getElementById('inputBuscarCliente').value = '';
+        document.getElementById('inputBuscarCliente').focus();
+        document.getElementById('listaClientes').style.display = 'none';
+        document.getElementById('clienteSeleccionado').classList.add('d-none');
+        document.getElementById('cardsResumen').style.display = 'none';
+        document.getElementById('seccionTabs').style.display = 'none';
+        document.getElementById('seccionAcciones').style.display = 'none';
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // CARGAR RESUMEN
+    // ════════════════════════════════════════════════════════════════════
+    async function cargarResumen(idCliente) {
+        try {
+            const res = await fetch(`${API_URL}/cobranzas/cuenta-corriente/${idCliente}`, {
+                headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
+            });
+            const data = await res.json();
+
+            const saldo = data.saldo_cc || 0;
+            const saldoEl = document.getElementById('saldoCC');
+            saldoEl.textContent = formatMoney(saldo);
+            saldoEl.className = saldo > 0 ? 'monto positivo' : 'monto cero';
+
+            document.getElementById('totalDebe').textContent = formatMoney(data.total_debe);
+            document.getElementById('totalHaber').textContent = formatMoney(data.total_haber);
+            document.getElementById('totalFacturado').textContent = formatMoney(data.total_facturado);
+        } catch (err) {
+            console.error('Error cargando resumen:', err);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // CARGAR MOVIMIENTOS CC (con filtros)
+    // ════════════════════════════════════════════════════════════════════
+    async function cargarMovimientos() {
+        if (!clienteActual) return;
+
+        const params = new URLSearchParams();
+        const tipo = document.getElementById('filtroTipo').value;
+        const desde = document.getElementById('filtroDesde').value;
+        const hasta = document.getElementById('filtroHasta').value;
+        const busqueda = document.getElementById('filtroBusqueda').value;
+        const metodo = document.getElementById('filtroMetodo').value;
+
+        if (tipo !== 'todos') params.set('tipo', tipo);
+        if (desde) params.set('fecha_desde', desde);
+        if (hasta) params.set('fecha_hasta', hasta);
+        if (busqueda) params.set('busqueda', busqueda);
+        if (metodo) params.set('metodo_pago', metodo);
+        params.set('orden', 'desc');
+        params.set('limite', '500');
+
+        try {
+            const url = `${API_URL}/cobranzas/cuenta-corriente/${clienteActual.id_cliente}/movimientos?${params}`;
+            const res = await fetch(url, {
+                headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
+            });
+            const data = await res.json();
+
+            movimientosData = data.movimientos || [];
+            renderMovimientos(movimientosData);
+
+            // Contador
+            document.getElementById('contadorMovimientos').textContent =
+                `${data.total} movimiento${data.total !== 1 ? 's' : ''}`;
+
+            // Resumen filtrado
+            const rf = data.resumen_filtrado || {};
+            document.getElementById('resumenFiltrado').textContent =
+                `Debe: ${formatMoney(rf.total_debe || 0)} | Haber: ${formatMoney(rf.total_haber || 0)} | Saldo actual: ${formatMoney(data.saldo_actual || 0)}`;
+
+        } catch (err) {
+            console.error('Error cargando movimientos:', err);
+        }
+    }
+
+    function renderMovimientos(movimientos) {
+        const tbody = document.getElementById('tbodyMovimientos');
+
+        if (movimientos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Sin movimientos</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = movimientos.map(m => {
+            const fecha = new Date(m.fecha);
+            const fechaStr = fecha.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
+            const horaStr = fecha.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
+            const debe = parseFloat(m.debe) || 0;
+            const haber = parseFloat(m.haber) || 0;
+            const saldo = parseFloat(m.saldo) || 0;
+
+            return `<tr>
+                <td class="col-fecha">
+                    <div>${fechaStr}</div>
+                    <small class="text-muted">${horaStr}</small>
+                </td>
+                <td class="col-concepto">${escapeHtml(m.concepto || '')}</td>
+                <td>
+                    ${m.id_pago ? `<small class="text-muted">P#${m.id_pago}</small>` : ''}
+                    ${m.id_factura ? `<small class="text-muted">F#${m.id_factura}</small>` : ''}
+                </td>
+                <td class="col-monto">${debe > 0 ? `<span class="text-danger">${formatMoney(debe)}</span>` : ''}</td>
+                <td class="col-monto">${haber > 0 ? `<span class="text-success">${formatMoney(haber)}</span>` : ''}</td>
+                <td class="col-saldo ${saldo > 0 ? 'text-danger' : 'text-success'}">${formatMoney(saldo)}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // CARGAR RECIBOS
+    // ════════════════════════════════════════════════════════════════════
+    async function cargarRecibos(idCliente) {
+        try {
+            const res = await fetch(`${API_URL}/recibos/cliente/${idCliente}`, {
+                headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
+            });
+            const recibos = await res.json();
+
+            const tbody = document.getElementById('tbodyRecibos');
+            if (!recibos || recibos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Sin recibos</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = (Array.isArray(recibos) ? recibos : []).map(r => {
+                const fecha = new Date(r.fecha_recibo);
+                const fechaStr = fecha.toLocaleDateString('es-AR');
+                const nro = r.numero_completo || ('0000' + r.numero_recibo).slice(-8);
+                const aplicadas = r.facturas_aplicadas || r.concepto || '';
+
+                return `<tr>
+                    <td><strong>${nro}</strong></td>
+                    <td>${fechaStr}</td>
+                    <td class="text-end">${formatMoney(r.total_recibo)}</td>
+                    <td>${escapeHtml(r.concepto || '')}</td>
+                    <td>${aplicadas ? `<span class="badge bg-info">${aplicadas}</span>` : '<span class="text-muted">A cuenta</span>'}</td>
+                </tr>`;
+            }).join('');
+        } catch (err) {
+            console.error('Error cargando recibos:', err);
+            document.getElementById('tbodyRecibos').innerHTML =
+                '<tr><td colspan="5" class="text-center text-muted">Error cargando recibos</td></tr>';
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // FILTROS RÁPIDOS
+    // ════════════════════════════════════════════════════════════════════
+    function limpiarFiltros() {
+        document.getElementById('filtroDesde').value = '';
+        document.getElementById('filtroHasta').value = '';
+        document.getElementById('filtroTipo').value = 'todos';
+        document.getElementById('filtroMetodo').value = '';
+        document.getElementById('filtroBusqueda').value = '';
+        cargarMovimientos();
+    }
+
+    function filtroRapido(periodo) {
+        const hoy = new Date();
+        let desde;
+
+        if (periodo === 'semana') {
+            desde = new Date(hoy);
+            desde.setDate(desde.getDate() - 7);
+        } else if (periodo === 'mes') {
+            desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+        }
+
+        document.getElementById('filtroDesde').value = desde.toISOString().split('T')[0];
+        document.getElementById('filtroHasta').value = hoy.toISOString().split('T')[0];
+        cargarMovimientos();
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // ACCIONES
+    // ════════════════════════════════════════════════════════════════════
+    function irACobrar() {
+        if (!clienteActual) return;
+        window.location.href = `/tesoreria.html?id_cliente=${clienteActual.id_cliente}`;
+    }
+
+    function exportarMovimientos() {
+        if (!movimientosData.length) return alert('No hay movimientos para exportar');
+
+        let csv = 'Fecha,Concepto,Debe,Haber,Saldo\n';
+        movimientosData.forEach(m => {
+            const fecha = new Date(m.fecha).toLocaleDateString('es-AR');
+            const concepto = (m.concepto || '').replace(/,/g, ';');
+            csv += `${fecha},"${concepto}",${m.debe || 0},${m.haber || 0},${m.saldo || 0}\n`;
+        });
+
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `CC_${clienteActual.razon_social.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // UTILIDADES
+    // ════════════════════════════════════════════════════════════════════
+    function formatMoney(val) {
+        const num = parseFloat(val) || 0;
+        return '$' + num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+    </script>
+</body>
+</html>

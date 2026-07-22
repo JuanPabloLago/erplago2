@@ -1,0 +1,35 @@
+                                                   Table "public.entregas_planificadas"
+       Column       |            Type             | Collation | Nullable |                             Default                             
+--------------------+-----------------------------+-----------+----------+-----------------------------------------------------------------
+ id_planificacion   | integer                     |           | not null | nextval('entregas_planificadas_id_planificacion_seq'::regclass)
+ id_pedido          | integer                     |           | not null | 
+ id_empresa         | integer                     |           | not null | 
+ fecha_programada   | date                        |           | not null | 
+ hora_inicio        | time without time zone      |           |          | 
+ hora_fin           | time without time zone      |           |          | 
+ zona_entrega       | character varying(100)      |           |          | 
+ prioridad          | integer                     |           |          | 1
+ color_calendario   | character varying(20)       |           |          | '#667eea'::character varying
+ observaciones      | text                        |           |          | 
+ notas_ruta         | text                        |           |          | 
+ estado             | character varying(20)       |           |          | 'planificada'::character varying
+ id_usuario_creador | integer                     |           |          | 
+ created_at         | timestamp without time zone |           |          | now()
+ updated_at         | timestamp without time zone |           |          | now()
+Indexes:
+    "entregas_planificadas_pkey" PRIMARY KEY, btree (id_planificacion)
+    "idx_entregas_planificadas_empresa" btree (id_empresa)
+    "idx_entregas_planificadas_estado" btree (estado)
+    "idx_entregas_planificadas_fecha" btree (fecha_programada)
+    "idx_entregas_planificadas_pedido" btree (id_pedido)
+    "unique_pedido_fecha" UNIQUE CONSTRAINT, btree (id_pedido, fecha_programada)
+Check constraints:
+    "entregas_planificadas_estado_check" CHECK (estado::text = ANY (ARRAY['planificada'::character varying, 'en_ruta'::character varying, 'entregada'::character varying, 'reprogramada'::character varying, 'cancelada'::character varying]::text[]))
+    "entregas_planificadas_prioridad_check" CHECK (prioridad >= 1 AND prioridad <= 5)
+Foreign-key constraints:
+    "entregas_planificadas_id_empresa_fkey" FOREIGN KEY (id_empresa) REFERENCES empresas(id_empresa) ON DELETE CASCADE
+    "entregas_planificadas_id_pedido_fkey" FOREIGN KEY (id_pedido) REFERENCES pedidos(id_pedido) ON DELETE CASCADE
+    "entregas_planificadas_id_usuario_creador_fkey" FOREIGN KEY (id_usuario_creador) REFERENCES usuarios(id_usuario)
+Triggers:
+    trigger_actualizar_entregas_planificadas BEFORE UPDATE ON entregas_planificadas FOR EACH ROW EXECUTE FUNCTION actualizar_updated_at()
+

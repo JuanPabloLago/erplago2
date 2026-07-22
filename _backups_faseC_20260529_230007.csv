@@ -1,0 +1,9 @@
+id_empresa,clave,valor
+1,venta.redondeo_con_iva,NINGUNO
+1,venta.direccion_redondeo,MAS_CERCANO
+1,precios.redondeo_modo,al_peso
+1,precios.redondeo_unidad,1
+1,precios.tolerancia_drift_log,0.10
+1,precios.redondeo_nivel,unidad_bruto
+1,precios.engine.activo,false
+1,precios.engine.consumidores_activos,""

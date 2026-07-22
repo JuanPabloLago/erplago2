@@ -1,0 +1,2317 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * COMPRAS v2.1 — ERP LAGO
+ * Frontend funcional — Paleta verde LAGO, keyboard-only, Excel-like grid
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+const API_URL = window.CONFIG?.API_BASE_URL || '/api';
+const TOKEN = localStorage.getItem('authToken');
+
+// ── Modo de precio (toggle neto / con IVA) — SOLO presentacion, BD siempre neto ──
+var modoPrecioConIVA = (localStorage.getItem('compras_modo_precio') === 'con_iva');
+function precioMostrado(neto, ivaPct) {
+    var f = 1 + (parseFloat(ivaPct) || 0) / 100;
+    return modoPrecioConIVA ? (parseFloat(neto) || 0) * f : (parseFloat(neto) || 0);
+}
+function precioDesdeMostrado(valor, ivaPct) {
+    var f = 1 + (parseFloat(ivaPct) || 0) / 100;
+    return modoPrecioConIVA ? (parseFloat(valor) || 0) / f : (parseFloat(valor) || 0);
+}
+function refrescarPreciosVisibles() {
+    document.querySelectorAll('#tbItems tr[data-row]').forEach(function (tr) {
+        var idx = parseInt(tr.dataset.row);
+        var item = itemsComprobante[idx];
+        if (!item) return;
+        var inp = tr.querySelector('[data-col="3"]');
+        if (inp) inp.value = precioMostrado(item.precio_unitario, item.iva_porcentaje).toFixed(2);
+        var ref = tr.querySelector('.precio-ref');
+        if (ref && item.ultimo_precio && item.ultimo_precio.precio > 0) {
+            var up = precioMostrado(item.ultimo_precio.precio, item.iva_porcentaje);
+            var diff = item.precio_unitario > 0
+                ? ((item.precio_unitario - item.ultimo_precio.precio) / item.ultimo_precio.precio * 100).toFixed(0)
+                : null;
+            if (diff) ref.innerHTML = 'Ult: ' + fmt(up) + ' <span class="' + (diff > 0 ? 'up' : 'down') + '">' + (diff > 0 ? '\u2191' : '\u2193') + Math.abs(diff) + '%</span>';
+        }
+    });
+}
+let proveedorSeleccionado = null;
+let itemsComprobante = [];
+let formData = { tipos: [], alicuotas: [], monedas: [], formasPago: [], bancos: [], configsCompras: {} };
+let guardando = false;
+let suggestionIdx = -1;
+const EDITABLE_COLS = [0, 1, 2, 3, 4, 5];
+const fmt = v => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(v || 0);
+const fmtFecha = f => f ? new Date(f).toLocaleDateString('es-AR') : '-';
+
+// ═══════════════════════════════════════════════════════════════
+// API HELPER
+// ═══════════════════════════════════════════════════════════════
+
+async function apiFetch(path, opts = {}) {
+    const url = API_URL + path;
+    const res = await fetch(url, {
+        headers: {
+            'Authorization': 'Bearer ' + TOKEN,
+            'Content-Type': 'application/json'
+        },
+        ...opts
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Error ' + res.status);
+    return json;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', async function() {
+    if (!TOKEN) return;
+    await cargarFormData();
+    inicializarEventos();
+    document.getElementById('inputFechaEmision').value = new Date().toISOString().split('T')[0];
+    // Defaults desde BD (configuracion_sistema)
+    aplicarConfigsCompras();
+    // Recuperar borrador si existe
+    recuperarBorradorCompras();
+});
+
+function aplicarConfigsCompras() {
+    var cfg = formData.configsCompras || {};
+    document.getElementById('chkPrecios').checked = cfg.compras_actualizar_precios_default === 'true';
+    var pvDefault = cfg.compras_punto_venta_default || '';
+    if (pvDefault) {
+        var pvEl = document.getElementById('inputPV');
+        if (pvEl && !pvEl.value) pvEl.value = pvDefault.padStart(4, '0');
+    }
+    // Toggle modo precio (neto / con IVA): presentacion pura, persiste como preferencia de vista
+    var chkIVA = document.getElementById('chkModoIVA');
+    if (chkIVA) {
+        chkIVA.checked = modoPrecioConIVA;
+        chkIVA.addEventListener('change', function () {
+            modoPrecioConIVA = chkIVA.checked;
+            localStorage.setItem('compras_modo_precio', modoPrecioConIVA ? 'con_iva' : 'neto');
+            refrescarPreciosVisibles();
+        });
+    }
+}
+
+async function cargarFormData() {
+    try {
+        var r = await apiFetch('/compras/form-data');
+        formData = r.data;
+        llenarSelect('selTipo', formData.tipos, 'id_tipo', function(t) { return t.codigo + ' — ' + t.nombre; });
+        llenarSelect('selMoneda', formData.monedas, 'id_moneda', function(m) { return m.codigo + ' ' + m.simbolo; });
+        // Llenar filtro tipo en listado
+        var filtroTipo = document.getElementById('filtroTipo');
+        if (filtroTipo) {
+            formData.tipos.forEach(function(t) {
+                var opt = document.createElement('option');
+                opt.value = t.id_tipo;
+                opt.textContent = t.codigo;
+                filtroTipo.appendChild(opt);
+            });
+        }
+    } catch (e) {
+        console.error('Error cargando formData:', e);
+        toast('Error al cargar formulario', 'danger');
+    }
+}
+
+function llenarSelect(id, items, valueKey, labelFn) {
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    var firstOpt = sel.querySelector('option');
+    sel.innerHTML = '';
+    if (firstOpt && firstOpt.value === '') sel.appendChild(firstOpt);
+    items.forEach(function(item) {
+        var opt = document.createElement('option');
+        opt.value = item[valueKey];
+        opt.textContent = labelFn(item);
+        Object.keys(item).forEach(function(k) { opt.dataset[k] = item[k]; });
+        sel.appendChild(opt);
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EVENTOS
+// ═══════════════════════════════════════════════════════════════
+
+function inicializarEventos() {
+    var inpProv = document.getElementById('inputProv');
+    var toProv;
+    inpProv.addEventListener('input', function(e) {
+        clearTimeout(toProv);
+        toProv = setTimeout(function() { buscarProveedores(e.target.value); }, 300);
+    });
+    inpProv.addEventListener('keydown', function(e) {
+        navegarSuggestions(e, 'dropProv', seleccionarProveedorIdx);
+    });
+    // Al hacer focus, buscar todos los proveedores (son pocos)
+    inpProv.addEventListener('focus', function() {
+        buscarProveedores(inpProv.value);
+    });
+
+    var inpProd = document.getElementById('inputProd');
+    var toProd;
+    inpProd.addEventListener('input', function(e) {
+        clearTimeout(toProd);
+        toProd = setTimeout(function() { buscarProductos(e.target.value); }, 300);
+    });
+    inpProd.addEventListener('keydown', function(e) {
+        // Enter: match exacto por SKU/código antes de seleccionar primero
+        if (e.key === 'Enter') {
+            var drop = document.getElementById('dropProd');
+            if (drop.classList.contains('open')) {
+                e.preventDefault();
+                var busqueda = inpProd.value.trim().toUpperCase();
+                var items = drop.querySelectorAll('.sug-item');
+                var exactIdx = -1;
+                items.forEach(function(item, i) {
+                    try {
+                        var prod = JSON.parse(item.dataset.prod || '{}');
+                        var sku = (prod.sku || '').toUpperCase();
+                        var codProv = (prod.codigo_proveedor || '').toUpperCase();
+                        if (sku === busqueda || codProv === busqueda) exactIdx = i;
+                    } catch(ex) {}
+                });
+                if (exactIdx >= 0) {
+                    seleccionarProductoIdx(exactIdx);
+                } else {
+                    seleccionarProductoIdx(suggestionIdx >= 0 ? suggestionIdx : 0);
+                }
+                return;
+            }
+        }
+        navegarSuggestions(e, 'dropProd', seleccionarProductoIdx);
+    });
+
+    document.getElementById('selTipo').addEventListener('change', function(e) {
+        var opt = e.target.selectedOptions[0];
+        if (!opt || !opt.dataset) return;
+        var codigo = (opt.dataset.codigo || '').toUpperCase();
+
+        // Opciones según tipo: PRES no afecta stock por defecto, NC no genera deuda positiva
+        var afectaStock = opt.dataset.afecta_stock !== 'false';
+        var afectaCuenta = parseInt(opt.dataset.afecta_cuenta || 1) !== 0;
+        aplicarConfigsCompras();
+
+        // NC devuelve mercadería: solo visible/relevante para NC
+        document.getElementById('chkNCDev').checked = codigo === 'NC';
+
+        // PRES: auto-generar PV + número (son internos, no AFIP)
+        autoNumerarSiPRES();
+    });
+
+    document.getElementById('selMoneda').addEventListener('change', function(e) {
+        document.getElementById('inputCotiz').value = e.target.value === '1' ? '1' : '';
+        if (e.target.value !== '1') document.getElementById('inputCotiz').focus();
+    });
+
+    var pvEl = document.getElementById('inputPV');
+    if (pvEl) pvEl.addEventListener('blur', function(e) { e.target.value = (e.target.value || '').padStart(4, '0'); });
+    var numEl = document.getElementById('inputNumero');
+    if (numEl) numEl.addEventListener('blur', function(e) { e.target.value = (e.target.value || '').padStart(8, '0'); });
+
+    ['inputPercIVA', 'inputPercIIBB', 'inputImpInt'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', function() { recalcularTotales(); });
+    });
+
+    var tcEl = document.getElementById('inputTotalComp');
+    if (tcEl) tcEl.addEventListener('input', function() { validarDiferencia(); });
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#searchProv') && !e.target.closest('#dropProv')) cerrarDrop('dropProv');
+        if (!e.target.closest('#searchProd') && !e.target.closest('#dropProd')) cerrarDrop('dropProd');
+    });
+
+    document.getElementById('tbItems').addEventListener('keydown', gridKeydown);
+    document.getElementById('tbItems').addEventListener('focusin', gridFocusin);
+    document.getElementById('tbItems').addEventListener('change', gridChange);
+    document.getElementById('tbItems').addEventListener('input', gridInput);
+
+    document.addEventListener('keydown', globalShortcuts);
+
+    // Validar número duplicado on blur (handler reutilizable)
+    var numElEvt = document.getElementById('inputNumero');
+    if (numElEvt) {
+        numElEvt.addEventListener('blur', validarNumeroComprobante);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VALIDACIÓN DE NÚMERO DE COMPROBANTE
+// Reutilizada en: blur del input, post-sugerirNumero, post-recuperar borrador.
+// Razón: el constraint UNIQUE(id_empresa, id_proveedor, punto_venta, numero_comprobante)
+// solo se conoce al guardar. Esta función chequea ANTES via /compras/validar-numero
+// y avisa al usuario en vivo (toast + estilo de error en el input).
+// ═══════════════════════════════════════════════════════════════
+async function validarNumeroComprobante() {
+    var numEl = document.getElementById('inputNumero');
+    if (!numEl) return;
+    var pv = (document.getElementById('inputPV') || {}).value || '';
+    var num = numEl.value || '';
+    if (!proveedorSeleccionado || !pv.trim() || !num.trim()) return;
+    num = num.padStart(8, '0');
+    numEl.value = num;
+    try {
+        var r = await apiFetch('/compras/validar-numero?id_proveedor=' +
+            proveedorSeleccionado.id_proveedor + '&punto_venta=' +
+            encodeURIComponent(pv.padStart(4, '0')) + '&numero_comprobante=' +
+            encodeURIComponent(num));
+        if (r.data.existe) {
+            numEl.style.borderColor = 'var(--danger)';
+            numEl.style.background = '#fff5f5';
+            toast('Ya existe ' + r.data.comprobante.numero_completo + ' (' + r.data.comprobante.estado + ') — Sugerido: ' + r.data.siguiente, 'warning');
+            numEl.title = 'DUPLICADO — Sugerido: ' + r.data.siguiente;
+        } else {
+            numEl.style.borderColor = '';
+            numEl.style.background = '';
+            numEl.title = '';
+        }
+    } catch (e) { console.warn('Error validando número:', e); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SHORTCUTS
+// ═══════════════════════════════════════════════════════════════
+
+function globalShortcuts(e) {
+    if (e.key === 'F2') { e.preventDefault(); guardarComprobante(); }
+    if (e.key === 'F3') { e.preventDefault(); document.getElementById('inputProv').focus(); }
+    if (e.key === 'F4') { e.preventDefault(); focusCodigo(); }
+    if (e.key === 'F5') { e.preventDefault(); switchTab('listado'); cargarListado(); }
+    if (e.key === 'Insert') { e.preventDefault(); switchTab('crear'); document.getElementById('inputProd').focus(); }
+    if (e.key === 'Escape') {
+        cerrarDrop('dropProv'); cerrarDrop('dropProd');
+        if (proveedorSeleccionado || itemsComprobante.length > 0) {
+            if (confirm('Cancelar comprobante? Se perdera todo lo cargado.')) {
+                limpiarFormulario();
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════
+
+function switchTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(function(el) { el.classList.remove('active'); });
+    document.querySelectorAll('.lago-tab').forEach(function(el) { el.classList.remove('active'); });
+    document.getElementById(tab === 'crear' ? 'panelCrear' : 'panelListado').classList.add('active');
+    document.getElementById(tab === 'crear' ? 'tabCrear' : 'tabListado').classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BÚSQUEDA PROVEEDORES
+// ═══════════════════════════════════════════════════════════════
+
+async function buscarProveedores(q) {
+    var drop = document.getElementById('dropProv');
+    var termino = (q || '').trim();
+    var url;
+    if (termino.length >= 2) {
+        url = '/compras/proveedores/buscar?q=' + encodeURIComponent(termino) + '&limit=50';
+    } else {
+        url = '/compras/proveedores/buscar?q=&limit=50';
+    }
+    try {
+        var r = await apiFetch(url);
+        if (r.data.length === 0) {
+            drop.innerHTML = '<div class="sug-item" style="justify-content:center;color:var(--text-muted)">Sin resultados</div>';
+        } else {
+            var html = '';
+            r.data.forEach(function(p, i) {
+                var saldoClass = parseFloat(p.saldo_total) > 0 ? 'deudor' : '';
+                html += '<div class="sug-item" data-idx="' + i + '" data-prov=\'' + JSON.stringify(p).replace(/'/g, '&#39;') + '\'>' +
+                    '<div><span class="name">' + p.razon_social + '</span>' +
+                    '<div class="meta">CUIT: ' + (p.cuit || '-') + ' · ' + (p.condicion_iva || '') + '</div></div>' +
+                    '<span class="saldo ' + saldoClass + '">' + fmt(p.saldo_total) + '</span>' +
+                    '</div>';
+            });
+            drop.innerHTML = html;
+            // Bind click events
+            drop.querySelectorAll('.sug-item').forEach(function(item) {
+                item.addEventListener('click', function() {
+                    var prov = JSON.parse(this.dataset.prov);
+                    seleccionarProveedor(prov);
+                });
+            });
+        }
+        drop.classList.add('open');
+        suggestionIdx = -1;
+    } catch (e) {
+        console.error('Error buscando proveedores:', e);
+        drop.innerHTML = '<div class="sug-item" style="color:red">Error: ' + e.message + '</div>';
+        drop.classList.add('open');
+    }
+}
+
+function seleccionarProveedor(prov) {
+    proveedorSeleccionado = prov;
+    document.getElementById('inputProv').value = prov.razon_social;
+    cerrarDrop('dropProv');
+    var banner = document.getElementById('provBanner');
+    banner.querySelector('.prov-name').textContent = prov.razon_social;
+    banner.querySelector('.prov-cuit').textContent = (prov.cuit || '') + ' · ' + (prov.condicion_iva || '');
+    var saldoEl = banner.querySelector('.prov-saldo');
+    saldoEl.textContent = 'Saldo: ' + fmt(prov.saldo_total) + ' (' + prov.facturas_pendientes + ' fact.)';
+    saldoEl.classList.toggle('deudor', parseFloat(prov.saldo_total) > 0);
+    banner.classList.add('visible');
+    // Traer último comprobante y auto-completar PV
+    cargarUltimoComprobante(prov.id_proveedor);
+    document.getElementById('selTipo').focus();
+    guardarBorradorCompras();
+}
+
+async function cargarUltimoComprobante(id_proveedor) {
+    var infoEl = document.getElementById('provUltimoComp');
+    if (!infoEl) return;
+    infoEl.innerHTML = '<span style="color:var(--text-muted);font-size:.72rem"><i class="bi bi-hourglass-split"></i> Cargando...</span>';
+    try {
+        var r = await apiFetch('/compras/proveedores/' + id_proveedor);
+        var uc = r.data.ultimo_comprobante;
+        if (uc) {
+            var fecha = new Date(uc.fecha_emision).toLocaleDateString('es-AR');
+            infoEl.innerHTML =
+                '<span style="font-size:.72rem;color:var(--text-muted)">Último:</span> ' +
+                '<strong style="font-size:.78rem">' + uc.numero_completo + '</strong>' +
+                '<span style="font-size:.72rem;color:var(--text-muted)"> · ' + fecha + ' · ' + fmt(uc.total) + '</span>' +
+                '<span class="badge-estado ' + uc.estado + '" style="margin-left:4px">' + uc.estado + '</span>';
+            // Auto-completar PV si está vacío
+            var pvEl = document.getElementById('inputPV');
+            if (pvEl && !pvEl.value && uc.punto_venta) {
+                pvEl.value = (uc.punto_venta || '').padStart(4, '0');
+            }
+        } else {
+            infoEl.innerHTML = '<span style="font-size:.72rem;color:var(--text-muted)"><i class="bi bi-info-circle"></i> Sin comprobantes previos</span>';
+        }
+    } catch (e) {
+        infoEl.innerHTML = '';
+        console.warn('Error cargando último comprobante:', e);
+    }
+}
+
+function limpiarProveedor() {
+    proveedorSeleccionado = null;
+    document.getElementById('inputProv').value = '';
+    document.getElementById('provBanner').classList.remove('visible');
+    document.getElementById('inputProv').focus();
+}
+
+function seleccionarProveedorIdx(idx) {
+    var items = document.querySelectorAll('#dropProv .sug-item');
+    if (items[idx]) items[idx].click();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BÚSQUEDA PRODUCTOS
+// ═══════════════════════════════════════════════════════════════
+
+async function buscarProductos(q) {
+    var drop = document.getElementById('dropProd');
+    if (!q || q.trim().length < 2) { cerrarDrop('dropProd'); return; }
+    try {
+        var url = '/compras/productos/buscar?q=' + encodeURIComponent(q) + '&limit=10';
+        if (proveedorSeleccionado) url += '&id_proveedor=' + proveedorSeleccionado.id_proveedor;
+        var r = await apiFetch(url);
+        if (r.data.length === 0) {
+            drop.innerHTML = '<div class="sug-item" style="justify-content:center;color:var(--text-muted)">Sin resultados — Ins para línea manual</div>';
+        } else {
+            var html = '';
+            r.data.forEach(function(p, i) {
+                html += '<div class="sug-item" data-idx="' + i + '" data-prod=\'' + JSON.stringify(p).replace(/'/g, '&#39;') + '\'>' +
+                    '<div><span class="name">' + p.nombre + '</span>' +
+                    '<div class="meta">SKU: ' + (p.sku || '-') + (p.codigo_proveedor ? ' · Cód: ' + p.codigo_proveedor : '') + ' · Stock: ' + p.stock_actual + '</div></div>' +
+                    '<span class="saldo">' + (p.precio_neto_proveedor ? fmt(p.precio_neto_proveedor) : 'S/P') + '</span>' +
+                    '</div>';
+            });
+            drop.innerHTML = html;
+            drop.querySelectorAll('.sug-item').forEach(function(item) {
+                item.addEventListener('click', function() {
+                    var prod = JSON.parse(this.dataset.prod);
+                    seleccionarProducto(prod);
+                });
+            });
+        }
+        drop.classList.add('open');
+        suggestionIdx = -1;
+    } catch (e) {
+        console.error('Error buscando productos:', e);
+    }
+}
+
+function seleccionarProducto(prod) {
+    cerrarDrop('dropProd');
+    document.getElementById('inputProd').value = '';
+    var cantInicial = prod.cantidad_minima_venta ? parseFloat(prod.cantidad_minima_venta) : 1;
+    agregarItem({
+        id_producto: prod.id_producto,
+        sku: prod.sku || '',
+        nombre: prod.nombre,
+        cantidad: cantInicial,
+        cantidad_minima_venta: prod.cantidad_minima_venta ? parseFloat(prod.cantidad_minima_venta) : null,
+        precio_unitario: parseFloat(prod.precio_neto_proveedor || prod.precio_proveedor || 0),
+        descuento_porcentaje: parseFloat(prod.descuento_proveedor || 0),
+        iva_porcentaje: parseFloat(prod.iva_porcentaje || 21),
+        id_alicuota: prod.id_alicuota_iva,
+        afecta_stock: true,
+        stock_actual: parseFloat(prod.stock_actual) || 0,
+        ultimo_precio: prod.ultimo_precio
+    });
+    // Foco directo en CANTIDAD del item recién agregado (como venta-rápida)
+    focusCell(itemsComprobante.length - 1, 1);
+}
+
+function seleccionarProductoIdx(idx) {
+    var items = document.querySelectorAll('#dropProd .sug-item');
+    if (items[idx]) items[idx].click();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUGGESTIONS NAV
+// ═══════════════════════════════════════════════════════════════
+
+function navegarSuggestions(e, dropId, selectFn) {
+    var drop = document.getElementById(dropId);
+    var items = drop.querySelectorAll('.sug-item');
+    if (!drop.classList.contains('open') || items.length === 0) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); suggestionIdx = Math.min(suggestionIdx + 1, items.length - 1); marcarSuggestion(items); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); suggestionIdx = Math.max(suggestionIdx - 1, 0); marcarSuggestion(items); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (suggestionIdx >= 0) { selectFn(suggestionIdx); } else { selectFn(0); } }
+}
+
+function marcarSuggestion(items) {
+    items.forEach(function(el, i) {
+        el.classList.toggle('active', i === suggestionIdx);
+        if (i === suggestionIdx) el.scrollIntoView({ block: 'nearest' });
+    });
+}
+
+function cerrarDrop(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('open');
+    suggestionIdx = -1;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GRILLA ITEMS
+// ═══════════════════════════════════════════════════════════════
+
+function agregarItem(item) {
+    var idx = itemsComprobante.length;
+    var dto = parseFloat(item.descuento_porcentaje) || 0;
+    var precio = parseFloat(item.precio_unitario) || 0;
+    // Permite cantidad negativa (ajuste por mercaderia descontada/no entregada).
+    // Solo excluye el 0 exacto, que no tendria sentido en una linea.
+    var cant = parseFloat(item.cantidad);
+    if (!cant) cant = 1;
+    var precioNeto = precio * (1 - dto / 100);
+    var subtotal = +(precioNeto * cant).toFixed(2);
+    var iva_pct = parseFloat(item.iva_porcentaje) || 21;
+
+    item.cantidad = cant;
+    item.subtotal = subtotal;
+    itemsComprobante.push(item);
+
+    var tbody = document.getElementById('tbItems');
+    var empty = document.getElementById('rowEmpty');
+    if (empty) empty.remove();
+
+    var refHtml = '';
+    if (item.ultimo_precio) {
+        var up = item.ultimo_precio.precio;
+        var diff = precio > 0 && up > 0 ? ((precio - up) / up * 100).toFixed(0) : null;
+        if (diff && Math.abs(diff) > 3) {
+            refHtml = '<div class="precio-ref">Últ: ' + fmt(precioMostrado(up, iva_pct)) + ' <span class="' + (diff > 0 ? 'up' : 'down') + '">' + (diff > 0 ? '↑' : '↓') + Math.abs(diff) + '%</span></div>';
+        }
+    }
+
+    var tr = document.createElement('tr');
+    tr.dataset.row = idx;
+    tr.innerHTML =
+        '<td class="col-codigo">' +
+            '<input class="cell-input" type="text" value="' + (item.sku || '') + '" data-col="0" ' + (item.id_producto ? 'readonly style="cursor:pointer;font-weight:500"' : 'placeholder="(manual)"') + '>' +
+            refHtml +
+        '</td>' +
+        '<td class="col-cant"><input class="cell-input" type="number" value="' + cant + '" step="' + (item.cantidad_minima_venta || 1) + '" data-col="1" title="' + (item.cantidad_minima_venta ? 'Múltiplo de ' + item.cantidad_minima_venta : 'Cantidad libre') + '"></td>' +
+        '<td class="col-desc"><input class="cell-input" type="text" value="' + (item.nombre || '').replace(/"/g, '&quot;') + '" data-col="2" style="text-align:left" ' + (item.id_producto ? '' : 'placeholder="Descripción"') + '></td>' +
+        '<td class="col-precio"><input class="cell-input" type="number" value="' + precioMostrado(precio, iva_pct).toFixed(2) + '" step="0.01" data-col="3"></td>' +
+        '<td class="col-dto"><input class="cell-input" type="text" value="' + dto + '" data-col="4" style="text-align:center" title="-1 para cadena"></td>' +
+        '<td class="col-iva"><select class="cell-select" data-col="5">' +
+            '<option value="21"' + (iva_pct === 21 ? ' selected' : '') + '>21%</option>' +
+            '<option value="10.5"' + (iva_pct === 10.5 ? ' selected' : '') + '>10.5%</option>' +
+            '<option value="27"' + (iva_pct === 27 ? ' selected' : '') + '>27%</option>' +
+            '<option value="0"' + (iva_pct === 0 ? ' selected' : '') + '>0%</option>' +
+        '</select></td>' +
+        '<td class="col-total"><span class="cell-total">' + fmt(subtotal) + '</span></td>' +
+        '<td class="col-act">' +
+            (item.id_producto ? '<button class="btn-del" style="color:#0dcaf0;margin-right:2px" onclick="abrirHistorialCompra(' + idx + ')" title="Histórico de compras"><i class="bi bi-clock-history"></i></button>' : '') +
+            '<button class="btn-del" onclick="eliminarItem(' + idx + ')" title="Supr"><i class="bi bi-trash3"></i></button>' +
+        '</td>';
+
+    tbody.appendChild(tr);
+    actualizarContador();
+    recalcularTotales();
+    guardarBorradorCompras();
+}
+
+function agregarLineaVacia() {
+    agregarItem({
+        id_producto: null, sku: '', nombre: '', cantidad: 1,
+        cantidad_minima_venta: null,
+        precio_unitario: 0, descuento_porcentaje: 0, iva_porcentaje: 21, afecta_stock: false
+    });
+    focusCell(itemsComprobante.length - 1, 0);
+}
+
+// Validar cantidad contra cantidad_minima_venta del producto
+// - Si producto tiene mínimo definido y cantidad NO es múltiplo: avisa pero permite (UX C)
+// - Si producto NO tiene mínimo y cantidad < 0.5: avisa "cantidad inusual"
+// - Si todo OK: silencioso
+function validarCantidadMinima(item, idx) {
+    var cant = parseFloat(item.cantidad) || 0;
+    if (cant <= 0) return;
+
+    var minimo = parseFloat(item.cantidad_minima_venta);
+    if (!minimo || minimo <= 0) {
+        // Sin mínimo definido: solo avisar si es muy chico
+        if (cant < 0.5) {
+            toast('Cantidad inusual (' + cant + '). Producto sin mínimo configurado.', 'info');
+        }
+        return;
+    }
+
+    // Mínimo definido: validar múltiplo con tolerancia 0.001 (floats)
+    var residuo = +(cant % minimo).toFixed(4);
+    var esMultiplo = residuo < 0.001 || Math.abs(residuo - minimo) < 0.001;
+    if (esMultiplo) return;
+
+    var sugerido = (Math.round(cant / minimo) * minimo).toFixed(2);
+    toast('Item ' + (idx + 1) + ': ' + cant + ' no es múltiplo de ' + minimo + '. Sugerido: ' + sugerido, 'warning');
+}
+
+function eliminarItem(idx) {
+    itemsComprobante.splice(idx, 1);
+    reconstruirGrilla();
+    recalcularTotales();
+    guardarBorradorCompras();
+}
+
+function reconstruirGrilla() {
+    var tbody = document.getElementById('tbItems');
+    tbody.innerHTML = '';
+    if (itemsComprobante.length === 0) {
+        tbody.innerHTML = '<tr id="rowEmpty"><td colspan="8" class="empty-row"><i class="bi bi-inbox" style="font-size:1.5rem"></i><br>Busque productos arriba o presione Ins</td></tr>';
+        actualizarContador();
+        return;
+    }
+    var copia = itemsComprobante.slice();
+    itemsComprobante = [];
+    copia.forEach(function(item) { agregarItem(item); });
+}
+
+function actualizarContador() {
+    var el = document.getElementById('itemCount');
+    if (el) el.textContent = itemsComprobante.length;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GRID EXCEL-LIKE
+// ═══════════════════════════════════════════════════════════════
+
+function gridKeydown(e) {
+    var el = e.target;
+    if (!el.dataset.col && !el.classList.contains('cell-select')) return;
+    var row = parseInt(el.closest('tr').dataset.row);
+    var col = parseInt(el.dataset.col);
+    var maxRow = itemsComprobante.length - 1;
+    var lastCol = EDITABLE_COLS[EDITABLE_COLS.length - 1];
+    var ci, ni;
+
+    switch (e.key) {
+        case 'ArrowUp': e.preventDefault(); if (row > 0) focusCell(row - 1, col); break;
+        case 'ArrowDown': e.preventDefault(); if (row < maxRow) focusCell(row + 1, col); break;
+        case 'ArrowLeft':
+            if (el.type === 'number' || el.selectionStart === 0) {
+                e.preventDefault();
+                ci = EDITABLE_COLS.indexOf(col) - 1;
+                if (ci >= 0) focusCell(row, EDITABLE_COLS[ci]);
+            }
+            break;
+        case 'ArrowRight':
+            if (el.type === 'number' || (el.selectionStart === (el.value || '').length)) {
+                e.preventDefault();
+                ni = EDITABLE_COLS.indexOf(col) + 1;
+                if (ni < EDITABLE_COLS.length) focusCell(row, EDITABLE_COLS[ni]);
+            }
+            break;
+        case 'Enter':
+        case 'Tab':
+            e.preventDefault();
+            // Flujo ágil: Cantidad(1) → Precio(3) → Buscador
+            if (col === 1) {
+                focusCell(row, 3);
+            } else if (col === 3) {
+                document.getElementById('inputProd').focus();
+                document.getElementById('inputProd').select();
+            } else {
+                ni = EDITABLE_COLS.indexOf(col) + 1;
+                if (ni < EDITABLE_COLS.length) {
+                    focusCell(row, EDITABLE_COLS[ni]);
+                } else {
+                    document.getElementById('inputProd').focus();
+                }
+            }
+            break;
+        case 'Delete':
+            if (e.ctrlKey) { e.preventDefault(); eliminarItem(row); }
+            break;
+    }
+}
+
+function gridFocusin(e) {
+    if (e.target.type === 'number') setTimeout(function() { e.target.select(); }, 0);
+    document.querySelectorAll('#tbItems tr').forEach(function(r) { r.classList.remove('row-active'); });
+    var tr = e.target.closest('tr');
+    if (tr) tr.classList.add('row-active');
+}
+
+function gridChange(e) {
+    var el = e.target;
+    var tr = el.closest('tr');
+    if (!tr || !tr.dataset.row) return;
+    var idx = parseInt(tr.dataset.row);
+    var col = parseInt(el.dataset.col);
+    if (!itemsComprobante[idx]) return;
+    var item = itemsComprobante[idx];
+
+    switch (col) {
+        case 1:
+            item.cantidad = parseFloat(el.value) || 0;
+            validarCantidadMinima(item, idx);
+            break;
+        case 2:
+            item.nombre = el.value;
+            item.descripcion = el.value;
+            break;
+        case 3:
+            item.precio_unitario = precioDesdeMostrado(el.value, item.iva_porcentaje);
+            break;
+        case 4: // Descuento
+            if (el.value === '-1') {
+                // Trigger -1: abrir modal de descuentos en cadena
+                abrirModalDescuentosCadena(parseInt(tr.dataset.row));
+                el.value = item.descuento_porcentaje || 0;
+                return;
+            }
+            // Si tenía cadena previa, edición manual sale a descuento simple
+            if (item.descuentos_compuestos && item.descuentos_compuestos.length > 0) {
+                item.descuentos_compuestos = null;
+            }
+            item.descuento_porcentaje = parseFloat(el.value) || 0;
+            break;
+        case 5:
+            var ivaNuevo = parseFloat(el.value);
+            if (isNaN(ivaNuevo)) ivaNuevo = 21;
+            if (modoPrecioConIVA) {
+                var inpP = tr.querySelector('[data-col="3"]');
+                var mostrado = inpP ? (parseFloat(inpP.value) || 0) : 0;
+                item.iva_porcentaje = ivaNuevo;
+                item.precio_unitario = mostrado / (1 + ivaNuevo / 100);
+            } else {
+                item.iva_porcentaje = ivaNuevo;
+            }
+            break;
+    }
+
+    var dto = parseFloat(item.descuento_porcentaje) || 0;
+    var precioNeto = item.precio_unitario * (1 - dto / 100);
+    item.subtotal = +(precioNeto * item.cantidad).toFixed(2);
+    tr.querySelector('.cell-total').textContent = fmt(item.subtotal);
+    recalcularTotales();
+    guardarBorradorCompras();
+}
+
+function gridInput(e) {
+    var col = parseInt(e.target.dataset.col);
+    if (col === 1 || col === 3 || col === 4) gridChange(e);
+}
+
+function focusCell(row, col) {
+    var tr = document.querySelector('#tbItems tr[data-row="' + row + '"]');
+    if (!tr) return;
+    var el = tr.querySelector('[data-col="' + col + '"]');
+    if (el) { el.focus(); if (el.type === 'number' || el.type === 'text') el.select(); }
+}
+
+function focusCodigo() {
+    var active = document.querySelector('#tbItems tr.row-active');
+    if (active) {
+        var inp = active.querySelector('[data-col="0"]');
+        if (inp) { inp.readOnly = false; inp.focus(); inp.select(); }
+    } else if (itemsComprobante.length > 0) {
+        focusCell(0, 0);
+    } else {
+        document.getElementById('inputProd').focus();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CÁLCULO TOTALES
+// ═══════════════════════════════════════════════════════════════
+
+async function recalcularTotales() {
+    var id_tipo = document.getElementById('selTipo').value;
+    if (itemsComprobante.length > 0 && id_tipo) {
+        try {
+            var body = {
+                id_tipo: parseInt(id_tipo),
+                items: itemsComprobante.map(function(i) {
+                    return {
+                        cantidad: i.cantidad,
+                        precio_unitario: i.precio_unitario,
+                        descuento_porcentaje: i.descuento_porcentaje || 0,
+                        descuento_monto: i.descuento_monto || 0,
+                        iva_porcentaje: i.iva_porcentaje || 21
+                    };
+                }),
+                percepcion_iva: parseFloat(document.getElementById('inputPercIVA').value) || 0,
+                percepcion_iibb: parseFloat(document.getElementById('inputPercIIBB').value) || 0,
+                impuestos_internos: parseFloat(document.getElementById('inputImpInt').value) || 0
+            };
+            var r = await apiFetch('/compras/calcular-totales', {
+                method: 'POST',
+                body: JSON.stringify(body)
+            });
+            actualizarResumenUI(r.data);
+            return;
+        } catch (e) { console.error('Error calculando totales:', e); }
+    }
+    actualizarResumenUI({ subtotal: 0, iva_21: 0, iva_105: 0, iva_27: 0, percepciones: 0, total: 0 });
+}
+
+function actualizarResumenUI(t) {
+    setText('resSubtotal', fmt(t.subtotal));
+    setText('resIVA21', fmt(t.iva_21));
+    setText('resIVA105', fmt(t.iva_105));
+    setText('resIVA27', fmt(t.iva_27));
+    setText('resPerc', fmt(t.percepciones));
+    setText('resTotalCalc', fmt(t.total));
+    validarDiferencia();
+}
+
+function validarDiferencia() {
+    var calcText = (document.getElementById('resTotalCalc') || {}).textContent || '0';
+    var totalCalc = parseFloat(calcText.replace(/[^0-9.,-]/g, '').replace('.', '').replace(',', '.')) || 0;
+    var totalComp = parseFloat(document.getElementById('inputTotalComp').value) || 0;
+    var diffEl = document.getElementById('resDiff');
+    if (!diffEl) return;
+    if (totalComp === 0) {
+        diffEl.className = 'resumen-diff ok';
+        diffEl.innerHTML = '<i class="bi bi-info-circle"></i> Ingrese total del comprobante físico';
+        return;
+    }
+    var diff = totalCalc - totalComp;
+    if (Math.abs(diff) <= 1) {
+        diffEl.className = 'resumen-diff ok';
+        diffEl.innerHTML = '<i class="bi bi-check-circle"></i> Diferencia: ' + fmt(diff);
+    } else if (Math.abs(diff) <= 10) {
+        diffEl.className = 'resumen-diff warn';
+        diffEl.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Diferencia: ' + fmt(diff);
+    } else {
+        diffEl.className = 'resumen-diff err';
+        diffEl.innerHTML = '<i class="bi bi-x-circle"></i> Diferencia: ' + fmt(diff) + ' — Revisar';
+    }
+}
+
+function setText(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
+
+// ═══════════════════════════════════════════════════════════════
+// GUARDAR COMPROBANTE (F2)
+// ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// GUARDAR COMPROBANTE — Ahora muestra modal de pago antes de enviar
+// ═══════════════════════════════════════════════════════════════
+
+
+// ═══════════════════════════════════════════════════════════════
+// AUTO-GENERAR NÚMERO COMPROBANTE
+// ═══════════════════════════════════════════════════════════════
+
+async function autoGenerarNumero() {
+    if (!proveedorSeleccionado) {
+        toast('Seleccione un proveedor primero (F3)', 'warning');
+        document.getElementById('inputProv').focus();
+        return;
+    }
+
+    var pvEl = document.getElementById('inputPV');
+    var numEl = document.getElementById('inputNumero');
+    var pv = (pvEl.value || '').trim();
+
+    // Si no hay PV, usar el default de config o el del último comprobante
+    if (!pv) {
+        var cfg = formData.configsCompras || {};
+        pv = (cfg.compras_punto_venta_default || '1').padStart(4, '0');
+        pvEl.value = pv;
+    }
+
+    var btn = document.getElementById('btnAutoNum');
+    var originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:12px;height:12px"></span>';
+
+    try {
+        var r = await apiFetch('/compras/sugerir-numero?id_proveedor=' +
+            proveedorSeleccionado.id_proveedor + '&punto_venta=' + encodeURIComponent(pv));
+        numEl.value = r.data.siguiente;
+        numEl.style.borderColor = 'var(--lago-500)';
+        numEl.style.background = '#edf9f3';
+        setTimeout(function() {
+            numEl.style.borderColor = '';
+            numEl.style.background = '';
+        }, 2000);
+        // Validar inmediatamente: la sugerencia podría chocar si hubo INSERTs concurrentes
+        // o si el sugeridor calculó mal. Sin esto, el operador no se entera hasta guardar.
+        await validarNumeroComprobante();
+        toast('Número sugerido: ' + r.data.siguiente, 'success');
+    } catch (e) {
+        toast('Error al generar número: ' + e.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+}
+
+// Auto-generar para PRES (presupuestos internos sin AFIP)
+async function autoNumerarSiPRES() {
+    var selTipo = document.getElementById('selTipo');
+    var opt = selTipo.selectedOptions[0];
+    if (!opt || !opt.dataset) return;
+    var codigo = (opt.dataset.codigo || '').toUpperCase();
+
+    if (codigo === 'PRES' && proveedorSeleccionado) {
+        var pvEl = document.getElementById('inputPV');
+        var numEl = document.getElementById('inputNumero');
+
+        // Para PRES: PV interno "0000" si no hay nada
+        if (!pvEl.value.trim()) {
+            var cfg = formData.configsCompras || {};
+            pvEl.value = (cfg.compras_punto_venta_default || '0').padStart(4, '0');
+        }
+
+        // Auto-generar número
+        if (!numEl.value.trim()) {
+            await autoGenerarNumero();
+        }
+    }
+}
+
+var _datosComprobantePendiente = null;
+var _modalPagoInstance = null;
+var _formasPagoModal = [];
+
+// Fallback: si formatMoney no existe, usar formateo básico
+if (typeof formatMoney !== 'function') {
+    var formatMoney = function(v) { return '$' + (parseFloat(v) || 0).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2}); };
+}
+
+async function guardarComprobante() {
+    if (guardando) return;
+    if (!proveedorSeleccionado) { toast('Seleccione un proveedor (F3)', 'warning'); document.getElementById('inputProv').focus(); return; }
+    var id_tipo = document.getElementById('selTipo').value;
+    if (!id_tipo) { toast('Seleccione tipo de comprobante', 'warning'); document.getElementById('selTipo').focus(); return; }
+    var pv = (document.getElementById('inputPV') || {}).value || '';
+    var num = (document.getElementById('inputNumero') || {}).value || '';
+    if (!pv.trim() || !num.trim()) { toast('Ingrese punto de venta y número', 'warning'); return; }
+    var fecha = document.getElementById('inputFechaEmision').value;
+    if (!fecha) { toast('Ingrese fecha de emisión', 'warning'); return; }
+    if (itemsComprobante.length === 0) { toast('Agregue al menos un item', 'warning'); document.getElementById('inputProd').focus(); return; }
+
+    for (var i = 0; i < itemsComprobante.length; i++) {
+        var it = itemsComprobante[i];
+        if (!it.nombre && !it.id_producto) { toast('Item ' + (i + 1) + ': falta descripción', 'warning'); focusCell(i, 2); return; }
+        if (it.cantidad === 0 || it.cantidad == null || isNaN(it.cantidad)) { toast('Item ' + (i + 1) + ': cantidad no puede ser 0', 'warning'); focusCell(i, 1); return; }
+    }
+    // Aviso B1: si alguna linea negativa dejaria el stock bajo cero, confirmar antes de guardar
+    var avisosNeg = [];
+    for (var iN = 0; iN < itemsComprobante.length; iN++) {
+        var itN = itemsComprobante[iN];
+        if (itN.id_producto && itN.afecta_stock !== false && itN.cantidad < 0) {
+            var stockActual = parseFloat(itN.stock_actual) || 0;
+            var stockResultante = stockActual + parseFloat(itN.cantidad);
+            if (stockResultante < 0) {
+                avisosNeg.push('\u2022 ' + (itN.nombre || itN.sku || 'Item ' + (iN + 1)) + ': ' + stockActual + ' \u2192 ' + stockResultante);
+            }
+        }
+    }
+    if (avisosNeg.length > 0) {
+        var msgNeg = 'Las siguientes lineas dejarian el stock en negativo:\n\n' + avisosNeg.join('\n') + '\n\n\u00bfContinuar de todas formas?';
+        if (!confirm(msgNeg)) { return; }
+    }
+
+    _datosComprobantePendiente = {
+        id_proveedor: proveedorSeleccionado.id_proveedor,
+        id_tipo: parseInt(id_tipo),
+        punto_venta: pv.trim(),
+        numero_comprobante: num.trim(),
+        fecha_emision: fecha,
+        fecha_vencimiento: (document.getElementById('inputFechaVto') || {}).value || null,
+        items: itemsComprobante.map(function(it) {
+            return {
+                id_producto: it.id_producto,
+                descripcion: it.nombre || it.descripcion,
+                cantidad: it.cantidad,
+                precio_unitario: it.precio_unitario,
+                descuento_porcentaje: it.descuento_porcentaje || 0,
+                descuento_monto: it.descuento_monto || 0,
+                descuentos_compuestos: it.descuentos_compuestos || null,
+                iva_porcentaje: it.iva_porcentaje || 21,
+                id_alicuota: it.id_alicuota,
+                afecta_stock: it.afecta_stock !== false
+            };
+        }),
+        percepcion_iva: parseFloat(document.getElementById('inputPercIVA').value) || 0,
+        percepcion_iibb: parseFloat(document.getElementById('inputPercIIBB').value) || 0,
+        percepcion_iibb_jurisdiccion: (document.getElementById('inputJurisd') || {}).value || null,
+        impuestos_internos: parseFloat(document.getElementById('inputImpInt').value) || 0,
+        actualizar_precios: document.getElementById('chkPrecios').checked || false,
+        marcar_proveedor_preferido: document.getElementById('chkPreferido').checked || false,
+        nc_devuelve_mercaderia: document.getElementById('chkNCDev').checked || false,
+        id_moneda: parseInt(document.getElementById('selMoneda').value) || 1,
+        cotizacion: parseFloat(document.getElementById('inputCotiz').value) || 1,
+        total_comprobante: parseFloat(document.getElementById('inputTotalComp').value) || null,
+        observaciones: (document.getElementById('inputObs') || {}).value || null
+    };
+
+    mostrarModalPago();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL DE PAGO — Funciones
+// ═══════════════════════════════════════════════════════════════
+
+function mostrarModalPago() {
+    var total = calcularTotalActual();
+    var tipoSel = (formData.tipos || []).find(function(t) { return t.id_tipo == _datosComprobantePendiente.id_tipo; });
+    var numCompleto = (tipoSel ? tipoSel.codigo : '') + ' ' +
+        (_datosComprobantePendiente.punto_venta || '').padStart(4, '0') + '-' +
+        (_datosComprobantePendiente.numero_comprobante || '').padStart(8, '0');
+
+    document.getElementById('mpNumero').textContent = numCompleto;
+    document.getElementById('mpTotal').textContent = formatMoney(total);
+    document.getElementById('mpProveedor').textContent = proveedorSeleccionado ? proveedorSeleccionado.razon_social : '—';
+
+    _formasPagoModal = [];
+    agregarFPModal();
+
+    if (!_modalPagoInstance) {
+        _modalPagoInstance = new bootstrap.Modal(document.getElementById('modalPagoCompra'), { keyboard: false });
+    }
+    _modalPagoInstance.show();
+
+    setTimeout(function() {
+        var primerMonto = document.querySelector('#mpListaFP input[type="number"]');
+        if (primerMonto) { primerMonto.value = total.toFixed(2); primerMonto.select(); primerMonto.focus(); _formasPagoModal[0].monto = total; }
+        actualizarTotalesPago();
+    }, 300);
+}
+
+function agregarFPModal() {
+    var fpActivas = (formData.formasPago || []).filter(function(fp) { return fp.activo; });
+    var idx = _formasPagoModal.length;
+    _formasPagoModal.push({ id_forma_pago: fpActivas.length > 0 ? fpActivas[0].id_forma_pago : 1, monto: 0, tipo: fpActivas.length > 0 ? fpActivas[0].tipo : 'efectivo' });
+    renderFPModal();
+}
+
+function eliminarFPModal(idx) {
+    _formasPagoModal.splice(idx, 1);
+    renderFPModal();
+    actualizarTotalesPago();
+}
+
+function renderFPModal() {
+    var container = document.getElementById('mpListaFP');
+    var fpActivas = (formData.formasPago || []).filter(function(fp) { return fp.activo; });
+    var html = '';
+    for (var i = 0; i < _formasPagoModal.length; i++) {
+        var fp = _formasPagoModal[i];
+        html += '<div class="mp-fp-row">';
+        html += '<div class="form-group" style="flex:2"><label>Forma de pago</label>';
+        html += '<select onchange="cambiarFPModal(' + i + ', this)">';
+        for (var j = 0; j < fpActivas.length; j++) {
+            var sel = fpActivas[j].id_forma_pago == fp.id_forma_pago ? ' selected' : '';
+            html += '<option value="' + fpActivas[j].id_forma_pago + '" data-tipo="' + (fpActivas[j].tipo || '') + '"' + sel + '>' + fpActivas[j].nombre + '</option>';
+        }
+        html += '</select></div>';
+        html += '<div class="form-group" style="flex:1"><label>Monto</label>';
+        html += '<input type="number" step="0.01" value="' + (fp.monto || '') + '" onchange="actualizarMontoFP(' + i + ', this.value)" onfocus="this.select()" style="text-align:right;font-weight:600"></div>';
+        if (_formasPagoModal.length > 1) {
+            html += '<button class="btn-del btn-del" onclick="eliminarFPModal(' + i + ')" title="Quitar"><i class="bi bi-x-circle"></i></button>';
+        }
+        html += '</div>';
+    }
+    container.innerHTML = html;
+}
+
+function cambiarFPModal(idx, sel) {
+    _formasPagoModal[idx].id_forma_pago = parseInt(sel.value);
+    var opt = sel.options[sel.selectedIndex];
+    _formasPagoModal[idx].tipo = opt.getAttribute('data-tipo') || 'efectivo';
+}
+
+function actualizarMontoFP(idx, valor) {
+    _formasPagoModal[idx].monto = parseFloat(valor) || 0;
+    actualizarTotalesPago();
+}
+
+function actualizarTotalesPago() {
+    var total = calcularTotalActual();
+    var totalFP = 0;
+    for (var i = 0; i < _formasPagoModal.length; i++) {
+        totalFP += parseFloat(_formasPagoModal[i].monto) || 0;
+    }
+    var resto = total - totalFP;
+
+    document.getElementById('mpTotalFP').textContent = formatMoney(totalFP);
+    var restoEl = document.getElementById('mpRestoCC');
+    restoEl.textContent = formatMoney(Math.max(0, resto));
+    restoEl.style.color = resto > 0.01 ? 'var(--danger)' : 'var(--success)';
+
+    var btnPagar = document.getElementById('mpBtnPagar');
+    if (totalFP <= 0.001) {
+        btnPagar.disabled = true;
+        btnPagar.innerHTML = '<i class="bi bi-check-lg"></i> Ingrese monto';
+    } else if (totalFP > total + 0.01) {
+        btnPagar.disabled = true;
+        btnPagar.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Excede total';
+    } else {
+        btnPagar.disabled = false;
+        if (resto > 0.01) {
+            btnPagar.innerHTML = '<i class="bi bi-check-lg"></i> Pago parcial + CC <span class="kbd">F2</span>';
+        } else {
+            btnPagar.innerHTML = '<i class="bi bi-check-lg"></i> Confirmar pago <span class="kbd">F2</span>';
+        }
+    }
+}
+
+function calcularTotalActual() {
+    var el = document.getElementById('resTotalCalc');
+    if (!el) return 0;
+    var txt = el.textContent || '0';
+    txt = txt.replace(/[^0-9.,]/g, '');
+    if (txt.indexOf(',') >= 0 && txt.indexOf('.') >= 0) {
+        txt = txt.replace(/\./g, '').replace(',', '.');
+    } else if (txt.indexOf(',') >= 0) {
+        txt = txt.replace(',', '.');
+    }
+    return parseFloat(txt) || 0;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ENVIAR — Con o sin pago
+// ═══════════════════════════════════════════════════════════════
+
+async function enviarComoCC() {
+    if (_modalPagoInstance) _modalPagoInstance.hide();
+    await enviarComprobante(null);
+}
+
+async function confirmarPagoModal() {
+    var totalFP = 0;
+    var formasValidas = [];
+    for (var i = 0; i < _formasPagoModal.length; i++) {
+        var fp = _formasPagoModal[i];
+        var monto = parseFloat(fp.monto) || 0;
+        if (monto > 0) {
+            formasValidas.push({
+                id_forma_pago: fp.id_forma_pago,
+                monto: monto,
+                tipo: fp.tipo || 'efectivo',
+                id_moneda: 1
+            });
+            totalFP += monto;
+        }
+    }
+    if (formasValidas.length === 0) {
+        toast('Ingrese al menos un monto', 'warning');
+        return;
+    }
+    var total = calcularTotalActual();
+    if (totalFP > total + 0.01) {
+        toast('El monto de pago excede el total del comprobante', 'warning');
+        return;
+    }
+
+    if (_modalPagoInstance) _modalPagoInstance.hide();
+
+    var pagoData = {
+        formas_pago: formasValidas,
+        observaciones: null
+    };
+    await enviarComprobante(pagoData);
+}
+
+async function enviarComprobante(pagoData) {
+    if (!_datosComprobantePendiente) { toast('Error interno: sin datos pendientes', 'danger'); return; }
+
+    var btn = document.getElementById('btnGuardar');
+    guardando = true;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
+
+    try {
+        var datos = _datosComprobantePendiente;
+        if (pagoData) {
+            datos.pago = pagoData;
+        }
+
+        var r = await apiFetch('/compras', { method: 'POST', body: JSON.stringify(datos) });
+
+        var msg = r.data.numero_completo + ' guardado';
+        if (r.data.pago) {
+            id_importacion: _idImportacionActual,
+            msg += ' + Pago #' + r.data.pago.numero_pago + ' registrado';
+        } else {
+            msg += ' (pendiente en CC)';
+        }
+        toast(msg, 'success');
+        limpiarBorradorCompras();
+            _idImportacionActual = null;
+
+        _datosComprobantePendiente = null;
+
+        setTimeout(function() {
+            if (confirm('¿Cargar otro comprobante del mismo proveedor?')) {
+                limpiarMantenerProveedor();
+            } else {
+                switchTab('listado');
+                cargarListado();
+            }
+        }, 500);
+
+    } catch (e) {
+        toast(e.message, 'danger');
+    } finally {
+        guardando = false;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-lg"></i> GUARDAR <span class="kbd">F2</span>';
+    }
+}
+
+function cerrarModalPago() {
+    if (_modalPagoInstance) _modalPagoInstance.hide();
+    _datosComprobantePendiente = null;
+}
+
+// Interceptar F2 dentro del modal para confirmar pago
+document.addEventListener('keydown', function(e) {
+    var modal = document.getElementById('modalPagoCompra');
+    if (modal && modal.classList.contains('show')) {
+        if (e.key === 'F2') { e.preventDefault(); e.stopPropagation(); confirmarPagoModal(); }
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); }
+    }
+}, true);
+
+
+// ═══════════════════════════════════════════════════════════════
+// BORRADOR — Auto-save en localStorage
+// ═══════════════════════════════════════════════════════════════
+
+var BORRADOR_KEY = 'erp_lago_borrador_compra';
+var _borradorTimer = null;
+
+function guardarBorradorCompras() {
+    clearTimeout(_borradorTimer);
+    _borradorTimer = setTimeout(function() {
+        try {
+            var borrador = {
+                timestamp: new Date().toISOString(),
+                proveedor: proveedorSeleccionado,
+                items: itemsComprobante,
+                campos: {
+                    id_tipo: document.getElementById('selTipo').value,
+                    punto_venta: (document.getElementById('inputPV') || {}).value || '',
+                    numero: (document.getElementById('inputNumero') || {}).value || '',
+                    fecha_emision: document.getElementById('inputFechaEmision').value,
+                    fecha_vto: (document.getElementById('inputFechaVto') || {}).value || '',
+                    perc_iva: (document.getElementById('inputPercIVA') || {}).value || '0',
+                    perc_iibb: (document.getElementById('inputPercIIBB') || {}).value || '0',
+                    jurisd: (document.getElementById('inputJurisd') || {}).value || '',
+                    imp_int: (document.getElementById('inputImpInt') || {}).value || '0',
+                    observaciones: (document.getElementById('inputObs') || {}).value || '',
+                    total_comp: (document.getElementById('inputTotalComp') || {}).value || '',
+                    moneda: document.getElementById('selMoneda').value,
+                    cotiz: (document.getElementById('inputCotiz') || {}).value || '1',
+                    chk_precios: document.getElementById('chkPrecios').checked,
+                    chk_preferido: document.getElementById('chkPreferido').checked,
+                    chk_nc_dev: document.getElementById('chkNCDev').checked
+                }
+            };
+            localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador));
+        } catch (e) { console.warn('Error guardando borrador:', e); }
+    }, 500);
+}
+
+function recuperarBorradorCompras() {
+    try {
+        var raw = localStorage.getItem(BORRADOR_KEY);
+        if (!raw) return false;
+        var borrador = JSON.parse(raw);
+        if (!borrador || (!borrador.proveedor && (!borrador.items || borrador.items.length === 0))) {
+            limpiarBorradorCompras();
+            return false;
+        }
+
+        var fecha = new Date(borrador.timestamp);
+        var hace = Math.round((Date.now() - fecha.getTime()) / 60000);
+        var tiempoStr = hace < 60 ? hace + ' min' : Math.round(hace / 60) + ' hs';
+
+        if (!confirm('Hay un comprobante sin guardar de hace ' + tiempoStr + ' para ' +
+            borrador.proveedor.razon_social + ' (' + borrador.items.length + ' items).\n\n¿Recuperar?')) {
+            limpiarBorradorCompras();
+            return false;
+        }
+
+        // Restaurar proveedor
+        if (borrador.proveedor) {
+            seleccionarProveedor(borrador.proveedor);
+        }
+
+        // Restaurar campos
+        var c = borrador.campos || {};
+        if (c.id_tipo) document.getElementById('selTipo').value = c.id_tipo;
+        if (c.punto_venta) { var pv = document.getElementById('inputPV'); if (pv) pv.value = c.punto_venta; }
+        if (c.numero) { var num = document.getElementById('inputNumero'); if (num) num.value = c.numero; }
+        // Re-validar tras restaurar borrador: el número guardado puede haberse usado
+        // en otra sesión mientras el borrador estaba suspendido.
+        if (c.numero) { setTimeout(validarNumeroComprobante, 50); }
+        if (c.fecha_emision) document.getElementById('inputFechaEmision').value = c.fecha_emision;
+        if (c.fecha_vto) { var vto = document.getElementById('inputFechaVto'); if (vto) vto.value = c.fecha_vto; }
+        if (c.perc_iva) { var pi = document.getElementById('inputPercIVA'); if (pi) pi.value = c.perc_iva; }
+        if (c.perc_iibb) { var pb = document.getElementById('inputPercIIBB'); if (pb) pb.value = c.perc_iibb; }
+        if (c.jurisd) { var j = document.getElementById('inputJurisd'); if (j) j.value = c.jurisd; }
+        if (c.imp_int) { var ii = document.getElementById('inputImpInt'); if (ii) ii.value = c.imp_int; }
+        if (c.observaciones) { var obs = document.getElementById('inputObs'); if (obs) obs.value = c.observaciones; }
+        if (c.total_comp) { var tc = document.getElementById('inputTotalComp'); if (tc) tc.value = c.total_comp; }
+        if (c.moneda) document.getElementById('selMoneda').value = c.moneda;
+        if (c.cotiz) { var cot = document.getElementById('inputCotiz'); if (cot) cot.value = c.cotiz; }
+        document.getElementById('chkPrecios').checked = c.chk_precios !== false;
+        document.getElementById('chkNCDev').checked = c.chk_nc_dev || false;
+
+        // Restaurar items
+        itemsComprobante = [];
+        var tbody = document.getElementById('tbItems');
+        var empty = document.getElementById('rowEmpty');
+        if (empty) empty.remove();
+        borrador.items.forEach(function(item) { agregarItem(item); });
+
+        recalcularTotales();
+        toast('Borrador recuperado: ' + borrador.items.length + ' items', 'success');
+        return true;
+
+    } catch (e) {
+        console.warn('Error recuperando borrador:', e);
+        limpiarBorradorCompras();
+        return false;
+    }
+}
+
+function limpiarBorradorCompras() {
+    localStorage.removeItem(BORRADOR_KEY);
+}
+
+function suspenderComprobante() {
+    if (itemsComprobante.length === 0 && !proveedorSeleccionado) {
+        toast('No hay nada que suspender', 'warning');
+        return;
+    }
+    guardarBorradorCompras();
+    // Forzar guardado inmediato (sin el setTimeout)
+    clearTimeout(_borradorTimer);
+    try {
+        var borrador = {
+            timestamp: new Date().toISOString(),
+            proveedor: proveedorSeleccionado,
+            items: itemsComprobante,
+            campos: {
+                id_tipo: document.getElementById('selTipo').value,
+                punto_venta: (document.getElementById('inputPV') || {}).value || '',
+                numero: (document.getElementById('inputNumero') || {}).value || '',
+                fecha_emision: document.getElementById('inputFechaEmision').value,
+                fecha_vto: (document.getElementById('inputFechaVto') || {}).value || '',
+                perc_iva: (document.getElementById('inputPercIVA') || {}).value || '0',
+                perc_iibb: (document.getElementById('inputPercIIBB') || {}).value || '0',
+                jurisd: (document.getElementById('inputJurisd') || {}).value || '',
+                imp_int: (document.getElementById('inputImpInt') || {}).value || '0',
+                observaciones: (document.getElementById('inputObs') || {}).value || '',
+                total_comp: (document.getElementById('inputTotalComp') || {}).value || '',
+                moneda: document.getElementById('selMoneda').value,
+                cotiz: (document.getElementById('inputCotiz') || {}).value || '1',
+                chk_precios: document.getElementById('chkPrecios').checked,
+                chk_nc_dev: document.getElementById('chkNCDev').checked
+            }
+        };
+        localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador));
+    } catch (e) { console.warn('Error en suspender:', e); }
+    toast('Comprobante suspendido — se recuperar\xc3\xa1 al volver', 'success');
+    proveedorSeleccionado = null;
+    itemsComprobante = [];
+    document.getElementById('inputProv').value = '';
+    document.getElementById('provBanner').classList.remove('visible');
+    document.getElementById('selTipo').value = '';
+    var _pv = document.getElementById('inputPV'); if (_pv) _pv.value = '';
+    var _num = document.getElementById('inputNumero'); if (_num) _num.value = '';
+    document.getElementById('inputFechaEmision').value = new Date().toISOString().split('T')[0];
+    var _vto = document.getElementById('inputFechaVto'); if (_vto) _vto.value = '';
+    ['inputPercIVA','inputPercIIBB','inputImpInt'].forEach(function(id) { var e = document.getElementById(id); if (e) e.value = '0'; });
+    var _j = document.getElementById('inputJurisd'); if (_j) _j.value = '';
+    var _obs = document.getElementById('inputObs'); if (_obs) _obs.value = '';
+    var _tc = document.getElementById('inputTotalComp'); if (_tc) _tc.value = '';
+    reconstruirGrilla();
+    recalcularTotales();
+    document.getElementById('inputProv').focus();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LIMPIAR
+// ═══════════════════════════════════════════════════════════════
+
+function limpiarFormulario() {
+    if (itemsComprobante.length > 0 && !confirm('¿Limpiar todo?')) return;
+    limpiarProveedor();
+    limpiarCampos();
+}
+
+function limpiarMantenerProveedor() {
+    limpiarCampos();
+    document.getElementById('selTipo').focus();
+}
+
+function limpiarCampos() {
+    document.getElementById('selTipo').value = '';
+    var pv = document.getElementById('inputPV'); if (pv) pv.value = '';
+    var num = document.getElementById('inputNumero'); if (num) num.value = '';
+    document.getElementById('inputFechaEmision').value = new Date().toISOString().split('T')[0];
+    var vto = document.getElementById('inputFechaVto'); if (vto) vto.value = '';
+    ['inputPercIVA', 'inputPercIIBB', 'inputImpInt'].forEach(function(id) { var e = document.getElementById(id); if (e) e.value = '0'; });
+    var jurisd = document.getElementById('inputJurisd'); if (jurisd) jurisd.value = '';
+    var obs = document.getElementById('inputObs'); if (obs) obs.value = '';
+    var tc = document.getElementById('inputTotalComp'); if (tc) tc.value = '';
+    document.getElementById('chkNCDev').checked = false;
+    aplicarConfigsCompras();
+    itemsComprobante = [];
+    reconstruirGrilla();
+    recalcularTotales();
+    limpiarBorradorCompras();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LISTADO (TAB 2)
+// ═══════════════════════════════════════════════════════════════
+
+async function cargarListado() {
+    try {
+        var params = new URLSearchParams();
+        var q = (document.getElementById('filtroQ') || {}).value;
+        var tipo = (document.getElementById('filtroTipo') || {}).value;
+        var estado = (document.getElementById('filtroEstado') || {}).value;
+        var desde = (document.getElementById('filtroDesde') || {}).value;
+        var hasta = (document.getElementById('filtroHasta') || {}).value;
+        if (q) params.set('q', q);
+        if (tipo) params.set('id_tipo', tipo);
+        if (estado) params.set('estado', estado);
+        if (desde) params.set('fecha_desde', desde);
+        if (hasta) params.set('fecha_hasta', hasta);
+
+        var r = await apiFetch('/compras?' + params.toString());
+
+        if (r.stats) {
+            setText('statPendientes', r.stats.pendientes || 0);
+            setText('statParcial', r.stats.pagado_parcial || 0);
+            setText('statPagados', r.stats.pagados || 0);
+            setText('statAnulados', r.stats.anulados || 0);
+            setText('statDeuda', fmt(r.stats.deuda_total || 0));
+        }
+
+        var tbody = document.getElementById('tbListado');
+        if (!tbody) return;
+        if (r.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px">Sin comprobantes</td></tr>';
+        } else {
+            var html = '';
+            r.data.forEach(function(c) {
+                var opacidad = c.estado === 'anulado' ? ' style="opacity:.5"' : '';
+                var estadoLabel = c.estado === 'pagado_parcial' ? 'Pag. Parcial' : c.estado.charAt(0).toUpperCase() + c.estado.slice(1);
+                html += '<tr' + opacidad + '>' +
+                    '<td><strong>' + c.tipo_codigo + '</strong></td>' +
+                    '<td>' + (c.numero_completo || '') + '</td>' +
+                    '<td>' + fmtFecha(c.fecha_emision) + '</td>' +
+                    '<td>' + c.proveedor_razon_social + '</td>' +
+                    '<td style="text-align:right;font-weight:600">' + fmt(c.total) + '</td>' +
+                    '<td style="text-align:right;' + (parseFloat(c.saldo_pendiente) > 0 ? 'color:var(--danger);font-weight:600' : '') + '">' + (c.estado === 'anulado' ? '—' : fmt(c.saldo_pendiente)) + '</td>' +
+                    '<td><span class="badge-estado ' + c.estado + '">' + estadoLabel + '</span></td>' +
+                    '<td style="text-align:center">' +
+                        '<button class="btn-accion" onclick="verComprobante(' + c.id_comprobante + ')" title="Ver"><i class="bi bi-eye"></i></button> <button class="btn-accion" onclick="ComprasPrint.imprimirInterno(' + c.id_comprobante + ')" title="Imprimir interno"><i class="bi bi-printer"></i></button> <button class="btn-accion" onclick="ComprasPrint.imprimirCopia(' + c.id_comprobante + ')" title="Copia proveedor"><i class="bi bi-file-earmark-text"></i></button> ' +
+                        (c.estado !== 'anulado' ? '<button class="btn-accion danger" onclick="anularComprobante(' + c.id_comprobante + ')" title="Anular"><i class="bi bi-x-lg"></i></button>' : '') +
+                    '</td></tr>';
+            });
+            tbody.innerHTML = html;
+        }
+        setText('listadoInfo', 'Mostrando ' + r.data.length + ' de ' + r.total);
+    } catch (e) {
+        console.error('Error listado:', e);
+        toast('Error al cargar listado', 'danger');
+    }
+}
+
+async function verComprobante(id) {
+    try {
+        var r = await apiFetch('/compras/' + id);
+        var c = r.data;
+        var html = '<div style="padding:12px">';
+        html += '<div style="display:flex;justify-content:space-between;margin-bottom:12px;padding:10px;background:var(--lago-50);border-radius:6px">';
+        html += '<div><strong>' + c.numero_completo + '</strong><br><small>' + c.proveedor_razon_social + ' — ' + (c.proveedor_cuit || '') + '</small></div>';
+        html += '<div style="text-align:right"><div style="font-size:1.3rem;font-weight:700">' + fmt(c.total) + '</div>';
+        html += '<span class="badge-estado ' + c.estado + '">' + c.estado + '</span></div></div>';
+        html += '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:.82rem">';
+        html += '<div><strong>Emisión:</strong> ' + fmtFecha(c.fecha_emision) + '</div>';
+        html += '<div><strong>Vto:</strong> ' + fmtFecha(c.fecha_vencimiento) + '</div>';
+        html += '<div><strong>Subtotal:</strong> ' + fmt(c.subtotal) + '</div>';
+        html += '<div><strong>IVA:</strong> ' + fmt(c.iva) + '</div>';
+        if (parseFloat(c.percepcion_iva)) html += '<div><strong>Perc.IVA:</strong> ' + fmt(c.percepcion_iva) + '</div>';
+        if (parseFloat(c.percepcion_iibb)) html += '<div><strong>Perc.IIBB:</strong> ' + fmt(c.percepcion_iibb) + '</div>';
+        html += '</div>';
+        if (c.cuenta_corriente) {
+            html += '<div style="margin-bottom:10px;padding:6px 10px;background:#fff3cd;border-radius:4px;font-size:.82rem">';
+            html += '<strong>Deuda:</strong> Saldo pendiente ' + fmt(c.cuenta_corriente.saldo) + ' de ' + fmt(c.cuenta_corriente.monto) + '</div>';
+        }
+        html += '<table class="tabla-listado" style="font-size:.8rem"><thead><tr>';
+        html += '<th>SKU</th><th>Descripción</th><th style="text-align:right">Cant.</th>';
+        html += '<th style="text-align:right">Precio</th><th style="text-align:right">Dto%</th>';
+        html += '<th style="text-align:right">IVA%</th><th style="text-align:right">Total</th></tr></thead><tbody>';
+        (c.items || []).forEach(function(it) {
+            html += '<tr><td>' + (it.producto_sku || '-') + '</td>';
+            html += '<td>' + (it.descripcion || it.producto_nombre || '') + '</td>';
+            html += '<td style="text-align:right">' + it.cantidad + '</td>';
+            html += '<td style="text-align:right">' + fmt(it.precio_unitario) + '</td>';
+            html += '<td style="text-align:right">' + (it.descuento_porcentaje || 0) + '%</td>';
+            html += '<td style="text-align:right">' + (it.iva_porcentaje || 21) + '%</td>';
+            html += '<td style="text-align:right;font-weight:600">' + fmt(it.total) + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        if (c.observaciones) html += '<div style="margin-top:8px;font-size:.8rem;color:var(--text-muted)"><strong>Obs:</strong> ' + c.observaciones + '</div>';
+        html += '</div>';
+        var modalEl = document.getElementById('modalDetalleCompra');
+        if (!modalEl) {
+            modalEl = document.createElement('div');
+            modalEl.id = 'modalDetalleCompra';
+            modalEl.className = 'modal fade';
+            modalEl.tabIndex = -1;
+            modalEl.innerHTML = '<div class="modal-dialog modal-xl"><div class="modal-content">' +
+                '<div class="modal-header" style="background:var(--lago-700);color:#fff;padding:8px 16px">' +
+                '<h6 class="modal-title" id="mdcTitulo"></h6>' +
+                '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>' +
+                '<div class="modal-body p-0" id="mdcBody"></div>' +
+                '<div class="modal-footer" style="padding:6px 12px">' +
+                '<button class="btn-sec" data-bs-dismiss="modal">Cerrar</button></div>' +
+                '</div></div>';
+            document.body.appendChild(modalEl);
+        }
+        document.getElementById('mdcTitulo').innerHTML = '<i class="bi bi-receipt me-1"></i>' + c.numero_completo;
+        document.getElementById('mdcBody').innerHTML = html;
+        new bootstrap.Modal(modalEl).show();
+    } catch (e) { toast(e.message, 'danger'); }
+}
+
+async function anularComprobante(id) {
+    var motivo = prompt('Motivo de anulación:');
+    if (!motivo) return;
+    try {
+        await apiFetch('/compras/' + id + '/anular', { method: 'PUT', body: JSON.stringify({ motivo: motivo }) });
+        toast('Comprobante anulado', 'success');
+        cargarListado();
+    } catch (e) { toast(e.message, 'danger'); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════════
+
+function toast(msg, tipo) {
+    tipo = tipo || 'info';
+    var container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+    }
+    var bgClass = tipo === 'danger' ? 'bg-danger' : tipo === 'warning' ? 'bg-warning' : tipo === 'success' ? 'bg-success' : 'bg-info';
+    var t = document.createElement('div');
+    t.className = 'toast align-items-center text-white ' + bgClass + ' border-0';
+    t.setAttribute('role', 'alert');
+    t.innerHTML = '<div class="d-flex"><div class="toast-body">' + msg + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+    container.appendChild(t);
+    new bootstrap.Toast(t, { delay: 4000 }).show();
+    t.addEventListener('hidden.bs.toast', function() { t.remove(); });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ALTA RÁPIDA PROVEEDOR
+// ═══════════════════════════════════════════════════════════════
+
+function abrirAltaProveedor() {
+    document.getElementById('apCuit').value = '';
+    document.getElementById('apRazonSocial').value = '';
+    document.getElementById('apFantasia').value = '';
+    document.getElementById('apTelefono').value = '';
+    document.getElementById('apEmail').value = '';
+    document.getElementById('apDomicilio').value = '';
+    document.getElementById('apCondIVA').value = '1';
+    var modal = new bootstrap.Modal(document.getElementById('modalAltaProv'));
+    modal.show();
+    setTimeout(function() { document.getElementById('apCuit').focus(); }, 300);
+}
+
+async function guardarNuevoProveedor() {
+    var cuit = document.getElementById('apCuit').value.trim();
+    var razon_social = document.getElementById('apRazonSocial').value.trim();
+    var id_condicion_iva = document.getElementById('apCondIVA').value;
+    if (!cuit) { toast('Ingrese CUIT', 'warning'); document.getElementById('apCuit').focus(); return; }
+    if (!razon_social) { toast('Ingrese razón social', 'warning'); document.getElementById('apRazonSocial').focus(); return; }
+    try {
+        var r = await apiFetch('/compras/proveedores/alta-rapida', {
+            method: 'POST',
+            body: JSON.stringify({
+                cuit: cuit,
+                razon_social: razon_social,
+                nombre_fantasia: document.getElementById('apFantasia').value.trim() || null,
+                id_condicion_iva: parseInt(id_condicion_iva),
+                telefono: document.getElementById('apTelefono').value.trim() || null,
+                email: document.getElementById('apEmail').value.trim() || null,
+                domicilio: document.getElementById('apDomicilio').value.trim() || null
+            })
+        });
+        bootstrap.Modal.getInstance(document.getElementById('modalAltaProv')).hide();
+        toast('Proveedor ' + r.data.razon_social + ' creado', 'success');
+        // Seleccionar automáticamente
+        seleccionarProveedor({
+            id_proveedor: r.data.id_proveedor,
+            cuit: r.data.cuit,
+            razon_social: r.data.razon_social,
+            condicion_iva: document.getElementById('apCondIVA').selectedOptions[0].textContent,
+            saldo_total: 0,
+            facturas_pendientes: 0
+        });
+    } catch (e) {
+        toast(e.message, 'danger');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BUSCAR CUIT — autocompleta datos en alta rápida
+// ═══════════════════════════════════════════════════════════════
+
+var buscandoCuit = false;
+
+function inicializarCuitLookup() {
+    var input = document.getElementById('apCuit');
+    if (!input) return;
+    input.addEventListener('blur', function() {
+        var cuit = input.value.replace(/[-\s]/g, '');
+        if (cuit.length >= 11) buscarDatosCuit(cuit);
+    });
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            var cuit = input.value.replace(/[-\s]/g, '');
+            if (cuit.length >= 11) buscarDatosCuit(cuit);
+        }
+    });
+}
+
+async function buscarDatosCuit(cuit) {
+    if (buscandoCuit) return;
+    buscandoCuit = true;
+    var input = document.getElementById('apCuit');
+    var originalBg = input.style.background;
+    input.style.background = '#fffde7';
+    input.placeholder = 'Buscando...';
+
+    try {
+        var r = await apiFetch('/compras/buscar-cuit/' + encodeURIComponent(cuit));
+        var d = r.data;
+
+        if (d.origen === 'proveedor') {
+            toast('CUIT ya registrado como proveedor: ' + d.razon_social, 'info');
+        } else if (d.origen === 'cliente') {
+            toast('Datos cargados desde cliente existente', 'info');
+        } else if (d.origen === 'afip') {
+            toast('Datos obtenidos de AFIP/ARCA', 'success');
+        } else if (d.origen === 'no_encontrado') {
+            toast('CUIT válido pero sin datos en AFIP. Complete manualmente.', 'warning');
+            buscandoCuit = false;
+            input.style.background = originalBg;
+            input.placeholder = '30-12345678-9';
+            return;
+        }
+
+        // Llenar campos
+        if (d.cuit) document.getElementById('apCuit').value = d.cuit;
+        if (d.razon_social) document.getElementById('apRazonSocial').value = d.razon_social;
+        if (d.nombre_fantasia) document.getElementById('apFantasia').value = d.nombre_fantasia;
+        if (d.id_condicion_iva) document.getElementById('apCondIVA').value = d.id_condicion_iva;
+        if (d.telefono) document.getElementById('apTelefono').value = d.telefono;
+        if (d.email) document.getElementById('apEmail').value = d.email;
+        if (d.domicilio) document.getElementById('apDomicilio').value = d.domicilio;
+
+        // Focus en razón social para que el usuario confirme/edite
+        document.getElementById('apRazonSocial').focus();
+        document.getElementById('apRazonSocial').select();
+
+    } catch (e) {
+        toast(e.message, 'danger');
+    } finally {
+        buscandoCuit = false;
+        input.style.background = originalBg;
+        input.placeholder = '30-12345678-9';
+    }
+}
+
+// Inicializar cuando DOM esté listo
+document.addEventListener('DOMContentLoaded', function() { inicializarCuitLookup(); });
+
+// ═══════════════════════════════════════════════════════════════
+// EXCEL EXPORT
+// ═══════════════════════════════════════════════════════════════
+
+function exportarExcelCompras(tipo) {
+    var params = new URLSearchParams({
+        tipo: tipo,
+        q: (document.getElementById('filtroQ') || {}).value || '',
+        id_tipo: (document.getElementById('filtroTipo') || {}).value || '',
+        estado: (document.getElementById('filtroEstado') || {}).value || '',
+        desde: (document.getElementById('filtroDesde') || {}).value || '',
+        hasta: (document.getElementById('filtroHasta') || {}).value || ''
+    });
+    fetch((window.CONFIG && window.CONFIG.API_BASE_URL || '') + '/compras/export/excel?' + params, {
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('authToken') }
+    }).then(function(r) {
+        if (!r.ok) throw new Error('Error al exportar');
+        return r.blob();
+    }).then(function(blob) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'compras_' + tipo + '_' + new Date().toISOString().slice(0,10) + '.xlsx';
+        a.click(); URL.revokeObjectURL(a.href);
+    }).catch(function(e) { toast(e.message, 'danger'); });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXCEL IMPORT
+// ═══════════════════════════════════════════════════════════════
+
+var _idImportacionActual = null;
+var _itemsImportados = [];
+
+function abrirModalImport() {
+    if (!proveedorSeleccionado || !proveedorSeleccionado.id_proveedor) {
+        toast('Seleccioná un proveedor antes de importar', 'warning'); return;
+    }
+    _itemsImportados = [];
+    document.getElementById('importFile').value = '';
+    document.getElementById('importPaso1').style.display = '';
+    document.getElementById('importPaso2').style.display = 'none';
+    document.getElementById('btnConfirmarImport').style.display = 'none';
+    new bootstrap.Modal(document.getElementById('modalImportExcel')).show();
+}
+
+function descargarPlantillaImport() {
+    fetch((window.CONFIG && window.CONFIG.API_BASE_URL || '') + '/compras/import/plantilla', {
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('authToken') }
+    }).then(function(r) { return r.blob(); }).then(function(b) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(b); a.download = 'plantilla_items_compra.xlsx';
+        a.click(); URL.revokeObjectURL(a.href);
+    }).catch(function(e) { toast(e.message, 'danger'); });
+}
+
+function previsualizarImport() {
+    var file = document.getElementById('importFile').files[0];
+    if (!file) { toast('Seleccioná un archivo', 'warning'); return; }
+    var btn = document.getElementById('btnPreview');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('id_proveedor', proveedorSeleccionado.id_proveedor);
+    fetch((window.CONFIG && window.CONFIG.API_BASE_URL || '') + '/compras/import/preview', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('authToken') },
+        body: fd
+    }).then(function(r) {
+        if (!r.ok) return r.json().then(function(e) { throw new Error(e.error || 'Error'); });
+        return r.json();
+    }).then(function(data) {
+        _itemsImportados = data.itemsValidos || data.validos || [];
+        _idImportacionActual = data.id_importacion || null;
+        // Mostrar stats de estrategia de match si vienen
+        if (data.stats && data.stats.por_estrategia) {
+            var s = data.stats.por_estrategia;
+            var partes = [];
+            Object.keys(s).forEach(function(k) { if (s[k] > 0) partes.push(s[k] + ' por ' + k); });
+            if (data.stats.fallas_sin_match) partes.push(data.stats.fallas_sin_match + ' sin match');
+            var elInfo = document.getElementById('importStatsInfo');
+            if (!elInfo) {
+                elInfo = document.createElement('div');
+                elInfo.id = 'importStatsInfo';
+                elInfo.className = 'alert alert-light border py-2 small mt-2';
+                var cont = document.getElementById('importPaso2');
+                if (cont) cont.insertBefore(elInfo, cont.firstChild);
+            }
+            elInfo.innerHTML = '<i class="bi bi-info-circle"></i> Match: ' + (partes.join(' · ') || 'sin datos');
+        }
+        document.getElementById('importPaso1').style.display = 'none';
+        document.getElementById('importPaso2').style.display = '';
+        document.getElementById('importOk').textContent = data.itemsValidos.length + ' válidos';
+        document.getElementById('importErr').textContent = data.errores.length + ' errores';
+        document.getElementById('importTotal').textContent = data.totalFilas + ' filas';
+        // Errores
+        var tbE = document.getElementById('tbImportErr'); tbE.innerHTML = '';
+        if (data.errores.length) {
+            document.getElementById('importErrores').style.display = '';
+            data.errores.forEach(function(e) { tbE.innerHTML += '<tr><td>' + e.fila + '</td><td>' + (e.codigo||'-') + '</td><td style="color:#dc3545">' + e.errores.join(', ') + '</td></tr>'; });
+        } else { document.getElementById('importErrores').style.display = 'none'; }
+        // Válidos
+        var tbV = document.getElementById('tbImportOk'); tbV.innerHTML = '';
+        data.itemsValidos.forEach(function(it) {
+            tbV.innerHTML += '<tr><td>' + (it.sku||'-') + '</td><td>' + it.nombre + '</td><td style="text-align:right">' + it.cantidad + '</td><td style="text-align:right">' + fmt(it.precio_unitario) + '</td><td style="text-align:right">' + it.descuento_porcentaje + '%</td><td style="text-align:right">' + it.iva_porcentaje + '%</td><td style="text-align:right;font-weight:600">' + fmt(it.total) + '</td></tr>';
+        });
+        document.getElementById('btnConfirmarImport').style.display = data.itemsValidos.length ? '' : 'none';
+    }).catch(function(e) { toast(e.message, 'danger'); })
+    .finally(function() { btn.disabled = false; btn.innerHTML = '<i class="bi bi-eye"></i> Previsualizar'; });
+}
+
+function confirmarImportItems() {
+    if (!_itemsImportados.length) return;
+    _itemsImportados.forEach(function(it) { agregarItem(it); });
+    bootstrap.Modal.getInstance(document.getElementById('modalImportExcel')).hide();
+    toast(_itemsImportados.length + ' items importados', 'success');
+    // id_importacion queda vivo hasta guardar el comprobante
+    _itemsImportados = [];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HISTORIAL COMPRAS POR PRODUCTO
+// ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// HISTORIAL COMPRAS POR PRODUCTO v2 — tabs + filtros + stats + export
+// Config leída de configuraciones_empresa prefix 'compras.historial.*'
+// ═══════════════════════════════════════════════════════════════
+
+var HIST_STATE = {
+    id_producto: null, producto_nombre: '', producto_sku: '',
+    id_proveedor: null, proveedor_nombre: '',
+    tabActiva: 'este_proveedor',
+    datos: { general: [], este_proveedor: [] },
+    config: {
+        limit_default: 50,
+        incluir_anulados_default: false,
+        periodo_default_dias: 0,
+        tab_default: 'este_proveedor',
+        mostrar_moneda_extranjera: true
+    },
+    bsModal: null,
+    tabsInit: false
+};
+
+async function _histCargarConfig() {
+    try {
+        var r = await fetch(API_URL + '/configuraciones/todas', {
+            headers: { 'Authorization': 'Bearer ' + TOKEN }
+        });
+        if (!r.ok) return;
+        var data = await r.json();
+        var arr = Array.isArray(data) ? data
+                : Array.isArray(data.data) ? data.data
+                : Array.isArray(data.configuraciones) ? data.configuraciones
+                : [];
+        var mapa = {};
+        arr.forEach(function(c) { if (c && c.clave) mapa[c.clave] = c.valor; });
+        HIST_STATE.config.limit_default             = parseInt(mapa['compras.historial.limit_default']) || 50;
+        HIST_STATE.config.incluir_anulados_default  = (mapa['compras.historial.incluir_anulados_default'] === 'true');
+        HIST_STATE.config.periodo_default_dias      = parseInt(mapa['compras.historial.periodo_default_dias']) || 0;
+        HIST_STATE.config.tab_default               = mapa['compras.historial.tab_default'] || 'este_proveedor';
+        HIST_STATE.config.mostrar_moneda_extranjera = (mapa['compras.historial.mostrar_moneda_extranjera'] !== 'false');
+    } catch (e) { console.warn('Config historial no cargada, uso defaults:', e); }
+}
+
+// Firma nueva: llamada desde la grilla con el idx del item
+async function abrirHistorialCompra(idx) {
+    var item = itemsComprobante[idx];
+    if (!item || !item.id_producto) { toast('El ítem no tiene producto asociado', 'warning'); return; }
+    if (!proveedorSeleccionado) { toast('Seleccioná un proveedor primero', 'warning'); return; }
+    await _histCargarConfig();
+    HIST_STATE.id_producto      = item.id_producto;
+    HIST_STATE.producto_nombre  = item.nombre || '';
+    HIST_STATE.producto_sku     = item.sku || '';
+    HIST_STATE.id_proveedor     = proveedorSeleccionado.id_proveedor;
+    HIST_STATE.proveedor_nombre = proveedorSeleccionado.razon_social || '';
+    HIST_STATE.tabActiva        = HIST_STATE.config.tab_default;
+    HIST_STATE.datos            = { general: [], este_proveedor: [] };
+    _histAbrirModal();
+}
+
+// Firma legacy retrocompat (si alguien la invoca desde otro lado)
+function verHistorialProducto(idProd, nombre, sku, idProveedor, proveedorNombre) {
+    _histCargarConfig().then(function() {
+        HIST_STATE.id_producto      = idProd;
+        HIST_STATE.producto_nombre  = nombre || '';
+        HIST_STATE.producto_sku     = sku || '';
+        HIST_STATE.id_proveedor     = idProveedor || (proveedorSeleccionado && proveedorSeleccionado.id_proveedor) || null;
+        HIST_STATE.proveedor_nombre = proveedorNombre || (proveedorSeleccionado && proveedorSeleccionado.razon_social) || '';
+        HIST_STATE.tabActiva        = HIST_STATE.id_proveedor ? HIST_STATE.config.tab_default : 'general';
+        HIST_STATE.datos            = { general: [], este_proveedor: [] };
+        _histAbrirModal();
+    });
+}
+
+function _histAbrirModal() {
+    document.getElementById('histProdNombre').textContent = HIST_STATE.producto_nombre;
+    document.getElementById('histProdSku').textContent    = HIST_STATE.producto_sku ? '(' + HIST_STATE.producto_sku + ')' : '';
+    document.getElementById('histProvNombre').textContent = HIST_STATE.proveedor_nombre || '—';
+    document.getElementById('histLimite').value           = HIST_STATE.config.limit_default;
+    document.getElementById('histIncAnul').checked        = HIST_STATE.config.incluir_anulados_default;
+
+    if (HIST_STATE.config.periodo_default_dias > 0) {
+        var h = new Date(), d = new Date();
+        d.setDate(d.getDate() - HIST_STATE.config.periodo_default_dias);
+        document.getElementById('histDesde').value = d.toISOString().slice(0, 10);
+        document.getElementById('histHasta').value = h.toISOString().slice(0, 10);
+    } else {
+        document.getElementById('histDesde').value = '';
+        document.getElementById('histHasta').value = '';
+    }
+
+    // Deshabilitar tab "este proveedor" si no hay
+    var btnProv = document.getElementById('histTabProvBtn');
+    btnProv.disabled = !HIST_STATE.id_proveedor;
+    var btnGral = document.getElementById('histTabGralBtn');
+
+    // Tab inicial
+    var tabBtn = (HIST_STATE.tabActiva === 'general' || !HIST_STATE.id_proveedor) ? btnGral : btnProv;
+    new bootstrap.Tab(tabBtn).show();
+
+    // Listener tabs (una vez)
+    if (!HIST_STATE.tabsInit) {
+        HIST_STATE.tabsInit = true;
+        document.querySelectorAll('#histTabs button[data-bs-toggle="tab"]').forEach(function(b) {
+            b.addEventListener('shown.bs.tab', function(ev) {
+                HIST_STATE.tabActiva = ev.target.dataset.tab;
+                _histCargarActiva();
+            });
+        });
+    }
+
+    if (!HIST_STATE.bsModal) HIST_STATE.bsModal = new bootstrap.Modal(document.getElementById('modalHistProd'));
+    HIST_STATE.bsModal.show();
+    _histCargarActiva();
+}
+
+function recargarHistorial() {
+    HIST_STATE.datos[HIST_STATE.tabActiva] = [];
+    _histCargarActiva();
+}
+
+async function _histCargarActiva() {
+    var tab = HIST_STATE.tabActiva;
+    var tbody = document.getElementById('tbHistProd');
+    tbody.innerHTML = '';
+    document.getElementById('histProdLoading').style.display = '';
+    document.getElementById('histProdVacio').style.display = 'none';
+    document.getElementById('histStats').innerHTML = '';
+
+    var params = new URLSearchParams();
+    params.set('limit', document.getElementById('histLimite').value || HIST_STATE.config.limit_default);
+    params.set('incluir_anulados', document.getElementById('histIncAnul').checked ? 'true' : 'false');
+    var d = document.getElementById('histDesde').value; if (d) params.set('desde', d);
+    var h = document.getElementById('histHasta').value; if (h) params.set('hasta', h);
+    if (tab === 'este_proveedor' && HIST_STATE.id_proveedor) params.set('id_proveedor', HIST_STATE.id_proveedor);
+
+    try {
+        var r = await fetch(API_URL + '/compras/historial-compras-producto/' + HIST_STATE.id_producto + '?' + params.toString(),
+            { headers: { 'Authorization': 'Bearer ' + TOKEN } });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var rows = await r.json();
+        HIST_STATE.datos[tab] = Array.isArray(rows) ? rows : [];
+        document.getElementById('histProdLoading').style.display = 'none';
+        if (HIST_STATE.datos[tab].length === 0) {
+            document.getElementById('histProdVacio').style.display = '';
+            return;
+        }
+        _histRender(HIST_STATE.datos[tab]);
+        _histStats(HIST_STATE.datos[tab]);
+    } catch (e) {
+        document.getElementById('histProdLoading').style.display = 'none';
+        toast('Error: ' + e.message, 'danger');
+    }
+}
+
+function _histRender(rows) {
+    var tb = document.getElementById('tbHistProd');
+    var mostrarMon = HIST_STATE.config.mostrar_moneda_extranjera;
+    var html = '';
+    rows.forEach(function(r) {
+        var anul = (r.estado === 'anulado');
+        var trStyle = anul ? 'style="text-decoration:line-through;color:#999"' : '';
+        var badgeClass = 'bg-secondary';
+        if (r.estado === 'pagado')         badgeClass = 'bg-success';
+        else if (r.estado === 'pagado_parcial') badgeClass = 'bg-info';
+        else if (r.estado === 'pendiente') badgeClass = 'bg-warning text-dark';
+        else if (r.estado === 'anulado')   badgeClass = 'bg-danger';
+        // USD — snapshot persistido por trigger. Si NULL (compras pre-abr/2026), mostrar guion.
+        var pnUsd = (r.precio_neto_usd !== null && r.precio_neto_usd !== undefined) ? parseFloat(r.precio_neto_usd) : null;
+        var ttUsd = (r.total_usd        !== null && r.total_usd        !== undefined) ? parseFloat(r.total_usd)        : null;
+        var cotUsada = (r.cotizacion_usada !== null && r.cotizacion_usada !== undefined) ? parseFloat(r.cotizacion_usada) : null;
+        var cellPnUsd = pnUsd !== null
+            ? '<td style="text-align:right;background:#f0faf4;color:#0f5132;font-weight:500" title="$' + fmt(pnUsd) + ' USD · cot ' + (cotUsada ? cotUsada.toFixed(2) : '—') + '">u$d ' + fmt(pnUsd) + '</td>'
+            : '<td style="text-align:center;color:#999" title="Compra previa a dolarización automática">—</td>';
+        var cellTtUsd = ttUsd !== null
+            ? '<td style="text-align:right;background:#f0faf4;color:#0f5132;font-weight:500" title="$' + fmt(ttUsd) + ' USD">u$d ' + fmt(ttUsd) + '</td>'
+            : '<td style="text-align:center;color:#999">—</td>';
+        var cellCot = cotUsada
+            ? '<td style="text-align:center;font-size:11px;color:#555">$' + cotUsada.toLocaleString('es-AR', {maximumFractionDigits: 2}) + '</td>'
+            : '<td style="text-align:center;color:#999">—</td>';
+
+        html += '<tr ' + trStyle + '>' +
+            '<td>' + fmtFecha(r.fecha_emision) + '</td>' +
+            '<td><span class="badge bg-secondary" style="font-size:10px">' + (r.tipo_codigo || r.tipo_comprobante || '') + '</span> ' + (r.numero_completo || '') + '</td>' +
+            '<td>' + (r.proveedor_razon_social || r.proveedor || '') + '</td>' +
+            '<td style="text-align:right">' + Number(r.cantidad).toLocaleString('es-AR', {maximumFractionDigits: 2}) + '</td>' +
+            '<td style="text-align:right">' + fmt(parseFloat(r.precio_unitario)) + '</td>' +
+            '<td style="text-align:center">' + Number(r.descuento_porcentaje || 0).toFixed(2) + '%</td>' +
+            '<td style="text-align:right">' + fmt(parseFloat(r.descuento_monto || 0)) + '</td>' +
+            '<td style="text-align:right;font-weight:600">' + fmt(parseFloat(r.precio_neto || 0)) + '</td>' +
+            cellPnUsd +
+            '<td style="text-align:center">' + Number(r.iva_porcentaje || 0).toFixed(1) + '%</td>' +
+            '<td style="text-align:right">' + fmt(parseFloat(r.total)) + '</td>' +
+            cellTtUsd +
+            cellCot +
+            '<td style="text-align:center"><span class="badge ' + badgeClass + '" style="font-size:10px">' + r.estado + '</span></td>' +
+            '</tr>';
+    });
+    tb.innerHTML = html;
+}
+
+function _histStats(rows) {
+    var vigentes = rows.filter(function(r) { return r.estado !== 'anulado'; });
+    var cont = document.getElementById('histStats');
+    if (vigentes.length === 0) { cont.innerHTML = ''; return; }
+    var precios = vigentes.map(function(r) { return Number(r.precio_neto); }).filter(function(n) { return !isNaN(n) && n > 0; });
+    var min = precios.length ? Math.min.apply(null, precios) : 0;
+    var max = precios.length ? Math.max.apply(null, precios) : 0;
+    var avg = precios.length ? (precios.reduce(function(a,b){return a+b;}, 0) / precios.length) : 0;
+    var cant = vigentes.reduce(function(a,r){return a + Number(r.cantidad || 0);}, 0);
+    var ult = vigentes[0] ? fmtFecha(vigentes[0].fecha_emision) : '—';
+    cont.innerHTML =
+        '<div class="col"><div class="border rounded p-1" style="background:#f8f9fa"><div class="text-muted">Compras</div><div style="font-weight:600">' + vigentes.length + '</div></div></div>' +
+        '<div class="col"><div class="border rounded p-1" style="background:#f8f9fa"><div class="text-muted">Últ. fecha</div><div style="font-weight:600">' + ult + '</div></div></div>' +
+        '<div class="col"><div class="border rounded p-1" style="background:#f8f9fa"><div class="text-muted">P. mín.</div><div style="font-weight:600;color:#198754">' + fmt(min) + '</div></div></div>' +
+        '<div class="col"><div class="border rounded p-1" style="background:#f8f9fa"><div class="text-muted">P. prom.</div><div style="font-weight:600">' + fmt(avg) + '</div></div></div>' +
+        '<div class="col"><div class="border rounded p-1" style="background:#f8f9fa"><div class="text-muted">P. máx.</div><div style="font-weight:600;color:#dc3545">' + fmt(max) + '</div></div></div>' +
+        '<div class="col"><div class="border rounded p-1" style="background:#f8f9fa"><div class="text-muted">Cant. total</div><div style="font-weight:600">' + cant.toLocaleString('es-AR', {maximumFractionDigits: 2}) + '</div></div></div>';
+}
+
+function exportarHistorialCSV() {
+    var rows = HIST_STATE.datos[HIST_STATE.tabActiva] || [];
+    if (rows.length === 0) { toast('No hay datos para exportar', 'warning'); return; }
+    var headers = ['Fecha','Tipo','Numero','Proveedor','Cantidad','PrecioUnit','DtoPct','DtoMonto','PrecioNeto','PrecioNetoUSD','IVAPct','Total','TotalUSD','Moneda','CotizacionCabecera','CotizacionUsadaUSD','Estado'];
+    var lines = [headers.join(';')];
+    rows.forEach(function(r) {
+        lines.push([
+            r.fecha_emision || '',
+            r.tipo_codigo || '',
+            (r.numero_completo || '').replace(/;/g, ','),
+            (r.proveedor_razon_social || r.proveedor || '').replace(/;/g, ','),
+            r.cantidad, r.precio_unitario, r.descuento_porcentaje, r.descuento_monto,
+            r.precio_neto,
+            (r.precio_neto_usd != null ? r.precio_neto_usd : ''),
+            r.iva_porcentaje, r.total,
+            (r.total_usd != null ? r.total_usd : ''),
+            r.moneda_codigo || 'ARS',
+            r.cotizacion || 1,
+            (r.cotizacion_usada != null ? r.cotizacion_usada : ''),
+            r.estado
+        ].join(';'));
+    });
+    var tabLabel = HIST_STATE.tabActiva === 'general' ? 'general' : 'proveedor';
+    var fname = 'historial_compras_' + (HIST_STATE.producto_sku || HIST_STATE.id_producto) + '_' + tabLabel + '_' + new Date().toISOString().slice(0,10) + '.csv';
+    var blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fname;
+    a.click();
+}
+
+
+// IMPRESION listado (usa rows en memoria si estan, sino recarga)
+function imprimirListadoCompras() {
+    if (typeof ComprasPrint === 'undefined') { alert('Modulo de impresion no cargado'); return; }
+    var rows = window._ultimoListadoCompras || [];
+    if (!rows.length) { alert('No hay registros para imprimir. Carga el listado primero.'); return; }
+    var filtros = {
+        q: document.getElementById('filtroQ')?.value || '',
+        estado: document.getElementById('filtroEstado')?.value || '',
+        desde: document.getElementById('filtroDesde')?.value || '',
+        hasta: document.getElementById('filtroHasta')?.value || ''
+    };
+    ComprasPrint.imprimirListado(filtros, rows);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COTIZACIÓN USD AUTOMÁTICA
+// Carga al inicio, refresh manual disponible, snapshot por comprobante
+// Fuente de verdad: /api/cotizaciones/usd/vigente (helper central backend)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+var _cotizacionActual = null;
+
+async function refrescarCotizacion(force) {
+    var btn   = document.getElementById('btnRefreshCotiz');
+    var input = document.getElementById('inputCotiz');
+    var badge = document.getElementById('cotizBadge');
+    var txt   = document.getElementById('cotizBadgeTxt');
+    if (!input || !badge) return;
+
+    if (btn) btn.disabled = true;
+    txt.textContent = 'cargando…';
+    badge.className = 'cotiz-badge';
+
+    try {
+        // Si force=true, manda forceFresh=true para pegarle a DolarAPI aunque tenga cache
+        var url = '/cotizaciones/usd/vigente' + (force ? '?forceFresh=true' : '');
+        var r = await apiFetch(url);
+        _cotizacionActual = r;
+
+        if (!r || !r.valor || r.valor <= 0) {
+            // No hay cotización
+            input.value = '1';
+            txt.textContent = 'sin cotización';
+            badge.className = 'cotiz-badge cotiz-error';
+            badge.title = 'No hay cotización USD disponible. Guardar queda posible pero sin snapshot dolarizado.';
+            return;
+        }
+
+        // Poblar input — lo que viaja al backend como `cotizacion` del body
+        input.value = r.valor.toFixed(2);
+        // Texto amigable
+        var label = 'Blue ' + r.fuente_usada.replace('blue_', '') + ' $' +
+            r.valor.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+        var dias = r.dias_antiguedad || 0;
+        if (dias === 0) label += ' · hoy';
+        else if (dias === 1) label += ' · ayer';
+        else label += ' · hace ' + dias + 'd';
+
+        txt.textContent = label;
+
+        if (r.esta_desactualizada) {
+            badge.className = 'cotiz-badge cotiz-vieja';
+            badge.title = 'Cotización con ' + dias + ' días de antigüedad. Considerar refrescar.';
+        } else {
+            badge.className = 'cotiz-badge';
+            badge.title = 'Cotización vigente · fuente: ' + (r.fuente_fila || 'manual');
+        }
+
+        // Refrescar preview USD del resumen
+        if (typeof recalcularTotales === 'function') recalcularTotales();
+
+    } catch (e) {
+        console.warn('refrescarCotizacion error:', e.message);
+        txt.textContent = 'error';
+        badge.className = 'cotiz-badge cotiz-error';
+        badge.title = 'No se pudo cargar la cotización: ' + e.message;
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+// Auto-cargar al entrar a compras.html (se llama desde cargarFormData)
+document.addEventListener('DOMContentLoaded', function() {
+    // Dar tiempo a que cargarFormData termine y luego sumar cotización
+    setTimeout(function() { refrescarCotizacion(false); }, 500);
+});
+
+
+// ═══════════════════════════════════════════════════════════════
+// DESCUENTOS EN CADENA (sucesivos multiplicativos, con signo)
+// Trigger: el operador escribe -1 en la celda Descuento de la grilla.
+// Negativo Di = recargo, positivo Di = descuento.
+// Schema BD: comprobante_compra_items.descuentos_compuestos (jsonb)
+//            comprobante_compra_items.descuento_porcentaje (equivalente con signo)
+// Espejo backend: src/utils/descuentos.helper.js
+// ═══════════════════════════════════════════════════════════════
+
+let _dcRowEditando = null;
+
+// Rangos UI — fallback si window.CONFIG aún no los inyectó.
+const _DC_RANGO_MIN = (window.CONFIG && Number.isFinite(parseFloat(window.CONFIG['compras.descuento_cadena_min'])))
+    ? parseFloat(window.CONFIG['compras.descuento_cadena_min']) : -99;
+const _DC_RANGO_MAX = (window.CONFIG && Number.isFinite(parseFloat(window.CONFIG['compras.descuento_cadena_max'])))
+    ? parseFloat(window.CONFIG['compras.descuento_cadena_max']) : 99;
+
+/**
+ * Equivalente neto de la cadena. Mantiene el signo.
+ * Espejo de src/utils/descuentos.helper.aplicarCadena.
+ */
+function calcularDescuentoEquivalente(arr) {
+    if (!Array.isArray(arr) || arr.length === 0) return 0;
+    var factor = 1;
+    for (var i = 0; i < arr.length; i++) {
+        var d = parseFloat(arr[i]);
+        if (!isFinite(d) || d === 0) continue;
+        if (d < _DC_RANGO_MIN) d = _DC_RANGO_MIN;
+        if (d > _DC_RANGO_MAX) d = _DC_RANGO_MAX;
+        factor *= (1 - d / 100);
+    }
+    return +((1 - factor) * 100).toFixed(2);
+}
+
+function formatearCadenaTooltip(arr) {
+    if (!Array.isArray(arr) || arr.length === 0) return '';
+    var partes = arr
+        .map(function(d) { return parseFloat(d); })
+        .filter(function(d) { return isFinite(d) && d !== 0; })
+        .map(function(d) { return d > 0 ? String(d) : '(' + d + ')'; });
+    return partes.join(' + ') + ' = ' +
+        calcularDescuentoEquivalente(arr).toFixed(2) + '%';
+}
+
+function leerInputsCadena() {
+    var arr = [];
+    for (var i = 1; i <= 5; i++) {
+        var v = parseFloat(document.getElementById('dc' + i).value);
+        if (isFinite(v) && v !== 0) arr.push(v);
+    }
+    return arr;
+}
+
+function actualizarPreviewCadena() {
+    var arr = leerInputsCadena();
+    var eq = calcularDescuentoEquivalente(arr);
+    var lbl = document.getElementById('dcEquivalenteLabel');
+    var val = document.getElementById('dcEquivalente');
+    if (eq > 0) {
+        if (lbl) lbl.textContent = 'Descuento equivalente:';
+        val.style.color = 'var(--lago-700, #198754)';
+        val.textContent = eq.toFixed(2).replace('.', ',') + '%';
+    } else if (eq < 0) {
+        if (lbl) lbl.textContent = 'Recargo equivalente:';
+        val.style.color = '#b35900';
+        val.textContent = Math.abs(eq).toFixed(2).replace('.', ',') + '%';
+    } else {
+        if (lbl) lbl.textContent = 'Equivalente:';
+        val.style.color = 'var(--text-secondary, #6c757d)';
+        val.textContent = '0,00%';
+    }
+}
+
+function abrirModalDescuentosCadena(rowIdx) {
+    _dcRowEditando = rowIdx;
+    var item = itemsComprobante[rowIdx];
+    var prev = (item && item.descuentos_compuestos) || [];
+    for (var i = 1; i <= 5; i++) {
+        var inp = document.getElementById('dc' + i);
+        var v = (i - 1 < prev.length) ? prev[i - 1] : null;
+        var pv = parseFloat(v);
+        inp.value = (isFinite(pv) && pv !== 0) ? pv : '';
+    }
+    actualizarPreviewCadena();
+    var modal = new bootstrap.Modal(document.getElementById('modalDescCadena'));
+    modal.show();
+    setTimeout(function() {
+        var foco = document.getElementById('dc1');
+        if (foco) { foco.focus(); foco.select(); }
+    }, 200);
+}
+
+function aplicarDescuentosCadena() {
+    if (_dcRowEditando == null) return;
+    var item = itemsComprobante[_dcRowEditando];
+    if (!item) return;
+    var arr = leerInputsCadena();
+    var eq = calcularDescuentoEquivalente(arr);
+
+    if (arr.length === 0) {
+        item.descuentos_compuestos = null;
+        item.descuento_porcentaje = 0;
+    } else if (arr.length === 1) {
+        // Un solo Di (puede ser negativo = recargo simple).
+        item.descuentos_compuestos = null;
+        item.descuento_porcentaje = arr[0];
+    } else {
+        item.descuentos_compuestos = arr;
+        item.descuento_porcentaje = eq;
+    }
+
+    var tr = document.querySelector('#tbItems tr[data-row="' + _dcRowEditando + '"]');
+    if (tr) {
+        var celdaDesc = tr.querySelector('[data-col="4"]');
+        if (celdaDesc) {
+            celdaDesc.value = item.descuento_porcentaje || 0;
+            if (arr.length > 1) {
+                celdaDesc.title = 'Cadena: ' + formatearCadenaTooltip(arr);
+                celdaDesc.style.background = '#fff8dc';
+            } else {
+                celdaDesc.title = '';
+                celdaDesc.style.background = '';
+            }
+        }
+        var dto = parseFloat(item.descuento_porcentaje) || 0;
+        // dto<0 da factor>1 (recargo), dto>0 da factor<1 (descuento).
+        var precioNeto = item.precio_unitario * (1 - dto / 100);
+        item.subtotal = +(precioNeto * item.cantidad).toFixed(2);
+        var celdaTotal = tr.querySelector('.cell-total');
+        if (celdaTotal) celdaTotal.textContent = fmt(item.subtotal);
+    }
+
+    recalcularTotales();
+    bootstrap.Modal.getInstance(document.getElementById('modalDescCadena')).hide();
+    _dcRowEditando = null;
+
+    if (arr.length > 1) {
+        var tipo = eq >= 0 ? 'Descuento' : 'Recargo';
+        toast(tipo + ' aplicado: ' + formatearCadenaTooltip(arr), 'success');
+    }
+}
+
+function limpiarDescuentosCadena() {
+    for (var i = 1; i <= 5; i++) {
+        document.getElementById('dc' + i).value = '';
+    }
+    actualizarPreviewCadena();
+    document.getElementById('dc1').focus();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var modalEl = document.getElementById('modalDescCadena');
+    if (!modalEl) return;
+    modalEl.querySelectorAll('.dc-input').forEach(function(inp) {
+        inp.addEventListener('input', actualizarPreviewCadena);
+    });
+    document.getElementById('btnDescCadenaAplicar').addEventListener('click', aplicarDescuentosCadena);
+    document.getElementById('btnDescCadenaLimpiar').addEventListener('click', limpiarDescuentosCadena);
+    modalEl.querySelectorAll('.dc-input').forEach(function(inp) {
+        inp.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); aplicarDescuentosCadena(); }
+        });
+    });
+});
+

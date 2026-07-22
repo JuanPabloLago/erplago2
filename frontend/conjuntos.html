@@ -4,475 +4,218 @@
     <script src="js/config.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conjuntos de Productos - ERP LAGO</title>
+    <title>Conjuntos / Kits - ERP LAGO</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/erp-lago-styles.css">
     <style>
+        body { background: #f5f5f5; }
         .conjunto-card {
-            transition: transform 0.2s;
-            border-left: 4px solid #0d6efd;
+            border-left: 4px solid var(--color-primary);
+            transition: var(--transition);
+            margin-bottom: 10px;
         }
         .conjunto-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.12);
         }
-        .producto-badge {
+        .producto-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #e8f5e9;
+            border: 1px solid #c8e6c9;
+            padding: 3px 10px;
+            margin: 2px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #2e7d32;
+        }
+        .producto-tag .cantidad { font-weight: 700; }
+        .resultado-busqueda {
+            cursor: pointer;
+            padding: 6px 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        .resultado-busqueda:hover { background: #e8f5e9; }
+        .item-seleccionado {
+            display: flex;
+            align-items: center;
+            padding: 6px 10px;
             background: #f8f9fa;
             border: 1px solid #dee2e6;
-            padding: 0.5rem;
-            margin: 0.25rem;
-            border-radius: 0.375rem;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            font-size: 13px;
         }
+        .item-seleccionado .nombre { flex: 1; }
+        .item-seleccionado input { width: 70px; text-align: center; }
+        .stats-card { border-left: 4px solid var(--color-success); }
+        .stats-card .valor { font-size: 24px; font-weight: 700; color: var(--color-success); }
+        /* Toast */
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
     </style>
 </head>
 <body>
-    <script src="js/connection-indicator.js"></script>
-    <nav class="navbar navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+
+    <!-- NAVBAR estándar LAGO (auth.js inyecta offcanvas) -->
+    <nav class="navbar navbar-dark gradient-primary">
         <div class="container-fluid">
             <a class="navbar-brand" href="dashboard.html">
-                <i class="bi bi-arrow-left-circle"></i> ERP LAGO
+                <i class="bi bi-arrow-left-circle me-1"></i> ERP LAGO
             </a>
             <span class="navbar-text text-white">
-                <i class="bi bi-collection"></i> Gestión de Conjuntos / Kits
+                <i class="bi bi-collection me-1"></i> Conjuntos / Kits
             </span>
-            <button class="btn btn-outline-light btn-sm" onclick="cerrarSesion()">
-                <i class="bi bi-box-arrow-right"></i> Salir
-            </button>
         </div>
     </nav>
 
-    <div class="container-fluid mt-4">
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white">
-                        <i class="bi bi-plus-circle"></i> Acciones
-                    </div>
-                    <div class="card-body">
-                        <button class="btn btn-success w-100 mb-2" onclick="abrirModalNuevo()">
-                            <i class="bi bi-plus-circle"></i> Nuevo Conjunto
-                        </button>
-                        <button class="btn btn-info w-100" onclick="cargarConjuntos()">
-                            <i class="bi bi-arrow-clockwise"></i> Recargar
-                        </button>
-                    </div>
-                </div>
-
-                <div class="card shadow-sm mt-3">
-                    <div class="card-header bg-info text-white">
-                        <i class="bi bi-info-circle"></i> Resumen
-                    </div>
-                    <div class="card-body">
-                        <p class="mb-0"><strong>Total Conjuntos:</strong> <span id="totalConjuntos">0</span></p>
-                    </div>
-                </div>
+    <!-- BARRA DE ACCIONES -->
+    <div class="container-fluid mt-3 mb-2">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex gap-2 align-items-center">
+                <button class="btn btn-success btn-sm" id="btnNuevo" title="Ins: Nuevo conjunto">
+                    <i class="bi bi-plus-circle me-1"></i> Nuevo <kbd class="ms-1">Ins</kbd>
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" id="btnRefrescar" title="F5: Refrescar">
+                    <i class="bi bi-arrow-clockwise"></i> <kbd>F5</kbd>
+                </button>
             </div>
-
-            <div class="col-md-8">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-secondary text-white">
-                        <i class="bi bi-collection"></i> Lista de Conjuntos
-                    </div>
-                    <div class="card-body">
-                        <div id="listaConjuntos">
-                            <div class="text-center">
-                                <div class="spinner-border spinner-border-sm" role="status"></div>
-                                Cargando conjuntos...
-                            </div>
-                        </div>
-                    </div>
+            <div class="d-flex gap-3 align-items-center">
+                <div class="stats-card bg-white rounded p-2 px-3 shadow-sm">
+                    <small class="text-muted">Conjuntos activos</small>
+                    <div class="valor" id="totalConjuntos">0</div>
+                </div>
+                <div class="stats-card bg-white rounded p-2 px-3 shadow-sm">
+                    <small class="text-muted">Total productos</small>
+                    <div class="valor" id="totalProductos">0</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal Crear/Editar Conjunto -->
+    <!-- LISTA DE CONJUNTOS -->
+    <div class="container-fluid">
+        <div id="listaConjuntos">
+            <div class="text-center py-5 text-muted">
+                <div class="spinner-border spinner-border-sm me-2"></div> Cargando conjuntos...
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CREAR/EDITAR -->
     <div class="modal fade" id="modalConjunto" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
+                <div class="modal-header gradient-primary text-white">
                     <h5 class="modal-title" id="modalTitulo">
-                        <i class="bi bi-plus-circle"></i> Nuevo Conjunto
+                        <i class="bi bi-plus-circle me-1"></i> Nuevo Conjunto
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="formConjunto">
-                        <input type="hidden" id="idConjunto">
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Nombre <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="nombreConjunto" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Precio</label>
-                                    <input type="number" class="form-control" id="precioConjunto" step="0.01" min="0" value="0">
-                                </div>
-                            </div>
-                        </div>
+                    <input type="hidden" id="idConjunto">
 
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="mb-3">
-                                    <label class="form-label">Descripción</label>
-                                    <textarea class="form-control" id="descripcionConjunto" rows="2"></textarea>
-                                </div>
-                            </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Nombre <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="nombreConjunto"
+                                   placeholder="Ej: Kit Constructor Básico" autofocus>
                         </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Precio $</label>
+                            <input type="number" class="form-control form-control-sm" id="precioConjunto"
+                                   step="0.01" min="0" value="0">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Descuento %</label>
+                            <input type="number" class="form-control form-control-sm" id="descuentoConjunto"
+                                   min="0" max="100" value="0">
+                        </div>
+                    </div>
 
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Descuento (%)</label>
-                                    <input type="number" class="form-control" id="descuentoConjunto" min="0" max="100" value="0">
-                                </div>
-                            </div>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descripción</label>
+                        <textarea class="form-control form-control-sm" id="descripcionConjunto" rows="2"
+                                  placeholder="Descripción opcional del conjunto"></textarea>
+                    </div>
 
-                        <hr>
-                        <h6><i class="bi bi-box"></i> Productos del Conjunto</h6>
-                        
-                        <div class="mb-3">
-                            <div class="input-group">
-                                <input type="text" class="form-control" id="buscarProducto" 
-                                       placeholder="Buscar producto..." onkeyup="buscarProductos()">
-                                <button class="btn btn-outline-secondary" type="button" onclick="buscarProductos()">
-                                    <i class="bi bi-search"></i>
-                                </button>
-                            </div>
-                            <div id="resultadosProductos" class="mt-2" style="max-height: 200px; overflow-y: auto;"></div>
-                        </div>
+                    <hr class="my-2">
+                    <h6 class="fw-bold mb-2"><i class="bi bi-box me-1"></i> Productos del Conjunto</h6>
 
-                        <div id="productosSeleccionados" class="mt-3">
-                            <div class="alert alert-info">
-                                <i class="bi bi-info-circle"></i> Busca y agrega productos al conjunto
-                            </div>
+                    <!-- Buscador server-side -->
+                    <div class="mb-2">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control" id="buscarProducto"
+                                   placeholder="Buscar por nombre o SKU..." autocomplete="off">
                         </div>
-                    </form>
+                        <div id="resultadosProductos" class="border rounded mt-1"
+                             style="max-height: 180px; overflow-y: auto; display: none;"></div>
+                    </div>
+
+                    <!-- Items seleccionados -->
+                    <div id="productosSeleccionados">
+                        <div class="text-muted small text-center py-3" id="sinProductos">
+                            <i class="bi bi-info-circle me-1"></i> Busca y agrega productos al conjunto
+                        </div>
+                    </div>
                 </div>
+                <!-- ─── Publicar en tienda web ───────────────────────── -->
+                <div class="border-top pt-3 mt-2">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-shop me-2 text-success"></i>
+                        <strong class="me-auto">Publicar en tienda web</strong>
+                        <div class="form-check form-switch m-0">
+                            <input type="checkbox" class="form-check-input" id="webVisible" role="switch">
+                            <label class="form-check-label small" for="webVisible">Visible</label>
+                        </div>
+                    </div>
+                    <div class="row g-2" id="webCamposExtras">
+                        <div class="col-md-5">
+                            <label class="form-label small text-muted mb-1">Slug URL (ej: <code>corralon</code>)</label>
+                            <input type="text" class="form-control form-control-sm" id="webSlug"
+                                   pattern="^[a-z0-9-]+$" maxlength="50"
+                                   placeholder="minusculas-numeros-guion">
+                            <div class="form-text small">Aparece en <code>lago.ar/?conjunto=&lt;slug&gt;</code>. Vacio = no aparece como tab.</div>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small text-muted mb-1">Etiqueta</label>
+                            <input type="text" class="form-control form-control-sm" id="webLabel"
+                                   maxlength="80" placeholder="Texto visible en el topbar">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small text-muted mb-1">Orden</label>
+                            <input type="number" class="form-control form-control-sm" id="webOrden"
+                                   min="0" step="1" value="0">
+                        </div>
+                    </div>
+                </div>
+
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="guardarConjunto()">
-                        <i class="bi bi-save"></i> Guardar
+                    <small class="text-muted me-auto"><kbd>F2</kbd> Guardar &nbsp; <kbd>Esc</kbd> Cerrar</small>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success btn-sm" id="btnGuardar">
+                        <i class="bi bi-save me-1"></i> Guardar
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- TOAST -->
+    <div class="toast-container">
+        <div id="toastMsg" class="toast align-items-center border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body" id="toastBody"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        const API_URL = 'http://72.60.148.18:3000/api';
-        let conjuntos = [];
-        let productos = [];
-        let productosSeleccionados = [];
-        let modalConjunto;
-
-        document.addEventListener('DOMContentLoaded', async () => {
-            const token = localStorage.getItem('authToken');
-            if (!token) {
-                window.location.href = 'login.html';
-                return;
-            }
-
-            modalConjunto = new bootstrap.Modal(document.getElementById('modalConjunto'));
-            await cargarProductos();
-            await cargarConjuntos();
-        });
-
-        async function cargarProductos() {
-            try {
-                const response = await fetch(`${API_URL}/productos`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-                });
-                productos = await response.json();
-            } catch (error) {
-                console.error('Error al cargar productos:', error);
-            }
-        }
-
-        async function cargarConjuntos() {
-            try {
-                const response = await fetch(`${API_URL}/conjuntos`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-                });
-
-                if (response.status === 403 || response.status === 401) {
-                    window.location.href = 'login.html';
-                    return;
-                }
-
-                conjuntos = await response.json();
-                mostrarConjuntos();
-                actualizarResumen();
-            } catch (error) {
-                console.error('Error al cargar conjuntos:', error);
-                document.getElementById('listaConjuntos').innerHTML = 
-                    '<div class="alert alert-danger">Error al cargar conjuntos</div>';
-            }
-        }
-
-        function mostrarConjuntos() {
-            const container = document.getElementById('listaConjuntos');
-
-            if (conjuntos.length === 0) {
-                container.innerHTML = '<div class="alert alert-info">No hay conjuntos creados</div>';
-                return;
-            }
-
-            container.innerHTML = conjuntos.map(c => {
-                const productos = c.productos || [];
-                const productosHTML = productos.map(p => 
-                    `<span class="producto-badge">
-                        <i class="bi bi-box"></i> ${p.nombre} <strong>x${p.cantidad}</strong>
-                    </span>`
-                ).join('');
-
-                return `
-                    <div class="card conjunto-card mb-3">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div>
-                                    <h5 class="mb-1">
-                                        <i class="bi bi-collection text-primary"></i> ${c.nombre}
-                                    </h5>
-                                    <p class="text-muted mb-0">${c.descripcion || 'Sin descripción'}</p>
-                                </div>
-                                <div>
-                                    <button class="btn btn-sm btn-warning" onclick="editarConjunto(${c.id_conjunto})">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-danger" onclick="eliminarConjunto(${c.id_conjunto}, '${c.nombre}')">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="row mt-2">
-                                <div class="col-md-6">
-                                    <strong class="text-success">Precio: $${parseFloat(c.precio_conjunto || 0).toFixed(2)}</strong>
-                                    ${c.descuento_porcentaje > 0 ? `<span class="badge bg-warning text-dark ms-2">${c.descuento_porcentaje}% OFF</span>` : ''}
-                                </div>
-                                <div class="col-md-6 text-end">
-                                    <span class="badge bg-info">${productos.length} productos</span>
-                                </div>
-                            </div>
-                            <div class="mt-3">
-                                ${productosHTML || '<small class="text-muted">Sin productos</small>'}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function buscarProductos() {
-            const termino = document.getElementById('buscarProducto').value.toLowerCase();
-            const container = document.getElementById('resultadosProductos');
-
-            if (termino.length === 0) {
-                container.innerHTML = '';
-                return;
-            }
-
-            const filtrados = productos.filter(p =>
-                p.nombre.toLowerCase().includes(termino) ||
-                p.sku.toLowerCase().includes(termino)
-            ).slice(0, 10);
-
-            if (filtrados.length === 0) {
-                container.innerHTML = '<div class="text-muted small">No se encontraron productos</div>';
-                return;
-            }
-
-            container.innerHTML = filtrados.map(p => `
-                <div class="card mb-1" style="cursor: pointer;" onclick="agregarProducto(${p.id_producto}, '${p.nombre}')">
-                    <div class="card-body py-2">
-                        <small><strong>${p.nombre}</strong> (${p.sku})</small>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function agregarProducto(id_producto, nombre) {
-            // Verificar si ya está agregado
-            if (productosSeleccionados.find(p => p.id_producto === id_producto)) {
-                alert('Este producto ya está en el conjunto');
-                return;
-            }
-
-            productosSeleccionados.push({
-                id_producto,
-                nombre,
-                cantidad: 1
-            });
-
-            mostrarProductosSeleccionados();
-            document.getElementById('buscarProducto').value = '';
-            document.getElementById('resultadosProductos').innerHTML = '';
-        }
-
-        function mostrarProductosSeleccionados() {
-            const container = document.getElementById('productosSeleccionados');
-
-            if (productosSeleccionados.length === 0) {
-                container.innerHTML = '<div class="alert alert-info"><i class="bi bi-info-circle"></i> Busca y agrega productos al conjunto</div>';
-                return;
-            }
-
-            container.innerHTML = `
-                <h6>Productos seleccionados:</h6>
-                ${productosSeleccionados.map((p, index) => `
-                    <div class="d-flex align-items-center mb-2 p-2 bg-light rounded">
-                        <div class="flex-grow-1">
-                            <i class="bi bi-box"></i> ${p.nombre}
-                        </div>
-                        <input type="number" class="form-control form-control-sm mx-2" 
-                               style="width: 80px;" value="${p.cantidad}" min="1"
-                               onchange="cambiarCantidad(${index}, this.value)">
-                        <button class="btn btn-sm btn-danger" onclick="quitarProducto(${index})">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                `).join('')}
-            `;
-        }
-
-        function cambiarCantidad(index, cantidad) {
-            productosSeleccionados[index].cantidad = parseInt(cantidad) || 1;
-        }
-
-        function quitarProducto(index) {
-            productosSeleccionados.splice(index, 1);
-            mostrarProductosSeleccionados();
-        }
-
-        function actualizarResumen() {
-            document.getElementById('totalConjuntos').textContent = conjuntos.length;
-        }
-
-        function abrirModalNuevo() {
-            document.getElementById('formConjunto').reset();
-            document.getElementById('idConjunto').value = '';
-            productosSeleccionados = [];
-            mostrarProductosSeleccionados();
-            document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-plus-circle"></i> Nuevo Conjunto';
-            modalConjunto.show();
-        }
-
-        async function editarConjunto(id_conjunto) {
-            try {
-                const response = await fetch(`${API_URL}/conjuntos/${id_conjunto}`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-                });
-
-                const conjunto = await response.json();
-
-                document.getElementById('idConjunto').value = conjunto.id_conjunto;
-                document.getElementById('nombreConjunto').value = conjunto.nombre;
-                document.getElementById('descripcionConjunto').value = conjunto.descripcion || '';
-                document.getElementById('precioConjunto').value = conjunto.precio_conjunto || 0;
-                document.getElementById('descuentoConjunto').value = conjunto.descuento_porcentaje || 0;
-
-                productosSeleccionados = conjunto.productos.map(p => ({
-                    id_producto: p.id_producto,
-                    nombre: p.nombre,
-                    cantidad: p.cantidad
-                }));
-
-                mostrarProductosSeleccionados();
-
-                document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-pencil"></i> Editar Conjunto';
-                modalConjunto.show();
-            } catch (error) {
-                console.error('Error al cargar conjunto:', error);
-                alert('Error al cargar datos del conjunto');
-            }
-        }
-
-        async function guardarConjunto() {
-            const id_conjunto = document.getElementById('idConjunto').value;
-            const datos = {
-                nombre: document.getElementById('nombreConjunto').value,
-                descripcion: document.getElementById('descripcionConjunto').value,
-                precio_conjunto: parseFloat(document.getElementById('precioConjunto').value) || 0,
-                descuento_porcentaje: parseFloat(document.getElementById('descuentoConjunto').value) || 0,
-                productos: productosSeleccionados
-            };
-
-            if (!datos.nombre) {
-                alert('El nombre es requerido');
-                return;
-            }
-
-            if (productosSeleccionados.length === 0) {
-                alert('Debe agregar al menos un producto');
-                return;
-            }
-
-            try {
-                const url = id_conjunto 
-                    ? `${API_URL}/conjuntos/${id_conjunto}` 
-                    : `${API_URL}/conjuntos`;
-                const method = id_conjunto ? 'PUT' : 'POST';
-
-                const response = await fetch(url, {
-                    method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    },
-                    body: JSON.stringify(datos)
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    alert(result.message);
-                    modalConjunto.hide();
-                    await cargarConjuntos();
-                } else {
-                    alert(result.error || 'Error al guardar conjunto');
-                }
-            } catch (error) {
-                console.error('Error al guardar conjunto:', error);
-                alert('Error al guardar conjunto');
-            }
-        }
-
-        async function eliminarConjunto(id_conjunto, nombre) {
-            if (!confirm(`¿Está seguro que desea eliminar el conjunto "${nombre}"?`)) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_URL}/conjuntos/${id_conjunto}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    alert(result.message);
-                    await cargarConjuntos();
-                } else {
-                    alert(result.error || 'Error al eliminar conjunto');
-                }
-            } catch (error) {
-                console.error('Error al eliminar conjunto:', error);
-                alert('Error al eliminar conjunto');
-            }
-        }
-
-        function cerrarSesion() {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('username');
-            window.location.href = 'login.html';
-        }
-    </script>
+    <script src="js/auth.js"></script>
+    <script src="js/conjuntos.js"></script>
 </body>
 </html>

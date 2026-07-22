@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Remito {{remito.numero_completo}}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @page { size: A4; margin: 3mm 6mm; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 9px; line-height: 1.2; color: #000; }
+
+        .copia { height: 143mm; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+        .corte { height: 2mm; display: flex; align-items: center; justify-content: center; border-top: 1px dashed #aaa; flex-shrink: 0; }
+        .corte::after { content: '\2702  \2500\2500 CORTAR \2500\2500 \2702'; font-size: 6px; color: #aaa; background: #fff; padding: 0 3mm; }
+
+        .header { display: flex; border: 1.5px solid #000; margin-bottom: 0.8mm; height: 14mm; flex-shrink: 0; }
+        .h-emp { width: 42%; padding: 0.8mm 1.5mm; border-right: 1.5px solid #000; display: flex; flex-direction: column; justify-content: center; }
+        .h-letra { width: 6%; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1.5px solid #000; }
+        .h-doc { width: 52%; padding: 0.8mm 1.5mm; position: relative; display: flex; flex-direction: column; justify-content: center; }
+        .emp-nombre { font-size: 12px; font-weight: bold; line-height: 1.1; }
+        .emp-datos { font-size: 7px; color: #333; line-height: 1.3; }
+        .letra { font-size: 16px; font-weight: bold; }
+        .cod { font-size: 5.5px; color: #333; }
+        .doc-tipo { font-size: 8px; font-weight: bold; text-align: right; }
+        .doc-num { font-size: 10px; font-weight: bold; text-align: right; }
+        .doc-info { font-size: 6.5px; text-align: right; color: #333; }
+        .badge-copia { position: absolute; top: 0.3mm; right: 1mm; font-size: 5.5px; font-weight: bold; border: 1px solid #000; padding: 0.2mm 1mm; }
+
+        .cliente { border: 1px solid #000; padding: 1mm 2mm; margin-bottom: 0.8mm; flex-shrink: 0; }
+        .cli-fila { display: flex; width: 100%; gap: 1.5mm; }
+        .cli-lbl { font-weight: bold; font-size: 11px; min-width: 52px; }
+        .cli-val { flex: 1; border-bottom: 1px dotted #bbb; font-size: 13px; overflow: hidden; white-space: nowrap; }
+        .cli-val-short { width: 80px; border-bottom: 1px dotted #bbb; font-size: 13px; }
+
+        .transporte { border: 1px solid #000; padding: 0.3mm 1.5mm; margin-bottom: 0.8mm; display: flex; gap: 3mm; font-size: 6.5px; flex-shrink: 0; }
+        .tr-lbl { font-weight: bold; font-size: 5.5px; margin-right: 1mm; }
+        .tr-val { border-bottom: 1px dotted #bbb; min-width: 40px; }
+
+        .items { width: 100%; border-collapse: collapse; }
+        .items th { background: #e0e0e0; border: 0.3px solid #bbb; padding: 0.8mm 1mm; font-size: 8px; font-weight: bold; text-align: center; }
+        .items td { border: 0.3px solid #ddd; padding: 1mm 1.2mm; font-size: 9px; line-height: 1.15; }
+        .items .c-cod { width: 10%; text-align: center; }
+        .items .c-cant { width: 7%; text-align: center; }
+        .items .c-uni { width: 5%; text-align: center; }
+        .items .c-prec { width: 11%; text-align: right; }
+        .items .c-tot { width: 11%; text-align: right; }
+        .items tr.vacia td { height: 2.8mm; }
+
+        .pie { display: flex; gap: 1.5mm; flex-shrink: 0; margin-top: auto; }
+        .pie-izq { flex: 1; display: flex; flex-direction: column; }
+        .pie-der { width: 32%; }
+        .obs { border: 1px solid #000; padding: 0.5mm 1.5mm; font-size: 10px; min-height: 5mm; margin-bottom: 0.3mm; }
+        .obs-tit { font-weight: bold; font-size: 9px; }
+        .firmas { display: flex; gap: 2mm; flex: 1; }
+        .firma { flex: 1; text-align: center; }
+        .firma-linea { border-top: 1px solid #000; margin-top: 5mm; padding-top: 0.3mm; font-size: 5.5px; }
+        .firma-sub { font-size: 5px; color: #666; margin-top: 0.3mm; }
+        .totales { border: 1px solid #000; }
+        .tot-row { display: flex; padding: 0.3mm 1.5mm; font-size: 6.5px; border-bottom: 1px solid #ddd; }
+        .tot-row:last-child { background: #e0e0e0; font-weight: bold; font-size: 7px; border: none; }
+        .tot-lbl { flex: 1; }
+        .tot-val { text-align: right; min-width: 50px; }
+        .saldo { border: 2px solid #000; margin-top: 0.5mm; }
+        .sal-row { display: flex; padding: 0.3mm 1.5mm; font-size: 6.5px; border-bottom: 1px solid #ddd; }
+        .sal-cobrar { display: flex; padding: 0.8mm 1.5mm; background: #000; color: #fff; font-weight: bold; font-size: 8px; }
+        .sal-pagado { padding: 0.8mm; background: #e8f5e9; text-align: center; font-weight: bold; color: #2e7d32; font-size: 8px; }
+        .footer { font-size: 4.5px; color: #999; display: flex; justify-content: space-between; flex-shrink: 0; margin-top: 1mm; }
+
+        @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+    </style>
+</head>
+<body>
+{{#each copias}}
+{{#unless @first}}<div class="corte"></div>{{/unless}}
+<div class="copia">
+    <div class="header">
+        <div class="h-emp">
+            <div class="emp-nombre">{{../empresa.nombre_fantasia}}</div>
+            <div class="emp-datos">
+                {{#if ../empresa.nombre_fantasia}}{{../empresa.nombre_fantasia}} &middot; {{/if}}{{../empresa.domicilio}}{{#if ../config.mostrar.cuit_empresa}} &middot; CUIT: {{../empresa.cuit}}{{/if}}{{#if ../config.mostrar.condicion_iva_empresa}} &middot; {{../empresa.condicion_iva}}{{/if}}{{#if ../empresa.telefono}} &middot; Tel: {{../empresa.telefono}}{{/if}}
+            </div>
+        </div>
+        <div class="h-letra">
+            <div class="letra">{{../tipo_comprobante.letra}}</div>
+            <div class="cod">COD.{{../tipo_comprobante.codigo_afip}}</div>
+        </div>
+        <div class="h-doc">
+            <div class="badge-copia" style="color:{{this.color}}">{{this.nombre}}</div>
+            <div class="doc-tipo">{{../tipo_comprobante.titulo}}</div>
+            <div class="doc-num">N&deg; {{../remito.numero_completo}}</div>
+            <div class="doc-info"><strong>{{../config.etiquetas.fecha_emision}}:</strong> {{../remito.fecha_emision_formateada}}{{#if ../config.mostrar.numero_pedido}} &middot; <strong>{{../config.etiquetas.pedido}}:</strong> {{../remito.id_pedido}}{{/if}}</div>
+        </div>
+    </div>
+
+    <div class="cliente">
+        <div class="cli-fila">
+            <span class="cli-lbl">{{../config.etiquetas.cliente}}:</span><span class="cli-val">{{../cliente.razon_social}}</span>
+            {{#if ../config.mostrar.telefono_cliente}}<span class="cli-lbl" style="min-width:20px">TEL:</span><span class="cli-val-short">{{../cliente.telefono}}</span>{{/if}}
+        </div>
+        <div class="cli-fila">
+            <span class="cli-lbl">{{../config.etiquetas.domicilio}}:</span><span class="cli-val">{{../remito.direccion_entrega}}</span>
+            {{#if ../config.mostrar.cuit_cliente}}<span class="cli-lbl" style="min-width:20px">CUIT:</span><span class="cli-val-short">{{../cliente.cuit}}</span>{{/if}}
+            {{#if ../config.mostrar.condicion_iva_cliente}}<span class="cli-lbl" style="min-width:18px">IVA:</span><span class="cli-val-short">{{../cliente.condicion_iva}}</span>{{/if}}
+        </div>
+    </div>
+
+    {{#if ../config.mostrar.transportista}}
+    <div class="transporte">
+        {{#if ../config.mostrar.chofer}}<div style="display:flex;align-items:center"><span class="tr-lbl">CHOFER:</span><span class="tr-val">{{../remito.chofer}}</span></div>{{/if}}
+        <div style="display:flex;align-items:center"><span class="tr-lbl">VEHÍCULO:</span><span class="tr-val">{{../remito.vehiculo}}</span></div>
+        {{#if ../config.mostrar.patente}}<div style="display:flex;align-items:center"><span class="tr-lbl">PATENTE:</span><span class="tr-val">{{../remito.patente}}</span></div>{{/if}}
+    </div>
+    {{/if}}
+
+    <div style="flex:1;display:flex;flex-direction:column;"><table class="items" style="width:100%;">
+        <thead><tr>
+            {{#if ../config.mostrar.codigo_producto}}<th class="c-cod">CÓD.</th>{{/if}}
+            <th class="c-desc">DESCRIPCIÓN</th>
+            <th class="c-cant">CANT.</th>
+            <th class="c-uni">UN.</th>
+            {{#if ../config.mostrar.precio_unitario}}<th class="c-prec">P.UNIT.</th>{{/if}}
+            {{#if ../config.mostrar.total_item}}<th class="c-tot">TOTAL</th>{{/if}}
+        </tr></thead>
+        <tbody>
+            {{#each ../items}}
+            <tr>
+                {{#if ../../config.mostrar.codigo_producto}}<td class="c-cod">{{this.codigo}}</td>{{/if}}
+                <td>{{this.descripcion}}</td>
+                <td class="c-cant">{{this.cantidad_formateada}}</td>
+                <td class="c-uni">{{this.unidad_medida}}</td>
+                {{#if ../../config.mostrar.precio_unitario}}<td class="c-prec">{{this.precio_formateado}}</td>{{/if}}
+                {{#if ../../config.mostrar.total_item}}<td class="c-tot">{{this.total_formateado}}</td>{{/if}}
+            </tr>
+            {{/each}}
+            {{#each ../filas_vacias}}
+            <tr class="vacia">
+                {{#if ../../config.mostrar.codigo_producto}}<td></td>{{/if}}
+                <td></td><td></td><td></td>
+                {{#if ../../config.mostrar.precio_unitario}}<td></td>{{/if}}
+                {{#if ../../config.mostrar.total_item}}<td></td>{{/if}}
+            </tr>
+            {{/each}}
+        </tbody>
+    </table></div>
+
+    <div class="pie">
+        <div class="pie-izq">
+            {{#if ../hayObsPedido}}
+            <div class="obs"><span class="obs-tit">OBS PEDIDO:</span> {{../obsPedido}}</div>
+            {{/if}}
+            {{#if ../hayObsRemito}}
+            <div class="obs"><span class="obs-tit">OBS DESPACHO:</span> {{../obsRemito}}{{#if ../obsEditadoPor}} <em style="font-size:7px;color:#666;">(editado por {{../obsEditadoPor}} · {{../obsEditadoEn}})</em>{{/if}}</div>
+            {{/if}}
+            <div class="firmas">
+                {{#if ../config.mostrar.firma_transportista}}<div class="firma"><div class="firma-linea">{{../config.etiquetas.firma_transportista}}</div></div>{{/if}}
+                {{#if ../config.mostrar.firma_receptor}}
+                <div class="firma">
+                    <div class="firma-linea">{{../config.etiquetas.recibe_conforme}}</div>
+                    {{#if ../config.mostrar.aclaracion}}<div class="firma-sub">ACL: _____________ {{#if ../config.mostrar.dni}}DNI: _________{{/if}}</div>{{/if}}
+                </div>
+                {{/if}}
+            </div>
+        </div>
+        <div class="pie-der">
+            {{#if ../config.mostrar.total_documento}}
+            <div class="totales">
+                <div class="tot-row"><span class="tot-lbl">{{../config.etiquetas.total_general}}</span><span class="tot-val">{{../remito.total_formateado}}</span></div>
+            </div>
+            {{/if}}
+            {{#if ../remito.saldo_a_cobrar}}
+            <div class="saldo">
+                <div class="sal-row"><span class="tot-lbl">TOTAL PEDIDO</span><span class="tot-val">{{../remito.pedido_total_formateado}}</span></div>
+                <div class="sal-row"><span class="tot-lbl">PAGADO</span><span class="tot-val">{{../remito.total_pagado_formateado}}</span></div>
+                <div class="sal-cobrar"><span class="tot-lbl">A COBRAR</span><span class="tot-val">{{../remito.saldo_formateado}}</span></div>
+            </div>
+            {{else}}
+            {{#if ../remito.pedido_total}}
+            <div class="saldo"><div class="sal-pagado">PAGADO ✓</div></div>
+            {{/if}}
+            {{/if}}
+        </div>
+    </div>
+    <div class="footer">
+        <span>{{../config.textos_legales.pie_pagina}}</span>
+        {{#if ../config.mostrar.veces_impreso}}<span>Imp. N° {{../remito.veces_impreso}}</span>{{/if}}
+    </div>
+</div>
+{{/each}}
+</body>
+</html>

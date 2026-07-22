@@ -1,316 +1,602 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <script src="js/config.js"></script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Inventario - ERP Lago</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <style>
-        .table-hover tbody tr.table-active,
-        .table-hover tbody tr.table-active:hover {
-            background-color: #cfe2ff;
-            cursor: pointer;
-        }
-        .stock-input {
-            width: 80px;
-            text-align: center;
-        }
-    </style>
+<script src="js/config.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventario — ERP LAGO</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="css/erp-lago-styles.css">
+<style>
+:root {
+    --lago-900:#064e32;--lago-800:#0a5c3b;--lago-700:#0d6b45;--lago-600:#10854f;--lago-500:#15a35e;
+    --lago-400:#48c78e;--lago-300:#7edcb0;--lago-200:#b5edcf;--lago-100:#d9f5e8;--lago-50:#edf9f3;
+    --text-primary:#1a1a1a;--text-secondary:#555;--text-muted:#888;
+    --bg-page:#f4f6f5;--bg-card:#fff;--border:#dde3df;--border-focus:var(--lago-500);
+    --danger:#dc3545;--warning:#e89b0c;--success:#0d6b45;--info:#0d6efd;
+}
+*{box-sizing:border-box}
+body{background:var(--bg-page);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:var(--text-primary);margin:0;padding:0 0 28px 0}
+
+/* Navbar */
+.lago-navbar{background:var(--lago-700);padding:0 1rem;height:44px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.lago-navbar .brand{color:#fff;font-weight:600;font-size:.95rem;display:flex;align-items:center;gap:8px}
+.lago-navbar .nav-actions{display:flex;gap:4px}
+.lago-navbar .nav-btn{background:rgba(255,255,255,.15);border:none;color:#fff;padding:4px 10px;border-radius:4px;font-size:.8rem;cursor:pointer;display:flex;align-items:center;gap:4px;text-decoration:none}
+.lago-navbar .nav-btn:hover{background:rgba(255,255,255,.25);color:#fff}
+.lago-navbar .nav-btn.btn-success-soft{background:rgba(126,220,176,.25)}
+.lago-navbar .nav-btn.btn-success-soft:hover{background:rgba(126,220,176,.4)}
+
+/* Content layout */
+.content-area{padding:10px;max-width:1700px;margin:0 auto}
+.lago-card{background:var(--bg-card);border:1px solid var(--border);border-radius:6px;margin-bottom:8px}
+.lago-card-header{background:var(--lago-50);padding:6px 10px;border-bottom:1px solid var(--border);font-weight:600;font-size:.78rem;color:var(--lago-800);text-transform:uppercase;letter-spacing:.3px;display:flex;align-items:center;justify-content:space-between}
+.lago-card-body{padding:8px 10px}
+
+/* Filtros */
+.filtros-grid{display:grid;grid-template-columns:repeat(7,1fr) auto;gap:6px;align-items:end}
+.filtros-grid label{display:block;font-size:.68rem;font-weight:600;color:var(--text-muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:.3px}
+.filtros-grid input,.filtros-grid select{width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:.85rem;transition:.15s;background:#fff}
+.filtros-grid input:focus,.filtros-grid select:focus{border-color:var(--border-focus);outline:none;box-shadow:0 0 0 2px rgba(21,163,94,.12)}
+.filtro-toggle{display:flex;align-items:center;gap:5px;padding:5px 10px;background:#fff;border:1px solid var(--border);border-radius:4px;font-size:.8rem;cursor:pointer;height:30px;white-space:nowrap;user-select:none}
+.filtro-toggle.active{background:var(--lago-100);border-color:var(--lago-400);color:var(--lago-800);font-weight:600}
+.filtro-toggle input[type=checkbox]{margin:0}
+
+/* Bulk bar */
+.bulk-bar{display:none;background:var(--lago-50);border:1px solid var(--lago-200);border-radius:6px;padding:6px 10px;margin-bottom:8px;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.bulk-bar.visible{display:flex}
+.bulk-bar .info{font-size:.85rem;color:var(--lago-800)}
+.bulk-bar .info strong{color:var(--lago-700);font-size:.95rem}
+.bulk-bar .actions{display:flex;gap:6px}
+.btn-lago{background:var(--lago-600);border:none;color:#fff;padding:5px 12px;border-radius:4px;font-size:.82rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.btn-lago:hover{background:var(--lago-700)}
+.btn-lago:disabled{opacity:.5;cursor:not-allowed}
+.btn-lago-outline{background:#fff;border:1px solid var(--lago-500);color:var(--lago-700);padding:4px 10px;border-radius:4px;font-size:.8rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.btn-lago-outline:hover{background:var(--lago-50)}
+
+/* Panel Corrección */
+.panel-correccion{display:none;background:linear-gradient(135deg,#fff3cd 0%,#ffeeba 100%);border:2px solid var(--warning);border-radius:6px;padding:10px;margin-bottom:8px}
+.panel-correccion.activo{background:linear-gradient(135deg,#d4edda 0%,#c3e6cb 100%);border-color:var(--lago-500)}
+.panel-correccion .pc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.panel-correccion .pc-title{font-weight:600;font-size:.95rem;color:var(--lago-900)}
+.panel-correccion .pc-info{color:var(--text-muted);font-size:.78rem;margin-top:2px}
+.panel-correccion .pc-actions{display:flex;gap:5px}
+.panel-correccion .resumen{display:none;background:#f8f9fa;border-radius:4px;padding:8px;margin-top:6px}
+.panel-correccion .resumen.visible{display:block}
+.resumen-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center}
+.resumen-stats .stat-value{font-size:1.4rem;font-weight:700;line-height:1}
+.resumen-stats .stat-label{font-size:.7rem;color:var(--text-muted);text-transform:uppercase}
+.resumen-stats .stat-items .stat-value{color:#007bff}
+.resumen-stats .stat-cambios .stat-value{color:var(--text-primary)}
+.resumen-stats .stat-entradas .stat-value{color:var(--success)}
+.resumen-stats .stat-salidas .stat-value{color:var(--danger)}
+.resumen-motivo{margin-top:8px;display:flex;gap:8px;align-items:end;justify-content:center}
+.resumen-motivo input{flex:1;max-width:380px;padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:.85rem}
+
+/* Tabla */
+.tabla-wrap{overflow-x:auto}
+.tabla-inv{width:100%;font-size:.82rem;border-collapse:collapse}
+.tabla-inv thead{background:var(--lago-700);color:#fff;position:sticky;top:0;z-index:5}
+.tabla-inv th{padding:7px 6px;font-weight:500;font-size:.7rem;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;text-align:left}
+.tabla-inv th.text-center{text-align:center}
+.tabla-inv th.text-end{text-align:right}
+.tabla-inv tbody tr{border-bottom:1px solid #f0f0f0;transition:background .1s}
+.tabla-inv tbody tr:hover{background:#fafffe}
+.tabla-inv tbody tr.row-bajo-min{background:#fef5f5}
+.tabla-inv tbody tr.row-sin-stock{background:#f8d7da}
+.tabla-inv tbody tr.row-bajo-min:hover{background:#fce8e8}
+.tabla-inv tbody tr.row-selected{background:#fffacd !important}
+.tabla-inv tbody tr.row-selected:hover{background:#fff8b0 !important}
+.tabla-inv td{padding:3px 6px;vertical-align:middle}
+.tabla-inv td.text-center{text-align:center}
+.tabla-inv td.text-end{text-align:right;font-variant-numeric:tabular-nums}
+
+/* Inputs editables en celda */
+.cell-input{width:65px;padding:3px 5px;border:1px solid transparent;border-radius:2px;font-size:.82rem;background:transparent;text-align:center;transition:.1s;font-variant-numeric:tabular-nums}
+.cell-input:focus{border-color:var(--border-focus);background:#fff;outline:none;box-shadow:inset 0 0 0 1px var(--lago-400)}
+.cell-input:hover:not(:focus){border-color:#e0e0e0;background:#fff}
+.cell-input.saving{background:#fff3cd;border-color:#ffc107}
+.cell-input.saved{background:#d4edda;border-color:#28a745}
+.cell-input.error{background:#f8d7da;border-color:#dc3545}
+
+.oc-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:600;background:var(--lago-100);color:var(--lago-800);border:1px solid var(--lago-200);cursor:pointer;transition:.1s;text-decoration:none}
+.oc-badge:hover{background:var(--lago-200);color:var(--lago-900)}
+.oc-badge.zero{background:#f5f5f5;color:#aaa;border-color:#e0e0e0;cursor:default;pointer-events:none}
+
+.row-checkbox{cursor:pointer;width:16px;height:16px}
+.btn-row{background:none;border:1px solid #ddd;border-radius:3px;padding:2px 5px;color:var(--text-secondary);cursor:pointer;font-size:.85rem;margin-right:2px}
+.btn-row:hover{background:var(--lago-50);border-color:var(--lago-300);color:var(--lago-800)}
+
+.input-stock-real{width:85px;padding:3px 6px;border:1px solid var(--border);border-radius:3px;font-size:.85rem;text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.input-stock-real:focus{border-color:var(--border-focus);outline:none;box-shadow:0 0 0 2px rgba(21,163,94,.12)}
+.input-stock-real.modificado{background:#fff3cd;border-color:#ffc107}
+.badge-diff{display:inline-block;padding:1px 8px;border-radius:10px;font-size:.72rem;font-weight:700;min-width:50px}
+.badge-diff.pos{background:#d4edda;color:#155724}
+.badge-diff.neg{background:#f8d7da;color:#721c24}
+
+/* Paginación */
+.paginacion{display:flex;gap:3px;align-items:center;font-size:.82rem;flex-wrap:wrap}
+.paginacion .pag-btn{background:#fff;border:1px solid var(--border);border-radius:3px;padding:3px 8px;cursor:pointer;color:var(--text-primary);font-size:.8rem;min-width:28px;text-align:center}
+.paginacion .pag-btn:hover{background:var(--lago-50);border-color:var(--lago-300)}
+.paginacion .pag-btn.active{background:var(--lago-700);color:#fff;border-color:var(--lago-700)}
+.paginacion .pag-btn:disabled{opacity:.4;cursor:not-allowed}
+.paginacion .sep{color:var(--text-muted);padding:0 4px}
+
+/* Modales */
+.modal-header{background:var(--lago-50);border-bottom:1px solid var(--border);padding:10px 14px}
+.modal-header .modal-title{color:var(--lago-800);font-weight:600;font-size:1rem}
+.modal-header.bg-info-soft{background:#e7f5ec}
+.modal-body{padding:14px}
+.modal-footer{background:#fafafa;border-top:1px solid var(--border);padding:8px 14px}
+
+/* Modal Generar OCs */
+.gen-oc-modo{display:flex;gap:14px;margin-bottom:12px;padding:10px;background:var(--lago-50);border-radius:6px;flex-wrap:wrap}
+.gen-oc-modo label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.88rem}
+.gen-oc-modo .prov-unico{display:flex;gap:6px;align-items:center;flex:1;min-width:280px}
+.gen-oc-modo select{padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:.85rem;flex:1}
+.gen-oc-tabla{max-height:380px;overflow-y:auto;border:1px solid var(--border);border-radius:4px}
+.gen-oc-tabla table{width:100%;font-size:.8rem;border-collapse:collapse;margin:0}
+.gen-oc-tabla thead{background:#f4f4f4;position:sticky;top:0;z-index:2}
+.gen-oc-tabla th,.gen-oc-tabla td{padding:4px 6px;border-bottom:1px solid #eee}
+.gen-oc-tabla input{width:70px;padding:3px 5px;border:1px solid var(--border);border-radius:3px;font-size:.8rem;text-align:right}
+.gen-oc-tabla .sin-prov{color:var(--danger);font-style:italic;font-size:.75rem}
+.gen-oc-tabla tr.excluido{opacity:.4}
+.gen-oc-tabla .btn-quitar{background:none;border:none;color:var(--danger);cursor:pointer;font-size:.9rem;padding:2px 4px;opacity:.5}
+.gen-oc-tabla .btn-quitar:hover{opacity:1}
+.gen-oc-summary{background:#fafafa;border:1px solid var(--border);border-radius:4px;padding:8px 10px;margin-top:8px;font-size:.85rem}
+.gen-oc-summary .resumen-prov{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px}
+.gen-oc-summary .prov-chip{background:var(--lago-100);color:var(--lago-800);padding:2px 8px;border-radius:10px;font-size:.75rem}
+
+/* Spinner LAGO */
+.lago-spinner{display:inline-block;width:18px;height:18px;border:2px solid #ddd;border-top-color:var(--lago-500);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-state{text-align:center;padding:30px 10px;color:var(--text-muted)}
+.empty-state i{font-size:2.5rem;color:#ccc;display:block;margin-bottom:6px}
+
+/* Importación Excel */
+.import-steps{display:flex;justify-content:center;gap:0;margin-bottom:1.5rem;padding:0}
+.import-step{display:flex;align-items:center;gap:.5rem;padding:.5rem 1rem;color:#adb5bd;font-size:.875rem;position:relative}
+.import-step .step-number{width:28px;height:28px;border-radius:50%;background:#dee2e6;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:.8rem}
+.import-step.active .step-number{background:var(--lago-600)}
+.import-step.active{color:var(--lago-700);font-weight:600}
+.import-step.completed .step-number{background:#198754}
+.import-step.completed{color:#198754}
+.import-step:not(:last-child)::after{content:'';width:40px;height:2px;background:#dee2e6;position:absolute;right:-20px}
+.import-step.completed:not(:last-child)::after{background:#198754}
+.import-drop-zone{border:2px dashed #dee2e6;border-radius:12px;padding:2.5rem 1rem;text-align:center;cursor:pointer;transition:all .2s;background:#f8f9fa}
+.import-drop-zone:hover,.import-drop-zone.drag-over{border-color:var(--lago-500);background:var(--lago-50)}
+.import-drop-zone i{font-size:2.5rem;color:#6c757d}
+.import-preview-table{max-height:350px;overflow-y:auto}
+.import-preview-table table{font-size:.85rem}
+
+/* Historial ajustes */
+.ajuste-item{border-left:4px solid #6c757d;padding-left:1rem;margin-bottom:.5rem;padding-bottom:.5rem;border-bottom:1px solid #eee}
+.ajuste-item.aplicado{border-left-color:#28a745}
+.ajuste-item.borrador{border-left-color:#ffc107}
+.ajuste-item.anulado{border-left-color:#dc3545}
+
+/* Tabla OCs activas modal */
+.oca-tabla{width:100%;font-size:.82rem;border-collapse:collapse}
+.oca-tabla thead{background:#f4f4f4}
+.oca-tabla th,.oca-tabla td{padding:5px 8px;border-bottom:1px solid #eee;text-align:left}
+.oca-tabla th{font-size:.7rem;text-transform:uppercase;letter-spacing:.3px;color:var(--text-muted)}
+.oca-estado-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:600}
+.oca-estado-badge.borrador{background:#e9ecef;color:#495057}
+.oca-estado-badge.emitida{background:#cff4fc;color:#055160}
+.oca-estado-badge.parcial{background:#fff3cd;color:#664d03}
+.oca-estado-badge.recibida{background:#d1e7dd;color:#0a3622}
+.oca-estado-badge.anulada{background:#f8d7da;color:#58151c}
+</style>
 </head>
 <body>
-    <div class="container mt-5">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1><i class="bi bi-clipboard-data-fill"></i> Gestión de Inventario</h1>
+<script src="js/connection-indicator.js"></script>
+
+<!-- ════ NAVBAR ════ -->
+<nav class="lago-navbar" data-erp-header>
+    <div class="brand"><i class="bi bi-clipboard-data-fill"></i> Inventario</div>
+    <div class="nav-actions">
+        <button class="nav-btn" id="navBtnGenerarOC" title="Generar Órdenes de Compra"><i class="bi bi-cart-plus"></i> Generar OCs</button>
+        <button class="nav-btn" id="navBtnVerOCs" title="Consultar / reimprimir Ordenes de Compra" onclick="window.OCConsulta && window.OCConsulta.abrir()"><i class="bi bi-card-list"></i> Ver OCs</button>
+        <button class="nav-btn" id="navBtnTransferir" title="Transferir stock entre depósitos"><i class="bi bi-arrow-left-right"></i> Transferir</button>
+        <button class="nav-btn btn-success-soft" id="navBtnImportarExcel" title="Importar stock desde Excel"><i class="bi bi-file-earmark-arrow-up"></i> Importar</button>
+        <button class="nav-btn" id="navBtnExportarExcel" title="Exportar inventario visible a Excel"><i class="bi bi-file-earmark-arrow-down"></i> Exportar</button>
+        <button class="nav-btn" id="navBtnImprimir" title="Imprimir listado actual"><i class="bi bi-printer"></i> Imprimir</button>
+        <button class="nav-btn" id="navBtnHistorial" title="Historial de ajustes"><i class="bi bi-clock-history"></i> Historial</button>
+        <a class="nav-btn" href="index.html"><i class="bi bi-house"></i></a>
+    </div>
+</nav>
+
+<div class="content-area">
+
+    <!-- Panel Corrección -->
+    <div class="panel-correccion" id="panelCorreccion">
+        <div class="pc-header">
             <div>
-                <button class="btn btn-danger me-2" id="btnPonerACero" title="Pone en cero el stock de todos los productos visibles en la búsqueda actual">
-                    <i class="bi bi-eraser"></i> Poner a Cero Visibles
-                </button>
-                <button class="btn btn-outline-primary" id="btnModoEdicion">
-                    <i class="bi bi-keyboard"></i> Edición Rápida con Teclado
-                </button>
+                <div class="pc-title"><i class="bi bi-pencil-square"></i> <span id="tituloCorreccion">Corrección de Inventario</span></div>
+                <div class="pc-info" id="infoAjuste"></div>
+            </div>
+            <div class="pc-actions">
+                <button class="btn-lago-outline" id="btnLlenarCero" title="Poner todos en 0"><i class="bi bi-0-circle"></i> Llenar con 0</button>
+                <button class="btn-lago-outline" id="btnCopiarSistema" title="Copiar valores del sistema"><i class="bi bi-files"></i> Copiar Sistema</button>
+                <button class="btn-lago-outline" id="btnCancelarCorreccion" style="border-color:var(--danger);color:var(--danger)"><i class="bi bi-x-lg"></i> Cancelar</button>
             </div>
         </div>
-        <div class="card">
-            <div class="card-body">
-                <input type="text" id="buscador" class="form-control mb-3" placeholder="Buscar por fragmentos de Producto o SKU (Enter para SKU exacto)...">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>SKU</th>
-                                <th>Producto</th>
-                                <th>Stock Mínimo</th>
-                                <th>Stock Actual</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tablaInventarioBody"></tbody>
-                    </table>
+        <div class="resumen" id="resumenDiferencias">
+            <div class="resumen-stats">
+                <div class="stat-items"><div class="stat-value" id="statItems">0</div><div class="stat-label">Productos</div></div>
+                <div class="stat-cambios"><div class="stat-value" id="statConCambios">0</div><div class="stat-label">Con cambios</div></div>
+                <div class="stat-entradas"><div class="stat-value">+<span id="statEntradas">0</span></div><div class="stat-label">Entradas</div></div>
+                <div class="stat-salidas"><div class="stat-value">-<span id="statSalidas">0</span></div><div class="stat-label">Salidas</div></div>
+            </div>
+            <div class="resumen-motivo">
+                <input type="text" id="inputMotivoAjuste" placeholder="Motivo del ajuste (ej: Inventario físico enero 2026)">
+                <button class="btn-lago" id="btnAplicarAjuste"><i class="bi bi-check-circle"></i> Aplicar Ajuste</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="lago-card">
+        <div class="lago-card-header">
+            <span><i class="bi bi-funnel me-1"></i>Filtros</span>
+            <span style="font-size:.7rem;text-transform:none;letter-spacing:0;color:var(--text-muted)">
+                <strong id="contadorProductos">0</strong> productos visibles
+            </span>
+        </div>
+        <div class="lago-card-body">
+            <div class="filtros-grid">
+                <div><label>Buscar</label><input type="text" id="buscador" placeholder="SKU, nombre..."></div>
+                <div><label>Depósito</label><select id="filtroDeposito"><option value="">Cargando...</option></select></div>
+                <div><label>Marca</label><select id="filtroMarca"><option value="">Todas</option></select></div>
+                <div><label>Categoría</label><select id="filtroCategoria"><option value="">Todas</option></select></div>
+                <div><label>Subcategoría</label><select id="filtroSubcategoria"><option value="">Todas</option></select></div>
+                <div><label>Proveedor</label><select id="filtroProveedor"><option value="">Todos</option></select></div>
+                <div><label>Stock</label>
+                    <select id="filtroStock">
+                        <option value="">Todos</option>
+                        <option value="sin_stock">Sin stock</option>
+                        <option value="bajo_minimo">Bajo mínimo</option>
+                        <option value="con_stock">Con stock</option>
+                    </select>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">
+                    <label style="visibility:hidden">.</label>
+                    <label class="filtro-toggle" id="toggleSoloBajoMin"><input type="checkbox" id="chkSoloBajoMin"> Solo bajo mín.</label>
+                </div>
+            </div>
+            <div style="margin-top:8px;display:flex;gap:5px;flex-wrap:wrap">
+                <button class="btn-lago-outline" id="btnHabilitarCorreccion" title="Activar modo corrección de stock"><i class="bi bi-pencil-square"></i> Corregir stock</button>
+                <button class="btn-lago-outline" id="btnLimpiarFiltros" title="Limpiar todos los filtros"><i class="bi bi-x-circle"></i> Limpiar filtros</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk bar -->
+    <div class="bulk-bar" id="bulkBar">
+        <div class="info">
+            <strong id="bulkCount">0</strong> productos seleccionados —
+            <span id="bulkConProveedor">0</span> con proveedor preferido,
+            <span id="bulkSinProveedor">0</span> sin proveedor
+        </div>
+        <div class="actions">
+            <button class="btn-lago-outline" id="btnDeseleccionar"><i class="bi bi-x-lg"></i> Deseleccionar todos</button>
+            <button class="btn-lago" id="btnGenerarOCsBulk"><i class="bi bi-cart-plus"></i> Generar OCs</button>
+        </div>
+    </div>
+
+    <!-- TABLA -->
+    <div class="lago-card">
+        <div class="lago-card-body" style="padding:0">
+            <div class="tabla-wrap">
+                <table class="tabla-inv" id="tablaInv">
+                    <thead>
+                        <tr>
+                            <th style="width:30px" class="text-center"><input type="checkbox" id="chkSeleccionarTodos" class="row-checkbox" title="Seleccionar todos los visibles"></th>
+                            <th style="width:110px">SKU</th>
+                            <th>Producto</th>
+                            <th style="width:110px">Marca</th>
+                            <th style="width:75px" class="text-center" title="Stock mínimo (editable)">Mín.</th>
+                            <th style="width:75px" class="text-center" title="Stock máximo (editable)">Máx.</th>
+                            <th style="width:80px" class="text-center">Sistema</th>
+                            <th style="width:75px" class="text-center" title="Stock disponible = real − comprometido">Disp.</th>
+                            <th style="width:60px" class="text-center" title="Órdenes de compra pendientes">OCs</th>
+                            <th style="width:130px;display:none" class="text-center col-stock-real">Stock Real</th>
+                            <th style="width:90px;display:none" class="text-center col-diferencia">Dif.</th>
+                            <th style="width:110px" class="text-center col-acciones">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaInvBody">
+                        <tr><td colspan="11" class="empty-state"><div class="lago-spinner"></div> Cargando inventario...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="lago-card-body" style="padding:6px 10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+            <div class="paginacion" id="paginacion"></div>
+            <div style="font-size:.78rem;color:var(--text-muted)">
+                Mostrar:
+                <select id="selPorPagina" style="padding:2px 6px;border:1px solid var(--border);border-radius:3px;font-size:.78rem">
+                    <option value="50">50</option><option value="100" selected>100</option><option value="200">200</option><option value="500">500</option>
+                </select>
+                por página
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ════════ MODALES ════════ -->
+
+<!-- Ajuste Individual -->
+<div class="modal fade" id="modalAjusteIndividual" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Ajustar Stock</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p><strong id="modalProductoNombre"></strong></p>
+                <p class="text-muted" id="modalProductoSKU"></p>
+                <div class="row">
+                    <div class="col-6"><label class="form-label">Stock actual (sistema)</label><input type="text" class="form-control" id="modalStockActual" readonly></div>
+                    <div class="col-6"><label class="form-label">Stock real (nuevo)</label><input type="number" class="form-control" id="modalStockNuevo" min="0" step="1"></div>
+                </div>
+                <div class="mt-3"><label class="form-label">Motivo</label><input type="text" class="form-control" id="modalMotivo" placeholder="Ej: Conteo físico..."></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button class="btn-lago" id="btnGuardarAjusteIndividual"><i class="bi bi-check-lg"></i> Guardar</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- Historial Ajustes -->
+<div class="modal fade" id="modalHistorialAjustes" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-clock-history"></i> Historial de Ajustes</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body"><div id="listaAjustes"><p class="text-center text-muted">Cargando...</p></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- Detalle Ajuste -->
+<div class="modal fade" id="modalDetalleAjuste" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-file-text"></i> <span id="tituloDetalleAjuste"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body" id="contenidoDetalleAjuste"><p class="text-center text-muted">Cargando...</p></div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" id="btnImprimirAjuste"><i class="bi bi-printer"></i> Imprimir</button>
+                <button class="btn btn-danger" id="btnAnularAjuste" style="display:none"><i class="bi bi-x-circle"></i> Anular</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Importación Excel -->
+<div class="modal fade" id="modalImportExcel" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-file-earmark-excel text-success"></i> Importar Stock desde Excel</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="import-steps">
+                    <div class="import-step active" data-step="1"><span class="step-number">1</span> Plantilla</div>
+                    <div class="import-step" data-step="2"><span class="step-number">2</span> Subir Excel</div>
+                    <div class="import-step" data-step="3"><span class="step-number">3</span> Confirmar</div>
+                </div>
+                <div id="importPaso1">
+                    <div class="card mb-3"><div class="card-body">
+                        <h6 class="card-title mb-3"><i class="bi bi-1-circle text-primary"></i> Seleccione depósito y descargue plantilla</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4"><label class="form-label fw-semibold">Depósito <span class="text-danger">*</span></label><select id="importDeposito" class="form-select"><option value="">Cargando...</option></select></div>
+                            <div class="col-md-3"><label class="form-label">Categoría <small class="text-muted">(opc.)</small></label><select id="importCategoria" class="form-select"><option value="">Todas</option></select></div>
+                            <div class="col-md-3"><label class="form-label">Marca <small class="text-muted">(opc.)</small></label><select id="importMarca" class="form-select"><option value="">Todas</option></select></div>
+                            <div class="col-md-2 d-flex align-items-end"><button class="btn btn-outline-success w-100" id="btnDescargarPlantilla" disabled><i class="bi bi-download"></i> Plantilla</button></div>
+                        </div>
+                    </div></div>
+                    <div class="alert alert-info small"><i class="bi bi-info-circle"></i> Descargue la plantilla, complete la columna <strong>"STOCK NUEVO"</strong> y vuelva a subirla.</div>
+                    <div class="text-end"><button class="btn btn-primary" id="btnIrPaso2" disabled>Ya tengo el Excel <i class="bi bi-arrow-right"></i></button></div>
+                </div>
+                <div id="importPaso2" style="display:none">
+                    <div class="card mb-3"><div class="card-body">
+                        <h6 class="card-title mb-3"><i class="bi bi-2-circle text-primary"></i> Suba el archivo Excel completado</h6>
+                        <input type="file" id="importArchivo" accept=".xlsx,.xls" class="d-none">
+                        <div id="importDropZone" class="import-drop-zone">
+                            <i class="bi bi-cloud-arrow-up d-block mb-2"></i>
+                            <p class="mb-1 fw-semibold">Arrastre el archivo aquí</p>
+                            <small class="text-muted">o clic para seleccionar • .xlsx / .xls • Máx 10MB</small>
+                        </div>
+                        <div id="importArchivoInfo" class="d-flex align-items-center gap-3 p-3 bg-light rounded" style="display:none !important">
+                            <i class="bi bi-file-earmark-excel text-success fs-3"></i>
+                            <div class="flex-grow-1"><strong id="importArchivoNombre">archivo.xlsx</strong></div>
+                            <button class="btn btn-sm btn-outline-danger" id="btnQuitarArchivo"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                    </div></div>
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-outline-secondary" id="btnVolverPaso1"><i class="bi bi-arrow-left"></i> Volver</button>
+                        <button class="btn btn-primary" id="btnProcesar" disabled><i class="bi bi-arrow-right"></i> Procesar</button>
+                    </div>
+                </div>
+                <div id="importPaso3" style="display:none">
+                    <div id="importPreviewResumen"></div>
+                    <div id="importNoEncontrados" style="display:none"></div>
+                    <div id="importErrores" style="display:none"></div>
+                    <div id="importPreviewTabla">
+                        <div class="import-preview-table">
+                            <table class="table table-sm table-bordered mb-0">
+                                <thead class="table-dark"><tr><th>SKU</th><th>Producto</th><th class="text-center">Actual</th><th class="text-center">Nuevo</th><th class="text-center">Diferencia</th></tr></thead>
+                                <tbody id="importPreviewBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card mt-3"><div class="card-body"><div class="row g-3 align-items-end">
+                        <div class="col-md-4"><label class="form-label fw-semibold">Acción</label><select id="importAccion" class="form-select"><option value="borrador">Crear en borrador</option><option value="aplicar">Aplicar directamente</option></select></div>
+                        <div class="col-md-5"><label class="form-label">Motivo <small class="text-muted">(opc.)</small></label><input type="text" id="importMotivo" class="form-control" placeholder="Ej: Inventario físico febrero 2026"></div>
+                        <div class="col-md-3"><button class="btn btn-success w-100" id="btnEjecutarImport" disabled><i class="bi bi-check-circle"></i> Ejecutar</button></div>
+                    </div></div></div>
+                    <div class="mt-3"><button class="btn btn-outline-secondary" id="btnVolverPaso2"><i class="bi bi-arrow-left"></i> Volver</button></div>
                 </div>
             </div>
         </div>
     </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const token = localStorage.getItem('authToken');
-            if (!token) { window.location.href = '/login.html'; return; }
+</div>
 
-            const API_URL = '/api/inventario';
-            const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+<!-- Stock por Depósito -->
+<div class="modal fade" id="modalStockDepositos" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-building"></i> Stock por Depósito</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p><strong id="mdProductoNombre"></strong></p>
+                <p class="text-muted" id="mdProductoSKU"></p>
+                <div id="mdContenido"><p class="text-center"><span class="lago-spinner"></span></p></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+        </div>
+    </div>
+</div>
 
-            const tablaBody = document.getElementById('tablaInventarioBody');
-            const buscador = document.getElementById('buscador');
-            const btnModoEdicion = document.getElementById('btnModoEdicion');
-            const btnPonerACero = document.getElementById('btnPonerACero');
-            
-            let allInventario = [];
-            let inventarioFiltrado = [];
-            let selectedIndex = -1;
-            let isEditMode = false;
+<!-- Transferencia -->
+<div class="modal fade" id="modalTransferencia" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info-soft"><h5 class="modal-title"><i class="bi bi-arrow-left-right"></i> Transferir Stock entre Depósitos</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-5"><label class="form-label"><strong>Depósito Origen</strong></label><select id="trfOrigen" class="form-select"></select></div>
+                    <div class="col-md-2 text-center d-flex align-items-end justify-content-center pb-2"><i class="bi bi-arrow-right" style="font-size:1.5rem"></i></div>
+                    <div class="col-md-5"><label class="form-label"><strong>Depósito Destino</strong></label><select id="trfDestino" class="form-select"></select></div>
+                </div>
+                <div class="mb-3"><label class="form-label">Motivo (opcional)</label><input type="text" id="trfMotivo" class="form-control" placeholder="Ej: Reposición sucursal..."></div>
+                <hr>
+                <h6>Productos a transferir</h6>
+                <div class="input-group mb-2">
+                    <input type="text" id="trfBuscador" class="form-control" placeholder="Buscar por SKU o nombre...">
+                </div>
+                <div id="trfResultadosBusqueda" class="list-group mb-3" style="max-height:150px;overflow-y:auto;display:none"></div>
+                <div style="max-height:300px;overflow-y:auto">
+                    <table class="table table-sm table-striped">
+                        <thead class="table-dark sticky-top"><tr><th>SKU</th><th>Producto</th><th class="text-center" style="width:100px">Stock Origen</th><th class="text-center" style="width:100px">Cantidad</th><th style="width:50px"></th></tr></thead>
+                        <tbody id="trfItemsBody"><tr><td colspan="5" class="text-center text-muted py-3">Agregue productos</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-info" id="btnEjecutarTransferencia" disabled><i class="bi bi-arrow-left-right"></i> Ejecutar Transferencia</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-            const cargarInventario = async () => {
-                try {
-                    const response = await fetch(`${API_URL}/completo`, { headers });
-                    if (!response.ok) throw new Error('No se pudo cargar el inventario.');
-                    allInventario = await response.json();
-                    // Mantiene el filtro actual después de recargar
-                    const textoBuscador = buscador.value;
-                    buscarProductos();
-                    buscador.value = textoBuscador;
-                } catch (error) {
-                    console.error('Error al cargar inventario:', error);
-                    alert('No se pudo cargar el inventario.');
-                }
-            };
-            
-            const renderizarTabla = (inventario) => {
-                tablaBody.innerHTML = '';
-                selectedIndex = -1;
-                if (inventario.length === 0) {
-                    tablaBody.innerHTML = '<tr><td colspan="5" class="text-center">No hay productos en el inventario.</td></tr>';
-                    return;
-                }
-                inventario.forEach(item => {
-                    const tr = document.createElement('tr');
-                    const stockClass = item.stock_real <= item.stock_minimo && item.stock_real > 0 ? 'table-warning' : item.stock_real <= 0 ? 'table-danger' : '';
-                    tr.className = stockClass;
-                    tr.innerHTML = `
-                        <td>${item.sku}</td>
-                        <td>${item.nombre}</td>
-                        <td>${item.stock_minimo}</td>
-                        <td class="stock-cell" data-stock="${item.stock_real}"><strong>${item.stock_real}</strong></td>
-                        <td>
-                            <button class="btn btn-sm btn-info btn-ajuste" data-id="${item.id_producto}" data-nombre="${item.nombre}" data-stock="${item.stock_real}">
-                                <i class="bi bi-pencil"></i> Ajustar
-                            </button>
-                        </td>
-                    `;
-                    tablaBody.appendChild(tr);
-                });
-            };
+<!-- Generar OCs (NUEVO) -->
+<div class="modal fade" id="modalGenerarOCs" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-cart-plus"></i> Generar Órdenes de Compra</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="gen-oc-modo">
+                    <label><input type="radio" name="genOcModo" id="modoSeparar" value="separar" checked> <strong>Separar por proveedor</strong> (recomendado)</label>
+                    <label class="prov-unico"><input type="radio" name="genOcModo" id="modoUnico" value="unico"> <strong>Todo a un solo proveedor:</strong> <select id="selProvUnico" disabled><option value="">Seleccione...</option></select></label>
+                </div>
+                <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+                    <div style="font-size:.85rem;color:var(--text-muted)"><i class="bi bi-info-circle"></i> Edite cantidades si es necesario. Productos sin proveedor preferido quedan al final.</div>
+                    <label style="font-size:.78rem;color:var(--text-muted)"><input type="checkbox" id="genIncluirSinProv" style="vertical-align:middle"> Incluir sin proveedor en el lote</label>
+                </div>
+                <div class="gen-oc-tabla">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:90px">SKU</th>
+                                <th>Producto</th>
+                                <th style="width:55px;text-align:center">Disp.</th>
+                                <th style="width:55px;text-align:center">Mín.</th>
+                                <th style="width:55px;text-align:center">Máx.</th>
+                                <th style="width:90px;text-align:center">Cantidad</th>
+                                <th>Proveedor</th>
+                                <th style="width:90px;text-align:right">Precio est.</th>
+                                <th style="width:30px"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="genOcTablaBody"><tr><td colspan="9" class="text-center" style="padding:20px;color:#999">Cargando previa de reposición...</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="gen-oc-summary" id="genOcSummary"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn-lago" id="btnConfirmarGenerarOCs" disabled><i class="bi bi-check-circle"></i> <span id="btnConfirmarGenerarOCsTxt">Generar OC(s)</span></button>
+            </div>
+        </div>
+    </div>
+</div>
 
-            const toggleEditMode = () => {
-                isEditMode = !isEditMode;
-                btnModoEdicion.classList.toggle('active', isEditMode);
-                btnModoEdicion.classList.toggle('btn-primary', isEditMode);
-                btnModoEdicion.classList.toggle('btn-outline-primary', !isEditMode);
-                if (!isEditMode) {
-                    renderizarTabla(inventarioFiltrado); // Volver al estado normal
-                } else {
-                    buscador.focus();
-                }
-            };
-            btnModoEdicion.addEventListener('click', toggleEditMode);
+<!-- OCs Activas por Producto (NUEVO) -->
+<div class="modal fade" id="modalOCsActivas" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-cart3"></i> Órdenes de Compra Activas</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p style="margin-bottom:8px"><strong id="ocaProductoNombre"></strong><br><small class="text-muted" id="ocaProductoSKU"></small></p>
+                <div id="ocaContenido"><p class="text-center"><span class="lago-spinner"></span> Cargando...</p></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+        </div>
+    </div>
+</div>
 
-            const buscarProductos = () => {
-                const textoBuscado = buscador.value.toLowerCase().trim();
-                const terminos = textoBuscado.split(' ').filter(t => t.length > 0);
-                if (terminos.length === 0) {
-                    inventarioFiltrado = [...allInventario];
-                } else {
-                    inventarioFiltrado = allInventario.filter(item => {
-                        const textoCompletoItem = [item.sku, item.nombre].join(' ').toLowerCase();
-                        return terminos.every(termino => textoCompletoItem.includes(termino));
-                    });
-                }
-                renderizarTabla(inventarioFiltrado);
-            };
-            buscador.addEventListener('keyup', (e) => {
-                // Evitamos que la búsqueda se active con las flechas de navegación
-                if (e.key !== "ArrowUp" && e.key !== "ArrowDown" && e.key !== "Enter") {
-                    buscarProductos();
-                }
-            });
+<!-- Consulta de Ordenes de Compra (modal) -->
+<div class="modal fade" id="modalConsultaOCs" tabindex="-1">
+<style>
+#modalConsultaOCs .ocq-filtros{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:8px}
+#modalConsultaOCs .ocq-f{display:flex;flex-direction:column;gap:2px}
+#modalConsultaOCs .ocq-f label{font-size:.68rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px}
+#modalConsultaOCs .ocq-f input,#modalConsultaOCs .ocq-f select{padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:.85rem}
+#modalConsultaOCs .ocq-f input{min-width:220px}
+#modalConsultaOCs .ocq-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+#modalConsultaOCs .ocq-chip{background:var(--lago-100);color:var(--lago-800);border:1px solid var(--lago-200);padding:2px 8px;border-radius:10px;font-size:.75rem;display:inline-flex;align-items:center;gap:4px}
+#modalConsultaOCs .ocq-tabla{width:100%;font-size:.82rem;border-collapse:collapse}
+#modalConsultaOCs .ocq-tabla thead{background:var(--lago-700);color:#fff}
+#modalConsultaOCs .ocq-tabla th{padding:6px 8px;font-size:.7rem;text-transform:uppercase;letter-spacing:.3px;text-align:left}
+#modalConsultaOCs .ocq-tabla td{padding:5px 8px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+#modalConsultaOCs .ocq-tabla tbody tr:hover{background:#fafffe}
+#modalConsultaOCs .ocq-foot{display:flex;justify-content:flex-end;align-items:center;margin-top:8px}
+</style>
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-cart3"></i> Ordenes de Compra</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="ocq-filtros">
+          <div class="ocq-f"><label>Buscar</label><input type="text" id="ocqBuscar" placeholder="Nro OC, proveedor, observaciones..." oninput="window.OCConsulta.buscar(this.value)"></div>
+          <div class="ocq-f"><label>Estado</label><select id="ocqEstado" onchange="window.OCConsulta.setEstado(this.value)"><option value="">Todos los estados</option></select></div>
+          <div class="ocq-f"><label>Proveedor</label><select id="ocqProveedor" onchange="window.OCConsulta.setProveedor(this.value)"><option value="">Todos los proveedores</option></select></div>
+          <button class="btn-lago-outline" onclick="window.OCConsulta.limpiar()"><i class="bi bi-x-circle"></i> Limpiar</button>
+          <button class="btn-lago-outline" onclick="window.OCConsulta.exportarExcel()" title="Exportar la lista filtrada a Excel"><i class="bi bi-file-earmark-arrow-down"></i> Exportar listado</button>
+        </div>
+        <div class="ocq-chips" id="ocqChips"></div>
+        <div style="overflow-x:auto">
+          <table class="ocq-tabla">
+            <thead><tr>
+              <th style="width:120px">Nro OC</th><th style="width:90px">Estado</th><th style="width:150px">Fecha</th>
+              <th>Proveedor</th><th style="width:60px;text-align:center">Items</th>
+              <th style="width:120px;text-align:right">Total est.</th><th style="width:90px;text-align:center">Acciones</th>
+            </tr></thead>
+            <tbody id="ocqTbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:#999"><span class="lago-spinner"></span> Cargando...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="ocq-foot"><div class="paginacion" id="ocqPaginacion"></div></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+    </div>
+  </div>
+</div>
 
-
-            buscador.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const skuExacto = buscador.value.trim();
-                    const productoEncontrado = allInventario.find(p => p.sku.toLowerCase() === skuExacto.toLowerCase());
-                    if (productoEncontrado) {
-                        inventarioFiltrado = [productoEncontrado];
-                        renderizarTabla(inventarioFiltrado);
-                        if (isEditMode) {
-                            selectedIndex = 0;
-                            updateSelection();
-                            makeCellEditable(tablaBody.querySelector('tr'));
-                        }
-                    }
-                }
-            });
-
-            document.addEventListener('keydown', (e) => {
-                if (!isEditMode || document.activeElement.tagName === 'INPUT') return;
-                const rows = tablaBody.querySelectorAll('tr');
-                if (rows.length === 0 || (rows.length === 1 && rows[0].children.length === 1)) return;
-
-                let newIndex = selectedIndex;
-                if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    newIndex = (selectedIndex + 1) % rows.length;
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    newIndex = (selectedIndex - 1 + rows.length) % rows.length;
-                }
-                
-                if (newIndex !== selectedIndex) {
-                    selectedIndex = newIndex;
-                    updateSelection();
-                }
-            });
-
-            const updateSelection = () => {
-                const rows = tablaBody.querySelectorAll('tr');
-                rows.forEach((row, index) => {
-                    if (index === selectedIndex) {
-                        row.classList.add('table-active');
-                        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    } else {
-                        row.classList.remove('table-active');
-                    }
-                });
-            };
-
-            const makeCellEditable = (row) => {
-                if (!row) return;
-                // Primero, restauramos cualquier otra celda que estuviera en edición
-                const otherEditableCell = tablaBody.querySelector('input.stock-input');
-                if(otherEditableCell) {
-                    const parentCell = otherEditableCell.closest('.stock-cell');
-                    parentCell.innerHTML = `<strong>${parentCell.dataset.stock}</strong>`;
-                }
-
-                const stockCell = row.querySelector('.stock-cell');
-                if (stockCell.querySelector('input')) return; 
-
-                const stockActual = stockCell.dataset.stock;
-                stockCell.innerHTML = `<input type="number" class="form-control form-control-sm stock-input" value="${stockActual}">`;
-                const input = stockCell.querySelector('input');
-                input.focus();
-                input.select();
-            };
-
-            tablaBody.addEventListener('click', (e) => {
-                if (isEditMode) {
-                    const row = e.target.closest('tr');
-                    if (row) {
-                        selectedIndex = Array.from(tablaBody.children).indexOf(row);
-                        updateSelection();
-                        makeCellEditable(row);
-                    }
-                }
-            });
-
-            const handleNavigationAndSave = async (input, move) => {
-                const row = input.closest('tr');
-                const id_producto = inventarioFiltrado[Array.from(tablaBody.children).indexOf(row)].id_producto;
-                const nuevo_stock = parseInt(input.value, 10);
-
-                if (isNaN(nuevo_stock) || nuevo_stock < 0) {
-                    alert('Por favor, ingrese un número válido.');
-                    input.value = row.querySelector('.stock-cell').dataset.stock; // Revertir
-                    return;
-                }
-                
-                try {
-                    await guardarAjuste(id_producto, nuevo_stock);
-                    
-                    // Actualizar el valor en la data local para no recargar toda la tabla
-                    inventarioFiltrado[selectedIndex].stock_real = nuevo_stock;
-                    allInventario.find(p => p.id_producto === id_producto).stock_real = nuevo_stock;
-
-                    let newIndex = selectedIndex;
-                    if(move === 'down') newIndex = (selectedIndex + 1) % inventarioFiltrado.length;
-                    if(move === 'up') newIndex = (selectedIndex - 1 + inventarioFiltrado.length) % inventarioFiltrado.length;
-                    
-                    renderizarTabla(inventarioFiltrado);
-
-                    setTimeout(() => {
-                        selectedIndex = newIndex;
-                        updateSelection();
-                        const nextRow = tablaBody.querySelectorAll('tr')[selectedIndex];
-                        if(nextRow) makeCellEditable(nextRow);
-                    }, 50);
-
-                } catch (error) {
-                    alert('No se pudo guardar el cambio.');
-                }
-            };
-            
-            tablaBody.addEventListener('keydown', async (e) => {
-                if (!e.target.classList.contains('stock-input')) return;
-                
-                if (e.key === 'Enter' || e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    handleNavigationAndSave(e.target, 'down');
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    handleNavigationAndSave(e.target, 'up');
-                }
-            });
-
-            btnPonerACero.addEventListener('click', async () => {
-                if (inventarioFiltrado.length === 0) {
-                    alert('No hay productos en la vista actual para poner a cero.');
-                    return;
-                }
-                if (confirm(`¿Estás seguro de que quieres poner a cero el stock de los ${inventarioFiltrado.length} productos visibles? Esta acción no se puede deshacer.`)) {
-                    btnPonerACero.disabled = true;
-                    btnPonerACero.innerHTML = '<i class="bi bi-hourglass-split"></i> Procesando...';
-                    try {
-                        const promesas = inventarioFiltrado.map(item => guardarAjuste(item.id_producto, 0));
-                        await Promise.all(promesas);
-                        await cargarInventario();
-                        alert('Stock actualizado a cero para los productos visibles.');
-                    } catch (error) {
-                        console.error('Error al poner a cero el stock:', error);
-                        alert('Ocurrió un error al intentar actualizar el stock.');
-                    } finally {
-                        btnPonerACero.disabled = false;
-                        btnPonerACero.innerHTML = '<i class="bi bi-eraser"></i> Poner a Cero Visibles';
-                    }
-                }
-            });
-
-            const guardarAjuste = async (id_producto, nuevo_stock) => {
-                const response = await fetch(`${API_URL}/ajuste`, {
-                    method: 'PUT',
-                    headers,
-                    body: JSON.stringify({ id_producto, nuevo_stock })
-                });
-                if (!response.ok) throw new Error('Fallo al guardar el ajuste.');
-            };
-            
-            cargarInventario();
-        });
-    </script>
-    <script src="js/connection-indicator.js"></script>
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/inventario-import.js"></script>
+<script src="js/modal-historial-producto.js"></script>
+<script src="js/inventario.js"></script>
+<script src="js/ordenes-compra-modal.js"></script>
 </body>
 </html>
-
-

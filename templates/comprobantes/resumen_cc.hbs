@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Resumen CC - {{cliente.razon_social}}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family: Arial, Helvetica, sans-serif; }
+  body { padding: 24px; color:#1a1a1a; font-size:13px; }
+  .membrete { display:flex; justify-content:space-between; align-items:flex-start;
+              border-bottom:3px solid #0d6e6e; padding-bottom:12px; margin-bottom:16px; }
+  .membrete h1 { font-size:26px; color:#0d6e6e; letter-spacing:1px; }
+  .membrete .slogan { font-size:11px; color:#555; margin-top:2px; }
+  .membrete .datos { text-align:right; font-size:11px; color:#444; line-height:1.5; }
+  .membrete img.logo { max-height:64px; }
+  h2 { font-size:16px; margin:14px 0 4px; }
+  .cliente-box { background:#f4f7f7; border:1px solid #d8e2e2; border-radius:6px;
+                 padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; }
+  .cliente-box .saldo { text-align:right; }
+  .cliente-box .saldo .monto { font-size:20px; font-weight:bold; color:#b02a37; }
+  .cliente-box .saldo .monto.favor { color:#146c43; }
+  .rango { font-size:11px; color:#666; margin-bottom:8px; }
+  table { width:100%; border-collapse:collapse; }
+  th { background:#0d6e6e; color:#fff; padding:6px 8px; text-align:left; font-size:11px; }
+  th.num, td.num { text-align:right; }
+  td { padding:5px 8px; border-bottom:1px solid #e3e3e3; }
+  tr.saldo-ant td { background:#eef3f3; font-style:italic; color:#555; }
+  tr.totales td { background:#0d6e6e; color:#fff; font-weight:bold; }
+  .debe { color:#b02a37; } .haber { color:#146c43; }
+  .pie { margin-top:18px; font-size:10px; color:#777; display:flex; justify-content:space-between; }
+  @media print {
+    body { padding: 8mm; }
+    .no-print { display:none; }
+  }
+</style>
+</head>
+<body>
+  <div class="membrete">
+    <div>
+      {{#if logo_url}}<img class="logo" src="{{logo_url}}" alt="logo">{{else}}
+      <h1>{{empresa.nombre}}</h1>
+      <div class="slogan">{{empresa.slogan}}</div>{{/if}}
+    </div>
+    <div class="datos">
+      <strong>{{empresa.razon_social}}</strong><br>
+      CUIT {{empresa.cuit}} — {{empresa.condicion_iva}}<br>
+      {{empresa.direccion}}<br>
+      Tel {{empresa.telefono}} · {{empresa.email}}
+    </div>
+  </div>
+
+  <h2>Resumen de Cuenta Corriente</h2>
+  <div class="cliente-box">
+    <div>
+      <strong>{{cliente.razon_social}}</strong><br>
+      {{#if cliente.cuit_cuil}}CUIT/CUIL {{cliente.cuit_cuil}}<br>{{/if}}
+      {{#if cliente.domicilio}}{{cliente.domicilio}}{{/if}}
+    </div>
+    <div class="saldo">
+      Saldo al {{fecha_emision}}<br>
+      <span class="monto{{#if saldo_a_favor}} favor{{/if}}">{{saldo_actual_fmt}}</span>
+    </div>
+  </div>
+  <div class="rango">Período: {{rango}} — emitido el {{fecha_emision}} {{hora_emision}}</div>
+
+  <table>
+    <thead>
+      <tr><th>Fecha</th><th>Concepto</th><th class="num">Debe</th><th class="num">Haber</th><th class="num">Saldo</th></tr>
+    </thead>
+    <tbody>
+      {{#if mostrar_saldo_anterior}}
+      <tr class="saldo-ant"><td></td><td>Saldo anterior al {{desde_fmt}}</td><td></td><td></td><td class="num">{{saldo_anterior_fmt}}</td></tr>
+      {{/if}}
+      {{#each movimientos}}
+      <tr>
+        <td>{{fecha_fmt}}</td><td>{{concepto}}</td>
+        <td class="num debe">{{debe_fmt}}</td><td class="num haber">{{haber_fmt}}</td>
+        <td class="num">{{saldo_fmt}}</td>
+      </tr>
+      {{/each}}
+      <tr class="totales">
+        <td></td><td>TOTALES del período</td>
+        <td class="num">{{total_debe_fmt}}</td><td class="num">{{total_haber_fmt}}</td>
+        <td class="num">{{saldo_actual_fmt}}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="pie">
+    <span>{{empresa.nombre}} — {{empresa.horarios}}</span>
+    <span>WhatsApp {{empresa.whatsapp}}</span>
+  </div>
+  <script>window.onload = function(){ window.print(); };</script>
+</body>
+</html>

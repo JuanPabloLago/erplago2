@@ -10,12 +10,12 @@
     // =======================================================================
 
     const CONFIG = {
-        CHECK_INTERVAL: 10000,      // Verificar cada 10 segundos
-        RETRY_INTERVAL: 5000,       // Reintentar cada 5 segundos si falla
-        REQUEST_TIMEOUT: 3000,      // Timeout de 3 segundos para requests
+        CHECK_INTERVAL: 60000,      // Verificar cada 60 segundos
+        RETRY_INTERVAL: 15000,       // Reintentar cada 15 segundos si falla
+        REQUEST_TIMEOUT: 15000,      // Timeout de 15 segundos para requests
         API_URL: window.location.hostname === 'localhost'
             ? 'http://localhost:3000'
-            : 'http://72.60.148.18:3000'
+            : window.location.protocol + '//' + window.location.hostname + ':3000'
     };
 
     // =======================================================================
@@ -118,7 +118,7 @@
         // Permitir ir a login haciendo click
         indicator.style.cursor = 'pointer';
         indicator.onclick = () => {
-            window.location.href = 'login.html';
+            console.warn('Token expirado - server-side redirigira');
         };
     }
 
@@ -188,10 +188,7 @@
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
 
-            const response = await fetch(`${CONFIG.API_URL}/api/formas-pago`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
+            const response = await fetch(`${CONFIG.API_URL}/api/health`, {
                 signal: controller.signal,
                 cache: 'no-store'
             });

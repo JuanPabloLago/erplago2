@@ -1,357 +1,239 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <script src="js/config.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cuenta Corriente - ERP LAGO</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <title>Cuenta Corriente Clientes - ERP LAGO</title>
+    <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/erp-lago-styles.css">
     <style>
-        .saldo-positivo { color: #28a745; font-weight: bold; }
-        .saldo-negativo { color: #dc3545; font-weight: bold; }
-        .pedido-pendiente { background-color: #fff3cd; }
-        .card-resumen { border-left: 4px solid #0d6efd; }
+        .saldo-grande { font-size: 1.7rem; font-weight: 700; }
+        .saldo-positivo { color: #dc3545; } .saldo-cero { color: #198754; } .saldo-favor { color: #0d6efd; }
+        .tabla-libro th { font-size:.78rem; text-transform:uppercase; color:#6c757d; }
+        .tabla-libro td { font-size:.9rem; vertical-align:middle; }
+        .col-num { text-align:right; width:130px; font-variant-numeric:tabular-nums; }
+        .fila-saldo-anterior td { background:#eef3f8; font-weight:600; }
+        .fila-totales td { background:#f8f9fa; font-weight:700; border-top:2px solid #adb5bd; }
+        .fila-doc { cursor:pointer; } .fila-doc:hover { background:#f6fbff; }
+        .chip { display:inline-flex; align-items:center; gap:6px; background:#e9ecef; border-radius:14px; padding:2px 10px; font-size:.8rem; margin:2px 6px 2px 0; }
+        .chip .x { cursor:pointer; font-weight:700; }
+        .aging-chip { border-radius:10px; padding:6px 12px; text-align:center; min-width:110px; cursor:default; }
+        .aging-chip .lbl { font-size:.7rem; text-transform:uppercase; opacity:.8; }
+        .aging-chip .val { font-weight:700; font-size:.95rem; font-variant-numeric:tabular-nums; }
+        .aging-ok { background:#d1e7dd; } .aging-warn { background:#fff3cd; } .aging-bad { background:#f8d7da; }
+        .fp-btn { min-width:120px; }
+        .fp-btn.activo { outline:3px solid #0d6e6e; }
+        .resultado-cliente { cursor:pointer; }
+        .resultado-cliente:hover { background:#eef7f7; }
+        #dropdownClientes { position:absolute; z-index:1050; width:100%; max-height:320px; overflow-y:auto; }
+        @media print { .no-print { display:none !important; } body { font-size:11px; } }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <script src="/js/config.js"></script>
+    <script src="/js/auth.js"></script>
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary no-print">
         <div class="container-fluid">
-            <a class="navbar-brand" href="dashboard.html">
-                <i class="bi bi-shop"></i> ERP LAGO
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="dashboard.html">Dashboard</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="cuenta-corriente.html">Cuenta Corriente</a></li>
-                    <li class="nav-item"><a class="nav-link" href="cobranzas.html">Cobranzas</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#" onclick="logout()">Salir</a></li>
-                </ul>
+            <a class="navbar-brand" href="/"><i class="bi bi-building"></i> ERP LAGO</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/dashboard.html">Dashboard</a>
+                <a class="nav-link" href="/venta-rapida.html">Venta Rápida</a>
+                <a class="nav-link" href="/tesoreria.html">Tesorería</a>
+                <a class="nav-link active" href="/cuenta-corriente.html">CC Clientes</a>
+                <a class="nav-link" href="#" onclick="logout()">Salir</a>
             </div>
         </div>
     </nav>
 
-    <div class="container-fluid mt-4">
-        <div class="row mb-3">
-            <div class="col">
-                <h2><i class="bi bi-calculator"></i> Cuenta Corriente de Clientes</h2>
+    <div class="container-fluid py-3">
+        <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+            <h4 class="mb-0"><i class="bi bi-journal-bookmark"></i> Cuenta Corriente de Clientes</h4>
+            <div class="small text-muted"><kbd>F3</kbd> Buscar &nbsp;<kbd>F2</kbd> Cobrar &nbsp;<kbd>F4</kbd> Resumen &nbsp;<kbd>F8</kbd> CSV &nbsp;<kbd>Esc</kbd> Cerrar</div>
+        </div>
+
+        <!-- Búsqueda de cliente -->
+        <div class="card mb-3 no-print">
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-6 position-relative">
+                        <label class="form-label mb-1 small">Buscar cliente</label>
+                        <input type="text" id="buscarCliente" class="form-control" placeholder="Nombre, CUIT, teléfono, dirección..." autocomplete="off" autofocus>
+                        <div id="dropdownClientes" class="list-group shadow d-none"></div>
+                    </div>
+                    <div class="col-auto">
+                        <button id="btnLimpiar" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i> Limpiar</button>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Selector de Cliente -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <label class="form-label">Buscar Cliente</label>
-                        <input type="text" id="buscarCliente" class="form-control" 
-                               placeholder="Buscar por nombre, CUIT o email...">
-                        <div id="resultadosBusqueda" class="list-group mt-2"></div>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Filtrar por Fechas</label>
-                        <div class="row">
-                            <div class="col">
-                                <input type="date" id="fechaDesde" class="form-control">
+        <!-- Panel del cliente -->
+        <div id="panelCliente" class="d-none">
+            <div class="card mb-3">
+                <div class="card-body py-3">
+                    <div class="row align-items-center g-3">
+                        <div class="col-md-4">
+                            <h5 class="mb-1" id="clienteNombre"></h5>
+                            <div class="small text-muted" id="clienteDatos"></div>
+                            <div id="barraLimiteWrap" class="mt-2 d-none">
+                                <div class="small text-muted mb-1">Límite de crédito: <span id="limiteTexto"></span></div>
+                                <div class="progress" style="height:8px;"><div id="barraLimite" class="progress-bar"></div></div>
                             </div>
-                            <div class="col">
-                                <input type="date" id="fechaHasta" class="form-control">
-                            </div>
-                            <div class="col-auto">
-                                <button class="btn btn-primary" onclick="aplicarFiltros()">
-                                    <i class="bi bi-funnel"></i> Filtrar
-                                </button>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="small text-muted">Saldo actual</div>
+                            <div class="saldo-grande" id="saldoActual">—</div>
+                            <span id="badgeConciliacion" class="badge bg-secondary d-none"></span>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="d-flex flex-wrap gap-2 justify-content-end" id="agingChips"></div>
+                            <div class="d-flex flex-wrap gap-2 justify-content-end mt-2 no-print">
+                                <button id="btnCobrar" class="btn btn-success"><i class="bi bi-cash-coin"></i> Cobrar <kbd class="ms-1">F2</kbd></button>
+                                <button id="btnResumen" class="btn btn-outline-primary"><i class="bi bi-file-earmark-text"></i> Resumen</button>
+                                <button id="btnWhatsApp" class="btn btn-outline-success"><i class="bi bi-whatsapp"></i></button>
+                                <button id="btnCSV" class="btn btn-outline-secondary"><i class="bi bi-filetype-csv"></i></button>
+                                <button id="btnPrint" class="btn btn-outline-secondary"><i class="bi bi-printer"></i></button>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Resumen del Cliente -->
-        <div id="resumenCliente" class="row mb-4" style="display: none;">
-            <div class="col-md-4">
-                <div class="card card-resumen">
-                    <div class="card-body">
-                        <h6 class="text-muted">Saldo Actual</h6>
-                        <h3 id="saldoActual" class="saldo-negativo">$0.00</h3>
+            <!-- Filtros -->
+            <div class="card mb-2 no-print">
+                <div class="card-body py-2">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-auto"><label class="form-label mb-1 small">Desde</label>
+                            <input type="date" id="filtroDesde" class="form-control form-control-sm"></div>
+                        <div class="col-auto"><label class="form-label mb-1 small">Hasta</label>
+                            <input type="date" id="filtroHasta" class="form-control form-control-sm"></div>
+                        <div class="col-auto btn-group btn-group-sm" role="group">
+                            <button class="btn btn-outline-secondary" data-rango="hoy">Hoy</button>
+                            <button class="btn btn-outline-secondary" data-rango="semana">Semana</button>
+                            <button class="btn btn-outline-secondary" data-rango="mes">Mes</button>
+                            <button class="btn btn-outline-secondary" data-rango="todo">Todo</button>
+                        </div>
+                        <div class="col-auto"><label class="form-label mb-1 small">Forma de pago</label>
+                            <select id="filtroFormaPago" class="form-select form-select-sm"><option value="">Todas</option></select></div>
+                        <div class="col-md-3"><label class="form-label mb-1 small">Buscar en movimientos</label>
+                            <input type="text" id="filtroBusqueda" class="form-control form-control-sm" placeholder="Concepto, nro pedido, recibo, factura..."></div>
+                        <div class="col-auto">
+                            <button id="btnFiltrar" class="btn btn-sm btn-primary"><i class="bi bi-funnel"></i> Filtrar</button>
+                            <button id="btnLimpiarFiltros" class="btn btn-sm btn-outline-secondary">Limpiar</button>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h6 class="text-muted">Límite de Crédito</h6>
-                        <h3 id="limiteCredito">$0.00</h3>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h6 class="text-muted">Pedidos Pendientes</h6>
-                        <h3 id="pedidosPendientes">0</h3>
-                    </div>
-                </div>
-            </div>
-        </div>
+            <div id="chipsFiltros" class="mb-2 no-print"></div>
 
-        <!-- Datos del Cliente Seleccionado -->
-        <div id="datosCliente" class="alert alert-info" style="display: none;">
-            <strong><i class="bi bi-person"></i> <span id="nombreCliente"></span></strong><br>
-            <small>CUIT: <span id="cuitCliente"></span></small>
-        </div>
-
-        <!-- Tabs: Pedidos Pendientes / Movimientos -->
-        <ul class="nav nav-tabs" id="myTab" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="pedidos-tab" data-bs-toggle="tab" 
-                        data-bs-target="#pedidos" type="button">
-                    <i class="bi bi-cart"></i> Pedidos Pendientes
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="movimientos-tab" data-bs-toggle="tab" 
-                        data-bs-target="#movimientos" type="button">
-                    <i class="bi bi-list-ul"></i> Movimientos
-                </button>
-            </li>
-        </ul>
-
-        <div class="tab-content border border-top-0 p-3" id="myTabContent">
-            <!-- Tab Pedidos Pendientes -->
-            <div class="tab-pane fade show active" id="pedidos">
+            <!-- Libro -->
+            <div class="card">
                 <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Nº Pedido</th>
-                                <th>Fecha</th>
-                                <th>Estado</th>
-                                <th class="text-end">Total</th>
-                                <th class="text-end">Pagado</th>
-                                <th class="text-end">Saldo</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tablaPedidos">
-                            <tr><td colspan="6" class="text-center">Seleccione un cliente</td></tr>
-                        </tbody>
+                    <table class="table table-hover tabla-libro mb-0">
+                        <thead><tr>
+                            <th style="width:95px">Fecha</th><th>Concepto</th><th style="width:120px">Origen</th>
+                            <th class="col-num">Debe</th><th class="col-num">Haber</th><th class="col-num">Saldo</th>
+                        </tr></thead>
+                        <tbody id="cuerpoLibro"></tbody>
                     </table>
                 </div>
-            </div>
-
-            <!-- Tab Movimientos -->
-            <div class="tab-pane fade" id="movimientos">
-                <div class="table-responsive">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Tipo</th>
-                                <th>Concepto</th>
-                                <th class="text-end">Debe</th>
-                                <th class="text-end">Haber</th>
-                                <th class="text-end">Saldo</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tablaMovimientos">
-                            <tr><td colspan="6" class="text-center">Seleccione un cliente</td></tr>
-                        </tbody>
-                    </table>
+                <div class="card-footer d-flex justify-content-between align-items-center no-print">
+                    <div class="small text-muted" id="infoPaginacion"></div>
+                    <div class="btn-group btn-group-sm">
+                        <button id="pagPrev" class="btn btn-outline-secondary"><i class="bi bi-chevron-left"></i></button>
+                        <button id="pagNext" class="btn btn-outline-secondary"><i class="bi bi-chevron-right"></i></button>
+                    </div>
                 </div>
             </div>
         </div>
-
-        <!-- Botones de Acción -->
-        <div id="botonesAccion" class="mt-3" style="display: none;">
-            <button class="btn btn-success" onclick="irACobranzas()">
-                <i class="bi bi-cash-coin"></i> Cobrar Pedidos
-            </button>
-            <button class="btn btn-info" onclick="exportarExcel()">
-                <i class="bi bi-file-excel"></i> Exportar a Excel
-            </button>
+        <div id="sinCliente" class="text-center text-muted py-5">
+            <i class="bi bi-search" style="font-size:2rem"></i>
+            <p class="mt-2">Buscá un cliente para ver su libro de cuenta corriente.</p>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        const API_URL = window.location.hostname === 'localhost' ? 
-            'http://localhost:3000' : 'http://72.60.148.18:3000';
-        
-        let clienteSeleccionado = null;
-        let timeoutBusqueda = null;
+    <!-- Modal Cobrar -->
+    <div class="modal fade" id="modalCobro" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h5 class="modal-title"><i class="bi bi-cash-coin"></i> Registrar cobro — <span id="cobroClienteNombre"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="chkDevolucion">
+                                <label class="form-check-label small text-danger fw-bold" for="chkDevolucion">
+                                    <i class="bi bi-arrow-return-left"></i> Devolver dinero al cliente
+                                </label>
+                            </div>
+                            <label class="form-label small fw-bold">Formas de pago</label>
+                            <div id="formasPago" class="d-flex flex-wrap gap-2 mb-2"></div>
+                            <div class="input-group mb-2">
+                                <span class="input-group-text">$</span>
+                                <input type="number" id="cobroMonto" class="form-control" placeholder="Monto" step="0.01" min="0">
+                                <button id="btnAgregarPago" class="btn btn-outline-primary">Agregar</button>
+                            </div>
+                            <div class="input-group input-group-sm mb-2 d-none" id="wrapReferencia">
+                                <span class="input-group-text">Referencia</span>
+                                <input type="text" id="cobroReferencia" class="form-control">
+                            </div>
+                            <ul class="list-group list-group-sm mb-2" id="itemsPago"></ul>
+                            <div class="text-end fw-bold">Total: <span id="cobroTotal">$ 0,00</span></div>
+                        </div>
+                        <div class="col-md-7">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label small fw-bold mb-0">Aplicación</label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="chkACuenta">
+                                    <label class="form-check-label small" for="chkACuenta">Todo a cuenta (sin imputar)</label>
+                                </div>
+                            </div>
+                            <div id="wrapImputaciones">
+                                <table class="table table-sm">
+                                    <thead><tr><th></th><th>Pedido</th><th>Fecha</th><th class="col-num">Saldo</th><th class="col-num" style="width:140px">A imputar</th></tr></thead>
+                                    <tbody id="tablaPendientes"></tbody>
+                                </table>
+                                <div class="small text-muted">Se precargan del más viejo al más nuevo. Editá los montos si hace falta.</div>
+                            </div>
+                            <div class="mt-2">
+                                <input type="text" id="cobroConcepto" class="form-control form-control-sm" placeholder="Concepto (opcional, ej: Pago semanal)">
+                            </div>
+                            <div class="alert alert-danger py-2 mt-2 d-none" id="cobroError"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <div class="me-auto small" id="cobroResumen"></div>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar <kbd>Esc</kbd></button>
+                    <button id="btnConfirmarCobro" class="btn btn-success"><i class="bi bi-check-circle"></i> Confirmar cobro <kbd class="ms-1">F2</kbd></button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        const token = localStorage.getItem('authToken');
-        if (!token) window.location.href = 'login.html';
+    <!-- Modal documento origen -->
+    <div class="modal fade" id="modalDoc" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h5 class="modal-title" id="docTitulo"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="docBody"></div>
+                <div class="modal-footer py-2" id="docAcciones"></div>
+            </div>
+        </div>
+    </div>
 
-        document.getElementById('buscarCliente').addEventListener('input', function(e) {
-            clearTimeout(timeoutBusqueda);
-            const termino = e.target.value.trim();
-            
-            if (termino.length < 2) {
-                document.getElementById('resultadosBusqueda').innerHTML = '';
-                return;
-            }
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
 
-            timeoutBusqueda = setTimeout(() => buscarClientes(termino), 300);
-        });
-
-        async function buscarClientes(termino) {
-            try {
-                const response = await fetch(`${API_URL}/api/clientes/buscar?q=${encodeURIComponent(termino)}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (!response.ok) throw new Error('Error al buscar');
-
-                const clientes = await response.json();
-                mostrarResultadosBusqueda(clientes);
-            } catch (error) {
-                console.error('Error:', error);
-            }
-        }
-
-        function mostrarResultadosBusqueda(clientes) {
-            const div = document.getElementById('resultadosBusqueda');
-            
-            if (clientes.length === 0) {
-                div.innerHTML = '<div class="list-group-item">No se encontraron clientes</div>';
-                return;
-            }
-
-            div.innerHTML = clientes.map(c => `
-                <a href="#" class="list-group-item list-group-item-action" 
-                   onclick="seleccionarCliente(${c.id_cliente}, '${c.razon_social}', '${c.cuit || ''}'); return false;">
-                    <strong>${c.razon_social}</strong><br>
-                    <small>CUIT: ${c.cuit || 'N/A'}</small>
-                </a>
-            `).join('');
-        }
-
-        async function seleccionarCliente(id, nombre, cuit) {
-            clienteSeleccionado = id;
-            document.getElementById('buscarCliente').value = nombre;
-            document.getElementById('resultadosBusqueda').innerHTML = '';
-            
-            document.getElementById('datosCliente').style.display = 'block';
-            document.getElementById('nombreCliente').textContent = nombre;
-            document.getElementById('cuitCliente').textContent = cuit;
-            document.getElementById('botonesAccion').style.display = 'block';
-
-            await Promise.all([
-                cargarPedidosPendientes(id),
-                cargarMovimientos(id)
-            ]);
-        }
-
-        async function cargarPedidosPendientes(idCliente) {
-            try {
-                const response = await fetch(`${API_URL}/api/pedidos/pendientes-cobro?id_cliente=${idCliente}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (!response.ok) throw new Error('Error al cargar pedidos');
-
-                const pedidos = await response.json();
-                const tbody = document.getElementById('tablaPedidos');
-
-                if (pedidos.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay pedidos pendientes</td></tr>';
-                    document.getElementById('resumenCliente').style.display = 'none';
-                    return;
-                }
-
-                let totalSaldo = 0;
-                tbody.innerHTML = pedidos.map(p => {
-                    totalSaldo += parseFloat(p.saldo_pendiente);
-                    return `
-                        <tr>
-                            <td>${p.id_pedido}</td>
-                            <td>${new Date(p.fecha_creacion).toLocaleDateString('es-AR')}</td>
-                            <td><span class="badge bg-warning">${p.estado_entrega}</span></td>
-                            <td class="text-end">$${parseFloat(p.total).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
-                            <td class="text-end">$${parseFloat(p.total_pagado).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
-                            <td class="text-end"><strong>$${parseFloat(p.saldo_pendiente).toLocaleString('es-AR', {minimumFractionDigits: 2})}</strong></td>
-                        </tr>
-                    `;
-                }).join('');
-
-                // Actualizar resumen
-                document.getElementById('resumenCliente').style.display = 'flex';
-                document.getElementById('saldoActual').textContent = `$${totalSaldo.toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
-                document.getElementById('pedidosPendientes').textContent = pedidos.length;
-
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error al cargar pedidos pendientes');
-            }
-        }
-
-        async function cargarMovimientos(idCliente) {
-            try {
-                const fechaDesde = document.getElementById('fechaDesde').value;
-                const fechaHasta = document.getElementById('fechaHasta').value;
-                
-                let url = `${API_URL}/api/clientes/${idCliente}/cuenta-corriente`;
-                const params = [];
-                if (fechaDesde) params.push(`fecha_desde=${fechaDesde}`);
-                if (fechaHasta) params.push(`fecha_hasta=${fechaHasta}`);
-                if (params.length > 0) url += '?' + params.join('&');
-
-                const response = await fetch(url, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (!response.ok) throw new Error('Error al cargar movimientos');
-
-                const data = await response.json();
-                const tbody = document.getElementById('tablaMovimientos');
-
-                if (data.movimientos.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay movimientos registrados</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = data.movimientos.map(m => `
-                    <tr>
-                        <td>${new Date(m.fecha_movimiento).toLocaleDateString('es-AR')}</td>
-                        <td><span class="badge bg-${m.tipo_movimiento === 'venta' ? 'danger' : 'success'}">${m.tipo_movimiento}</span></td>
-                        <td>${m.concepto || '-'}</td>
-                        <td class="text-end">${m.debe > 0 ? '$' + parseFloat(m.debe).toLocaleString('es-AR', {minimumFractionDigits: 2}) : '-'}</td>
-                        <td class="text-end">${m.haber > 0 ? '$' + parseFloat(m.haber).toLocaleString('es-AR', {minimumFractionDigits: 2}) : '-'}</td>
-                        <td class="text-end"><strong>$${parseFloat(m.saldo).toLocaleString('es-AR', {minimumFractionDigits: 2})}</strong></td>
-                    </tr>
-                `).join('');
-
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error al cargar movimientos');
-            }
-        }
-
-        function aplicarFiltros() {
-            if (clienteSeleccionado) {
-                cargarMovimientos(clienteSeleccionado);
-            }
-        }
-
-        function irACobranzas() {
-            if (clienteSeleccionado) {
-                window.location.href = `cobranzas.html?id_cliente=${clienteSeleccionado}`;
-            }
-        }
-
-        function exportarExcel() {
-            alert('Función de exportar a Excel en desarrollo');
-        }
-
-        function logout() {
-            localStorage.removeItem('authToken');
-            window.location.href = 'login.html';
-        }
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/cuenta-corriente.js"></script>
 </body>
 </html>

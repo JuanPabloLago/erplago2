@@ -1,238 +1,353 @@
-// =======================================================================
-//                    REMITOS.JS - ERP LAGO
-// =======================================================================
+'use strict';
 
-const API_URL = 'http://72.60.148.18:3000/api';
-let productos = [];
-let clientes = [];
-let remitos = [];
-let itemCount = 0;
+/**
+ * remitos.js - Frontend para consulta y listado de remitos
+ * 
+ * Patron: Similar a facturas.js / presupuestos.js
+ * Teclado: Tab entre filtros, Enter buscar, F5 refrescar
+ * API_BASE: window.CONFIG?.API_BASE_URL (ya incluye /api)
+ */
 
-document.addEventListener('DOMContentLoaded', () => {
-    verificarAutenticacion();
-    cargarClientes();
-    cargarProductos();
-    cargarRemitos();
-});
+document.addEventListener('DOMContentLoaded', async () => {
+    const API = window.CONFIG?.API_BASE_URL || '/api';
+    const token = localStorage.getItem('authToken');
+    const headers = { 
+        'Authorization': `Bearer ${token}`, 
+        'Content-Type': 'application/json' 
+    };
 
-async function cargarClientes() {
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/clientes`, {
-            headers: {'Authorization': `Bearer ${token}`}
-        });
-        if (response.ok) {
-            clientes = await response.json();
-            const select = document.getElementById('id_cliente');
-            select.innerHTML = '<option value="">Seleccionar cliente...</option>';
-            clientes.forEach(c => {
-                select.innerHTML += `<option value="${c.id_cliente}">${c.razon_social}</option>`;
+    // ─── ESTADO ─────────────────────────────────────────────
+    let remitos = [];
+    let totalRegistros = 0;
+    let paginaActual = 0;
+    const LIMIT = 50;
+    let formDataCache = null;
+
+    // ─── ELEMENTOS DOM ──────────────────────────────────────
+    const tablaBody = document.getElementById('tablaRemitosBody');
+    const txtBusqueda = document.getElementById('txtBusqueda');
+    const filtroEstado = document.getElementById('filtroEstado');
+    const filtroFechaDesde = document.getElementById('filtroFechaDesde');
+    const filtroFechaHasta = document.getElementById('filtroFechaHasta');
+    const btnBuscar = document.getElementById('btnBuscar');
+    const btnLimpiar = document.getElementById('btnLimpiar');
+    const btnExportar = document.getElementById('btnExportar');
+    const infoPaginacion = document.getElementById('infoPaginacion');
+    const btnAnterior = document.getElementById('btnAnterior');
+    const btnSiguiente = document.getElementById('btnSiguiente');
+    const statsContainer = document.getElementById('statsContainer');
+    const modalDetalle = document.getElementById('modalDetalle');
+
+    // ─── INIT ───────────────────────────────────────────────
+    await cargarFormData();
+    await cargarRemitos();
+    configurarEventos();
+
+    // ─── CARGAR FORM DATA ───────────────────────────────────
+    async function cargarFormData() {
+        try {
+            const resp = await fetch(`${API}/remitos/form-data`, { headers });
+            if (!resp.ok) throw new Error('Error cargando datos');
+            formDataCache = await resp.json();
+
+            // Llenar select estados
+            if (filtroEstado && formDataCache.estados) {
+                filtroEstado.innerHTML = '<option value="">Todos los estados</option>';
+                formDataCache.estados.forEach(e => {
+                    const opt = document.createElement('option');
+                    opt.value = e;
+                    opt.textContent = e.charAt(0).toUpperCase() + e.slice(1);
+                    filtroEstado.appendChild(opt);
+                });
+            }
+
+            // Mostrar estadísticas
+            if (statsContainer && formDataCache.estadisticas) {
+                const s = formDataCache.estadisticas;
+                statsContainer.innerHTML = `
+                    <div class="d-flex gap-3 flex-wrap">
+                        <span class="badge bg-primary fs-6">Total: ${s.total_remitos}</span>
+                        <span class="badge bg-warning text-dark fs-6">Pendientes: ${s.pendientes}</span>
+                        <span class="badge bg-info fs-6">Despachados: ${s.despachados}</span>
+                        <span class="badge bg-success fs-6">Entregados: ${s.entregados}</span>
+                        <span class="badge bg-danger fs-6">Anulados: ${s.anulados}</span>
+                    </div>`;
+            }
+        } catch (err) {
+            console.error('Error cargando form-data:', err);
+        }
+    }
+
+    // ─── CARGAR REMITOS ─────────────────────────────────────
+    async function cargarRemitos() {
+        try {
+            const params = new URLSearchParams();
+            params.set('limit', LIMIT);
+            params.set('offset', paginaActual * LIMIT);
+
+            if (txtBusqueda?.value) params.set('busqueda', txtBusqueda.value.trim());
+            if (filtroEstado?.value) params.set('estado', filtroEstado.value);
+            if (filtroFechaDesde?.value) params.set('fecha_desde', filtroFechaDesde.value);
+            if (filtroFechaHasta?.value) params.set('fecha_hasta', filtroFechaHasta.value);
+
+            tablaBody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></td></tr>';
+
+            const resp = await fetch(`${API}/remitos?${params.toString()}`, { headers });
+            if (!resp.ok) throw new Error('Error cargando remitos');
+
+            const resultado = await resp.json();
+            remitos = resultado.data;
+            totalRegistros = resultado.total;
+
+            renderTabla();
+            actualizarPaginacion();
+
+        } catch (err) {
+            console.error('Error cargando remitos:', err);
+            tablaBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Error al cargar remitos: ${err.message}</td></tr>`;
+        }
+    }
+
+    // ─── RENDER TABLA ───────────────────────────────────────
+    function renderTabla() {
+        if (remitos.length === 0) {
+            tablaBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No se encontraron remitos</td></tr>';
+            return;
+        }
+
+        tablaBody.innerHTML = remitos.map(r => {
+            const estadoClass = {
+                'pendiente': 'warning text-dark',
+                'despachado': 'info',
+                'en_camino': 'primary',
+                'entregado': 'success',
+                'entregado_parcial': 'success',
+                'anulado': 'danger'
+            }[r.estado] || 'secondary';
+
+            const fecha = r.fecha_emision ? new Date(r.fecha_emision).toLocaleDateString('es-AR') : '-';
+
+            return `
+                <tr class="cursor-pointer" data-id="${r.id_remito}" tabindex="0">
+                    <td class="fw-bold">${r.numero_completo || '-'}</td>
+                    <td>${fecha}</td>
+                    <td>${escapeHtml(r.cliente_nombre || 'Sin cliente')}</td>
+                    <td>${r.pedido_numero || '-'}</td>
+                    <td>${r.deposito_nombre || '-'}</td>
+                    <td class="text-center">${r.total_items || 0}</td>
+                    <td><span class="badge bg-${estadoClass}">${r.estado}</span></td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-primary btn-ver-detalle" data-id="${r.id_remito}" title="Ver detalle">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </td>
+                </tr>`;
+        }).join('');
+
+        // Click en fila o botón
+        tablaBody.querySelectorAll('tr[data-id]').forEach(tr => {
+            tr.addEventListener('click', (e) => {
+                if (!e.target.closest('button')) verDetalle(tr.dataset.id);
             });
-        }
-    } catch (error) {
-        console.error('Error al cargar clientes:', error);
-    }
-}
-
-async function cargarProductos() {
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/productos`, {
-            headers: {'Authorization': `Bearer ${token}`}
+            tr.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    verDetalle(tr.dataset.id);
+                }
+            });
         });
-        if (response.ok) {
-            productos = await response.json();
-        }
-    } catch (error) {
-        console.error('Error al cargar productos:', error);
-    }
-}
 
-async function cargarRemitos() {
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/remitos`, {
-            headers: {'Authorization': `Bearer ${token}`}
+        tablaBody.querySelectorAll('.btn-ver-detalle').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                verDetalle(btn.dataset.id);
+            });
         });
-        if (response.ok) {
-            remitos = await response.json();
-            mostrarRemitos(remitos);
+    }
+
+    // ─── PAGINACIÓN ─────────────────────────────────────────
+    function actualizarPaginacion() {
+        const totalPaginas = Math.ceil(totalRegistros / LIMIT);
+        const desde = totalRegistros > 0 ? paginaActual * LIMIT + 1 : 0;
+        const hasta = Math.min((paginaActual + 1) * LIMIT, totalRegistros);
+
+        if (infoPaginacion) {
+            infoPaginacion.textContent = `${desde}-${hasta} de ${totalRegistros}`;
         }
-    } catch (error) {
-        console.error('Error al cargar remitos:', error);
-        document.getElementById('tablaRemitos').innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error al cargar remitos</td></tr>';
+        if (btnAnterior) btnAnterior.disabled = paginaActual === 0;
+        if (btnSiguiente) btnSiguiente.disabled = paginaActual >= totalPaginas - 1;
     }
-}
 
-function mostrarRemitos(lista) {
-    const tbody = document.getElementById('tablaRemitos');
-    if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No hay remitos</td></tr>';
-        return;
-    }
-    tbody.innerHTML = lista.map(r => {
-        const fechaEmision = new Date(r.fecha_emision).toLocaleDateString('es-AR');
-        const fechaEntrega = r.fecha_entrega ? new Date(r.fecha_entrega).toLocaleDateString('es-AR') : '-';
-        const estadoBadge = getEstadoBadge(r.estado);
-        return `
-            <tr>
-                <td><strong>${r.numero_completo}</strong></td>
-                <td>${fechaEmision}</td>
-                <td>${r.cliente || 'Sin cliente'}</td>
-                <td>${fechaEntrega}</td>
-                <td>${r.transportista || '-'}</td>
-                <td>${estadoBadge}</td>
-                <td>
-                    <button class="btn btn-sm btn-info btn-action" onclick="verDetalle(${r.id_remito})" title="Ver detalle"><i class="bi bi-eye"></i></button>
-                    <button class="btn btn-sm btn-danger btn-action" onclick="descargarPDF(${r.id_remito})" title="Descargar PDF"><i class="bi bi-file-pdf"></i></button>
-                    ${r.estado === 'pendiente' ? `<button class="btn btn-sm btn-success btn-action" onclick="marcarEntregado(${r.id_remito})" title="Marcar entregado"><i class="bi bi-check-circle"></i></button>` : ''}
-                </td>
-            </tr>`;
-    }).join('');
-}
+    // ─── VER DETALLE ────────────────────────────────────────
+    async function verDetalle(id) {
+        try {
+            const resp = await fetch(`${API}/remitos/${id}`, { headers });
+            if (!resp.ok) throw new Error('Error cargando detalle');
+            const remito = await resp.json();
 
-function getEstadoBadge(estado) {
-    const badges = {'pendiente': '<span class="badge bg-warning badge-estado">Pendiente</span>', 'entregado': '<span class="badge bg-success badge-estado">Entregado</span>', 'anulado': '<span class="badge bg-danger badge-estado">Anulado</span>'};
-    return badges[estado] || '<span class="badge bg-secondary badge-estado">Desconocido</span>';
-}
+            const contenido = document.getElementById('modalDetalleContenido');
+            if (!contenido) return;
 
-function mostrarFormulario() {
-    document.getElementById('formRemito').reset();
-    document.getElementById('itemsRemito').innerHTML = '';
-    itemCount = 0;
-    agregarItem();
-    agregarItem();
-    const modal = new bootstrap.Modal(document.getElementById('modalRemito'));
-    modal.show();
-}
+            const estadoClass = {
+                'pendiente': 'warning text-dark', 'despachado': 'info',
+                'en_camino': 'primary', 'entregado': 'success', 'anulado': 'danger'
+            }[remito.estado] || 'secondary';
 
-function agregarItem() {
-    itemCount++;
-    const tbody = document.getElementById('itemsRemito');
-    const selectProductos = `<select class="form-select form-select-sm producto-select" onchange="seleccionarProducto(this, ${itemCount})"><option value="">Seleccionar producto...</option>${productos.map(p => `<option value="${p.id_producto}">${p.nombre}</option>`).join('')}</select>`;
-    const row = `<tr id="item-${itemCount}"><td>${selectProductos}<input type="text" class="form-control form-control-sm mt-1 descripcion-input" placeholder="Descripción del producto" data-item="${itemCount}"></td><td><input type="number" class="form-control form-control-sm cantidad-input" value="1" min="0.01" step="0.01" data-item="${itemCount}"></td><td><button type="button" class="btn btn-sm btn-danger" onclick="eliminarItem(${itemCount})"><i class="bi bi-trash"></i></button></td></tr>`;
-    tbody.insertAdjacentHTML('beforeend', row);
-}
+            const fecha = remito.fecha_emision ? new Date(remito.fecha_emision).toLocaleDateString('es-AR') : '-';
 
-function seleccionarProducto(select, itemId) {
-    const option = select.options[select.selectedIndex];
-    if (option.value) {
-        const row = document.getElementById(`item-${itemId}`);
-        row.querySelector('.descripcion-input').value = option.text;
-    }
-}
+            contenido.innerHTML = `
+                <div class="mb-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Remito ${remito.numero_completo}</h5>
+                    <span class="badge bg-${estadoClass} fs-6">${remito.estado}</span>
+                </div>
 
-function eliminarItem(itemId) {
-    const row = document.getElementById(`item-${itemId}`);
-    if (row) row.remove();
-}
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body p-2">
+                                <small class="text-muted">Cliente</small>
+                                <div class="fw-bold">${escapeHtml(remito.cliente_nombre || 'Sin cliente')}</div>
+                                ${remito.cliente_cuit ? `<div class="small text-muted">CUIT: ${remito.cliente_cuit}</div>` : ''}
+                                ${remito.cliente_domicilio ? `<div class="small">${escapeHtml(remito.cliente_domicilio)}</div>` : ''}
+                                ${remito.cliente_telefono ? `<div class="small">${remito.cliente_telefono}</div>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body p-2">
+                                <small class="text-muted">Datos del remito</small>
+                                <div>Fecha: <strong>${fecha}</strong></div>
+                                ${remito.pedido_numero ? `<div>Pedido: <a href="ver-pedido.html?id=${remito.id_pedido}" class="fw-bold">${remito.pedido_numero}</a></div>` : ''}
+                                ${remito.deposito_nombre ? `<div>Depósito: ${remito.deposito_nombre}</div>` : ''}
+                                ${remito.usuario_nombre ? `<div>Usuario: ${remito.usuario_nombre}</div>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-async function guardarRemito() {
-    const id_cliente = document.getElementById('id_cliente').value;
-    const fecha_entrega = document.getElementById('fecha_entrega').value;
-    const direccion_entrega = document.getElementById('direccion_entrega').value;
-    const transportista = document.getElementById('transportista').value;
-    const observaciones = document.getElementById('observaciones').value;
-    if (!id_cliente) {alert('Debe seleccionar un cliente'); return;}
-    const items = [];
-    document.querySelectorAll('#itemsRemito tr').forEach(row => {
-        const productoSelect = row.querySelector('.producto-select');
-        const id_producto = productoSelect?.value;
-        const descripcion = row.querySelector('.descripcion-input')?.value;
-        const cantidad = parseFloat(row.querySelector('.cantidad-input')?.value) || 0;
-        if (id_producto && cantidad > 0 && descripcion) {
-            items.push({id_producto: parseInt(id_producto), descripcion, cantidad});
+                ${remito.observaciones ? `<div class="alert alert-light mb-3"><small class="text-muted">Observaciones:</small> ${escapeHtml(remito.observaciones)}</div>` : ''}
+
+                <h6>Items (${remito.items?.length || 0})</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Producto</th>
+                                <th class="text-center">Cantidad</th>
+                                <th class="text-center">Entregada</th>
+                                <th>Depósito</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(remito.items || []).map(item => `
+                                <tr>
+                                    <td class="small">${item.producto_codigo || '-'}</td>
+                                    <td>${escapeHtml(item.producto_nombre || item.descripcion || 'Sin nombre')}</td>
+                                    <td class="text-center fw-bold">${item.cantidad || 0}</td>
+                                    <td class="text-center">${item.cantidad_entregada || 0}</td>
+                                    <td class="small">${item.deposito_origen_nombre || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+
+            // Mostrar modal Bootstrap
+            const bsModal = new bootstrap.Modal(modalDetalle);
+            bsModal.show();
+
+        } catch (err) {
+            console.error('Error cargando detalle:', err);
+            alert('Error al cargar el detalle del remito');
         }
-    });
-    if (items.length === 0) {alert('Debe agregar al menos un item'); return;}
-    const data = {id_cliente: parseInt(id_cliente), fecha_entrega: fecha_entrega || null, direccion_entrega, transportista, observaciones, items};
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/remitos`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
-            body: JSON.stringify(data)
-        });
-        if (response.ok) {
-            alert('Remito creado exitosamente');
-            bootstrap.Modal.getInstance(document.getElementById('modalRemito')).hide();
-            cargarRemitos();
-        } else {
-            const error = await response.json();
-            alert('Error: ' + error.error);
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Error al guardar remito');
     }
-}
 
-async function verDetalle(id) {
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/remitos/${id}`, {
-            headers: {'Authorization': `Bearer ${token}`}
-        });
-        if (response.ok) {
-            const remito = await response.json();
-            mostrarDetalleModal(remito);
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Error al cargar detalle');
-    }
-}
+    // ─── EXPORTAR ───────────────────────────────────────────
+    async function exportarExcel() {
+        try {
+            const params = new URLSearchParams();
+            if (filtroEstado?.value) params.set('estado', filtroEstado.value);
+            if (filtroFechaDesde?.value) params.set('fecha_desde', filtroFechaDesde.value);
+            if (filtroFechaHasta?.value) params.set('fecha_hasta', filtroFechaHasta.value);
 
-function mostrarDetalleModal(r) {
-    const fechaEmision = new Date(r.fecha_emision).toLocaleDateString('es-AR');
-    const fechaEntrega = r.fecha_entrega ? new Date(r.fecha_entrega).toLocaleDateString('es-AR') : 'No especificada';
-    const itemsHTML = r.items.map(item => `<tr><td>${item.descripcion || item.producto}</td><td>${item.cantidad}</td></tr>`).join('');
-    const modalHTML = `<div class="modal fade" id="modalDetalle" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header bg-info text-white"><h5 class="modal-title">Remito ${r.numero_completo}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="row mb-3"><div class="col-md-6"><strong>Cliente:</strong> ${r.cliente || 'Sin cliente'}</div><div class="col-md-6"><strong>Estado:</strong> ${getEstadoBadge(r.estado)}</div><div class="col-md-6"><strong>Fecha Emisión:</strong> ${fechaEmision}</div><div class="col-md-6"><strong>Fecha Entrega:</strong> ${fechaEntrega}</div>${r.direccion_entrega ? `<div class="col-md-12"><strong>Dirección:</strong> ${r.direccion_entrega}</div>` : ''}${r.transportista ? `<div class="col-md-12"><strong>Transportista:</strong> ${r.transportista}</div>` : ''}</div><table class="table table-sm"><thead><tr><th>Descripción</th><th>Cantidad</th></tr></thead><tbody>${itemsHTML}</tbody></table>${r.observaciones ? `<p class="mt-3"><strong>Observaciones:</strong> ${r.observaciones}</p>` : ''}</div><div class="modal-footer"><button class="btn btn-danger" onclick="descargarPDF(${r.id_remito})"><i class="bi bi-file-pdf"></i> Descargar PDF</button><button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button></div></div></div></div>`;
-    const oldModal = document.getElementById('modalDetalle');
-    if (oldModal) oldModal.remove();
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    const modal = new bootstrap.Modal(document.getElementById('modalDetalle'));
-    modal.show();
-}
+            const resp = await fetch(`${API}/remitos/exportar?${params.toString()}`, { headers });
+            if (!resp.ok) throw new Error('Error exportando');
+            const resultado = await resp.json();
 
-async function descargarPDF(id) {
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/remitos/${id}/pdf`, {
-            headers: {'Authorization': `Bearer ${token}`}
-        });
-        if (response.ok) {
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
+            if (!resultado.data || resultado.data.length === 0) {
+                alert('No hay datos para exportar');
+                return;
+            }
+
+            // Generar CSV
+            const cols = Object.keys(resultado.data[0]);
+            const csv = [
+                cols.join(';'),
+                ...resultado.data.map(row => cols.map(c => `"${(row[c] || '').toString().replace(/"/g, '""')}"`).join(';'))
+            ].join('\n');
+
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `remito_${id}.pdf`;
+            a.download = `remitos_${new Date().toISOString().slice(0, 10)}.csv`;
             a.click();
-            window.URL.revokeObjectURL(url);
-        } else {
-            alert('Error al generar PDF');
+            URL.revokeObjectURL(url);
+
+        } catch (err) {
+            console.error('Error exportando:', err);
+            alert('Error al exportar: ' + err.message);
         }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Error al descargar PDF');
     }
-}
 
-async function marcarEntregado(id) {
-    if (!confirm('¿Marcar este remito como entregado?')) return;
-    alert('Funcionalidad pendiente: actualizar estado del remito');
-}
+    // ─── EVENTOS ────────────────────────────────────────────
+    function configurarEventos() {
+        // Buscar
+        if (btnBuscar) btnBuscar.addEventListener('click', () => { paginaActual = 0; cargarRemitos(); });
+        if (txtBusqueda) {
+            txtBusqueda.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { paginaActual = 0; cargarRemitos(); }
+            });
+        }
 
-document.getElementById('filtroCliente')?.addEventListener('input', filtrarRemitos);
-document.getElementById('filtroEstado')?.addEventListener('change', filtrarRemitos);
+        // Filtros con auto-búsqueda
+        [filtroEstado, filtroFechaDesde, filtroFechaHasta].forEach(el => {
+            if (el) el.addEventListener('change', () => { paginaActual = 0; cargarRemitos(); });
+        });
 
-function filtrarRemitos() {
-    const filtroCliente = document.getElementById('filtroCliente')?.value.toLowerCase() || '';
-    const filtroEstado = document.getElementById('filtroEstado')?.value || '';
-    const filtrados = remitos.filter(r => {
-        const matchCliente = !filtroCliente || (r.cliente && r.cliente.toLowerCase().includes(filtroCliente));
-        const matchEstado = !filtroEstado || r.estado === filtroEstado;
-        return matchCliente && matchEstado;
-    });
-    mostrarRemitos(filtrados);
-}
+        // Limpiar
+        if (btnLimpiar) btnLimpiar.addEventListener('click', () => {
+            if (txtBusqueda) txtBusqueda.value = '';
+            if (filtroEstado) filtroEstado.value = '';
+            if (filtroFechaDesde) filtroFechaDesde.value = '';
+            if (filtroFechaHasta) filtroFechaHasta.value = '';
+            paginaActual = 0;
+            cargarRemitos();
+        });
+
+        // Exportar
+        if (btnExportar) btnExportar.addEventListener('click', exportarExcel);
+
+        // Paginación
+        if (btnAnterior) btnAnterior.addEventListener('click', () => { if (paginaActual > 0) { paginaActual--; cargarRemitos(); } });
+        if (btnSiguiente) btnSiguiente.addEventListener('click', () => { paginaActual++; cargarRemitos(); });
+
+        // Atajos teclado
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'F5' && !e.ctrlKey) {
+                e.preventDefault();
+                cargarRemitos();
+            }
+        });
+    }
+
+    // ─── UTILS ──────────────────────────────────────────────
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+});

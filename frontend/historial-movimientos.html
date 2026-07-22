@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script src="js/config.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial de Movimientos · ERP LAGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+    :root {
+        --lago-primary:    #1a5f7a;
+        --lago-secondary:  #0d3b4f;
+        --lago-green:      #16a34a;
+        --lago-green-light:#dcfce7;
+        --lago-success:    #10b981;
+        --lago-warning:    #f59e0b;
+        --lago-danger:     #ef4444;
+        --lago-info:       #3b82f6;
+        --lago-muted:      #64748b;
+        --lago-dark:       #0f172a;
+        --lago-surface:    #f8fafc;
+        --lago-border:     #e2e8f0;
+        --lago-row-hover:  #f0fdf4;
+        --font-main:       'IBM Plex Sans', system-ui, sans-serif;
+        --font-mono:       'IBM Plex Mono', monospace;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+        font-family: var(--font-main);
+        font-size: 15px;
+        background: #f1f5f9;
+        color: var(--lago-dark);
+        margin: 0;
+    }
+
+    /* ─── NAVBAR ─────────────────────────────────────────── */
+    .erp-navbar {
+        background: linear-gradient(135deg, var(--lago-secondary) 0%, var(--lago-primary) 100%);
+        padding: 0 20px; height: 56px;
+        display: flex; align-items: center; justify-content: space-between;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        position: sticky; top: 0; z-index: 1000;
+    }
+    .erp-navbar a { color: white; text-decoration: none; }
+    .erp-navbar .brand { font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .erp-navbar .nav-links { display: flex; gap: 4px; }
+    .erp-navbar .nav-links a {
+        padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 500;
+        transition: background 0.2s; opacity: 0.8;
+    }
+    .erp-navbar .nav-links a:hover, .erp-navbar .nav-links a.active {
+        background: rgba(255,255,255,0.15); opacity: 1;
+    }
+    .erp-navbar .nav-right { display: flex; align-items: center; gap: 12px; }
+    .erp-navbar .user-badge {
+        background: rgba(255,255,255,0.12); padding: 4px 12px; border-radius: 6px;
+        font-size: 0.85rem; color: rgba(255,255,255,0.9);
+    }
+
+    /* ─── TABS ───────────────────────────────────────────── */
+    .lago-tabs {
+        display: flex; gap: 0; border-bottom: 2px solid var(--lago-border);
+        background: white; padding: 0 20px;
+    }
+    .lago-tab {
+        padding: 12px 24px; font-weight: 600; font-size: 0.9rem;
+        border: none; background: none; cursor: pointer;
+        color: var(--lago-muted); border-bottom: 3px solid transparent;
+        transition: all 0.2s;
+    }
+    .lago-tab:hover { color: var(--lago-primary); }
+    .lago-tab.active {
+        color: var(--lago-primary);
+        border-bottom-color: var(--lago-primary);
+        background: rgba(26,95,122,0.04);
+    }
+    .lago-tab i { margin-right: 6px; }
+
+    /* ─── FILTROS ────────────────────────────────────────── */
+    .filtros-section {
+        background: white; border: 1px solid var(--lago-border);
+        border-radius: 12px; padding: 16px 20px; margin: 16px 20px 0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .filtros-section label {
+        font-size: 0.78rem; font-weight: 600; color: var(--lago-muted);
+        text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px;
+    }
+    .filtros-section .form-control,
+    .filtros-section .form-select {
+        border-color: var(--lago-border); border-radius: 8px; font-size: 0.9rem;
+    }
+    .filtros-section .form-control:focus,
+    .filtros-section .form-select:focus {
+        border-color: var(--lago-green); box-shadow: 0 0 0 3px rgba(22,163,74,0.1);
+    }
+    .btn-lago {
+        background: linear-gradient(135deg, var(--lago-primary), var(--lago-secondary));
+        color: white; border: none; border-radius: 8px; font-weight: 600;
+        padding: 8px 20px; transition: all 0.2s;
+    }
+    .btn-lago:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,95,122,0.3); color: white; }
+
+    /* ─── PRODUCTO AUTOCOMPLETE ──────────────────────────── */
+    .producto-autocomplete { position: relative; }
+    .producto-suggestions {
+        position: absolute; top: 100%; left: 0; right: 0;
+        background: white; border: 1px solid var(--lago-border);
+        border-radius: 8px; max-height: 220px; overflow-y: auto;
+        z-index: 1050; display: none;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    .producto-suggestions.show { display: block; }
+    .producto-suggestion {
+        padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f1f5f9;
+        transition: background 0.15s;
+    }
+    .producto-suggestion:hover { background: var(--lago-row-hover); }
+    .producto-suggestion:last-child { border-bottom: none; }
+    .selected-tag {
+        background: var(--lago-green-light); border: 1px solid #bbf7d0;
+        padding: 4px 10px; border-radius: 6px; display: inline-flex;
+        align-items: center; gap: 6px; font-size: 0.85rem; margin-top: 4px;
+    }
+    .selected-tag .btn-clear {
+        background: none; border: none; cursor: pointer; color: var(--lago-muted);
+        padding: 0; font-size: 1rem; line-height: 1;
+    }
+    .selected-tag .btn-clear:hover { color: var(--lago-danger); }
+
+    /* ─── CLIENTE AUTOCOMPLETE ───────────────────────────── */
+    .entidad-autocomplete { position: relative; }
+    .entidad-suggestions {
+        position: absolute; top: 100%; left: 0; right: 0;
+        background: white; border: 1px solid var(--lago-border);
+        border-radius: 8px; max-height: 200px; overflow-y: auto;
+        z-index: 1050; display: none;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    .entidad-suggestions.show { display: block; }
+    .entidad-suggestion {
+        padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9;
+    }
+    .entidad-suggestion:hover { background: var(--lago-row-hover); }
+
+    /* ─── METRIC CARDS ──────────────────────────────────── */
+    .metrics-row {
+        display: grid; grid-template-columns: repeat(4, 1fr);
+        gap: 12px; padding: 16px 20px 0;
+    }
+    .metric-card {
+        background: white; border: 1px solid var(--lago-border);
+        border-radius: 10px; padding: 14px 18px;
+        border-left: 4px solid var(--lago-primary);
+        transition: transform 0.2s;
+    }
+    .metric-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .metric-card .label { font-size: 0.75rem; color: var(--lago-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+    .metric-card .value { font-size: 1.4rem; font-weight: 700; margin-top: 2px; }
+    .metric-card.success { border-left-color: var(--lago-success); }
+    .metric-card.info { border-left-color: var(--lago-info); }
+    .metric-card.muted { border-left-color: var(--lago-muted); }
+
+    /* ─── ACTIONS BAR ───────────────────────────────────── */
+    .actions-bar {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 10px 20px;
+    }
+    .actions-bar .info { font-size: 0.85rem; color: var(--lago-muted); }
+
+    /* ─── TABLE ──────────────────────────────────────────── */
+    .tabla-container {
+        background: white; border: 1px solid var(--lago-border);
+        border-radius: 12px; margin: 0 20px; overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .tabla-lago { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .tabla-lago thead th {
+        background: var(--lago-surface); color: var(--lago-muted);
+        font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.5px; padding: 12px 14px;
+        border-bottom: 2px solid var(--lago-border);
+        position: sticky; top: 0; z-index: 10;
+    }
+    .tabla-lago tbody td {
+        padding: 10px 14px; border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+    .tabla-lago tbody tr:hover { background: var(--lago-row-hover); }
+    .tabla-lago .text-end { text-align: right; }
+    .tabla-lago .text-center { text-align: center; }
+    .tabla-lago .precio-usd { color: var(--lago-success); font-weight: 600; }
+    .tabla-lago .precio-ars { color: var(--lago-dark); }
+    .tabla-lago code { font-family: var(--font-mono); font-size: 0.82rem; color: var(--lago-primary); background: rgba(26,95,122,0.06); padding: 2px 6px; border-radius: 4px; }
+
+    .badge-pedido { background: var(--lago-info); color: white; }
+    .badge-factura { background: var(--lago-success); color: white; }
+    .badge-compra { background: var(--lago-danger); color: white; }
+    .badge-cotiz { background: var(--lago-muted); color: white; font-size: 0.72rem; }
+
+    .scroll-tabla { max-height: calc(100vh - 420px); overflow-y: auto; }
+
+    /* ─── PAGINATION ─────────────────────────────────────── */
+    .paginacion { padding: 12px 20px; display: flex; justify-content: center; }
+    .paginacion .page-link { color: var(--lago-primary); border-color: var(--lago-border); }
+    .paginacion .page-item.active .page-link { background: var(--lago-primary); border-color: var(--lago-primary); }
+
+    /* ─── SHORTCUT BAR ───────────────────────────────────── */
+    .lago-shortcut-bar {
+        position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+        background: white; border: 1px solid var(--lago-border);
+        border-radius: 10px; padding: 8px 20px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        display: flex; gap: 20px; z-index: 100;
+    }
+    .lago-shortcut-bar span { font-size: 0.82rem; color: var(--lago-muted); display: flex; align-items: center; gap: 4px; }
+    .lago-shortcut-bar kbd {
+        background: var(--lago-dark); color: white; padding: 2px 8px;
+        border-radius: 4px; font-size: 0.75rem; font-family: var(--font-mono);
+    }
+
+    @media (max-width: 768px) {
+        .metrics-row { grid-template-columns: repeat(2, 1fr); }
+        .erp-navbar .nav-links { display: none; }
+    }
+    @media print {
+        .erp-navbar, .filtros-section, .actions-bar, .lago-shortcut-bar, .paginacion, .lago-tabs { display: none !important; }
+        .tabla-container { border: none; margin: 0; box-shadow: none; }
+        .scroll-tabla { max-height: none; overflow: visible; }
+    }
+    </style>
+</head>
+<body>
+    <script src="js/connection-indicator.js"></script>
+
+    <!-- NAVBAR -->
+    <nav class="erp-navbar">
+        <a href="dashboard.html" class="brand">
+            <i class="bi bi-grid-3x3-gap-fill"></i> ERP LAGO
+        </a>
+        <div class="nav-links">
+            <a href="dashboard.html">Dashboard</a>
+            <a href="venta-rapida.html">Venta Rápida</a>
+            <a href="facturas.html">Facturación</a>
+            <a href="historial-movimientos.html" class="active">Historial</a>
+            <a href="reportes.html">Reportes</a>
+        </div>
+        <div class="nav-right">
+            <span class="user-badge" id="userInfo"><i class="bi bi-person-circle me-1"></i></span>
+        </div>
+    </nav>
+
+    <!-- TABS -->
+    <div class="lago-tabs" id="tabsContainer">
+        <button class="lago-tab active" data-tab="ventas" onclick="cambiarTab('ventas')">
+            <i class="bi bi-cart-check"></i> Ventas
+        </button>
+        <button class="lago-tab" data-tab="compras" onclick="cambiarTab('compras')" id="tabCompras" style="display:none;">
+            <i class="bi bi-cart-plus"></i> Compras
+        </button>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="filtros-section" id="filtrosSection">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-2">
+                <label><i class="bi bi-search"></i> Buscar</label>
+                <input type="text" id="txtBuscar" class="form-control form-control-sm" placeholder="Texto libre...">
+            </div>
+            <div class="col-md-2">
+                <label><i class="bi bi-box"></i> Producto</label>
+                <div class="producto-autocomplete">
+                    <input type="text" id="txtProducto" class="form-control form-control-sm" placeholder="Buscar producto...">
+                    <div class="producto-suggestions" id="productoSuggestions"></div>
+                </div>
+                <input type="hidden" id="idProducto">
+                <div id="productoSeleccionado" style="display:none;"></div>
+            </div>
+            <div class="col-md-2">
+                <label><i class="bi bi-calendar"></i> Desde</label>
+                <input type="date" id="fechaDesde" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-2">
+                <label><i class="bi bi-calendar"></i> Hasta</label>
+                <input type="date" id="fechaHasta" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-2">
+                <label id="lblEntidad"><i class="bi bi-person"></i> Cliente</label>
+                <div class="entidad-autocomplete">
+                    <input type="text" id="txtEntidad" class="form-control form-control-sm" placeholder="Buscar..." autocomplete="off">
+                    <div class="entidad-suggestions" id="entidadSuggestions"></div>
+                </div>
+                <input type="hidden" id="idEntidad">
+                <div id="entidadSeleccionada" style="display:none;"></div>
+            </div>
+            <div class="col-md-1">
+                <label><i class="bi bi-file-text"></i> Tipo</label>
+                <select id="cboTipo" class="form-select form-select-sm">
+                    <option value="todos">Todos</option>
+                    <option value="PEDIDO">Pedidos</option>
+                    <option value="FACTURA">Facturas</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button class="btn btn-lago btn-sm w-100" onclick="buscar()">
+                    <i class="bi bi-search"></i> (F5)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- METRICS -->
+    <div class="metrics-row">
+        <div class="metric-card">
+            <div class="label">Total ARS</div>
+            <div class="value" id="totalArs">$0,00</div>
+        </div>
+        <div class="metric-card success">
+            <div class="label">Total USD</div>
+            <div class="value precio-usd" id="totalUsd">US$0,00</div>
+        </div>
+        <div class="metric-card info">
+            <div class="label">Unidades</div>
+            <div class="value" id="totalUnidades">0</div>
+        </div>
+        <div class="metric-card muted">
+            <div class="label">Registros</div>
+            <div class="value" id="totalRegistros">0</div>
+        </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="actions-bar">
+        <span class="info" id="infoResultados"></span>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-success btn-sm" onclick="exportarExcel()">
+                <i class="bi bi-file-earmark-excel"></i> Excel
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+                <i class="bi bi-printer"></i> Imprimir
+            </button>
+        </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="tabla-container">
+        <div class="scroll-tabla">
+            <table class="tabla-lago">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Documento</th>
+                        <th id="thEntidad">Cliente</th>
+                        <th>Código</th>
+                        <th>Producto</th>
+                        <th class="text-end">Cant</th>
+                        <th class="text-end">P.Unit ARS</th>
+                        <th class="text-end">P.Unit USD</th>
+                        <th class="text-end">Dto%</th>
+                        <th class="text-end">Total ARS</th>
+                        <th class="text-end">Total USD</th>
+                        <th class="text-center">Cotiz</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaBody">
+                    <tr><td colspan="12" class="text-center py-5" style="color:var(--lago-muted);">
+                        <i class="bi bi-search fs-2 d-block mb-2"></i>
+                        Usá los filtros o presioná <kbd>F5</kbd> para buscar
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- PAGINATION -->
+    <div class="paginacion" id="paginacion"></div>
+
+    <!-- SHORTCUT BAR -->
+    <div class="lago-shortcut-bar">
+        <span><kbd>F5</kbd> Buscar</span>
+        <span><kbd>Esc</kbd> Limpiar</span>
+        <span><kbd>Enter</kbd> Buscar en campo</span>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/historial-movimientos.js"></script>
+</body>
+</html>

@@ -1,0 +1,973 @@
+/**
+ * MÓDULO CLIENTES v13.0
+ * ERP LAGO
+ * 
+ * JavaScript para gestión de clientes con:
+ * - Búsqueda vectorial en tiempo real
+ * - Integración AFIP
+ * - Navegación por teclado
+ * - Acciones masivas
+ */
+
+// ============================================================================
+// VARIABLES GLOBALES
+// ============================================================================
+
+const API_URL = window.CONFIG?.API_URL || '';
+let clientes = [];
+let formData = { condiciones_iva: [], listas_precios: [], provincias: [] };
+let clientesSeleccionados = new Set();
+let debounceTimer = null;
+let clienteAEliminar = null;
+
+// Modales Bootstrap
+let modalCliente, modalConfirmarEliminar, modalDescuento, toast;
+
+// ============================================================================
+// INICIALIZACIÓN
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // Verificar autenticación
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        console.debug('Redirección a login interceptada - Seguridad delegada al middleware backend');
+        return;
+    }
+
+    // Inicializar modales
+    modalCliente = new bootstrap.Modal(document.getElementById('modalCliente'));
+    modalConfirmarEliminar = new bootstrap.Modal(document.getElementById('modalConfirmarEliminar'));
+    modalDescuento = new bootstrap.Modal(document.getElementById('modalDescuento'));
+    toast = new bootstrap.Toast(document.getElementById('toastNotificacion'));
+
+    // Cargar datos iniciales
+    await cargarFormData();
+    await buscarClientes();
+
+    // Configurar eventos
+    configurarEventos();
+    configurarTeclado();
+});
+
+// ============================================================================
+// CARGA DE DATOS
+// ============================================================================
+
+async function cargarFormData() {
+    try {
+        const response = await fetch(`${API_URL}/api/clientes/form-data`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+        });
+
+        if (!response.ok) throw new Error('Error al cargar datos del formulario');
+
+        formData = await response.json();
+
+        // Poblar combos
+        poblarSelect('condicionIVA', formData.condiciones_iva, 'id_condicion_iva', 'nombre');
+        poblarSelect('filtroCondicionIVA', formData.condiciones_iva, 'id_condicion_iva', 'nombre', true);
+        poblarSelect('listaPrecio', formData.listas_precios, 'id_lista_precio', 'nombre', true);
+        poblarSelect('filtroListaPrecio', formData.listas_precios, 'id_lista_precio', 'nombre', true);
+        poblarSelectSimple('filtroProvincia', formData.provincias, true);
+
+        // Poblar dropdown de listas para acciones masivas
+        const dropdownListas = document.getElementById('dropdownListas');
+        dropdownListas.innerHTML = `
+            <li><a class="dropdown-item" href="#" data-lista="">Sin lista específica</a></li>
+            <li><hr class="dropdown-divider"></li>
+            ${formData.listas_precios.map(l => 
+                `<li><a class="dropdown-item" href="#" data-lista="${l.id_lista_precio}">${l.nombre}</a></li>`
+            ).join('')}
+        `;
+
+    } catch (error) {
+        console.error('Error cargando form-data:', error);
+        mostrarToast('Error', 'No se pudieron cargar los datos del formulario', 'danger');
+    }
+}
+
+async function buscarClientes() {
+    const loading = document.getElementById('loadingClientes');
+    const sinResultados = document.getElementById('sinResultados');
+    const tbody = document.getElementById('tbodyClientes');
+
+    loading.classList.remove('d-none');
+    sinResultados.classList.add('d-none');
+    tbody.innerHTML = '';
+
+    try {
+        const params = new URLSearchParams({
+            q: document.getElementById('buscadorGlobal').value,
+            condicion_iva: document.getElementById('filtroCondicionIVA').value,
+            provincia: document.getElementById('filtroProvincia').value,
+            lista_precio: document.getElementById('filtroListaPrecio').value,
+            activo: document.getElementById('filtroActivo').value,
+            limit: 100
+        });
+
+        const response = await fetch(`${API_URL}/api/clientes/buscar?${params}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+        });
+
+        if (!response.ok) throw new Error('Error al buscar clientes');
+
+        const data = await response.json();
+        clientes = data.clientes;
+
+        renderizarTabla();
+        actualizarStats(data.total);
+
+    } catch (error) {
+        console.error('Error buscando clientes:', error);
+        mostrarToast('Error', 'No se pudieron cargar los clientes', 'danger');
+    } finally {
+        loading.classList.add('d-none');
+    }
+}
+
+// ============================================================================
+// RENDERIZADO
+// ============================================================================
+
+function renderizarTabla() {
+    const tbody = document.getElementById('tbodyClientes');
+    const sinResultados = document.getElementById('sinResultados');
+
+    if (clientes.length === 0) {
+        tbody.innerHTML = '';
+        sinResultados.classList.remove('d-none');
+        return;
+    }
+
+    sinResultados.classList.add('d-none');
+
+    tbody.innerHTML = clientes.map(c => `
+        <tr data-id="${c.id_cliente}" class="${clientesSeleccionados.has(c.id_cliente) ? 'selected' : ''}">
+            <td onclick="event.stopPropagation()">
+                <input type="checkbox" class="form-check-input check-cliente" 
+                       data-id="${c.id_cliente}" ${clientesSeleccionados.has(c.id_cliente) ? 'checked' : ''}>
+            </td>
+            <td>
+                <div class="fw-semibold">${escapeHtml(c.razon_social)}</div>
+                ${c.nombre_fantasia ? `<small class="text-muted">${escapeHtml(c.nombre_fantasia)}</small>` : ''}
+            </td>
+            <td><code>${c.cuit_cuil || '-'}</code></td>
+            <td>
+                <span class="badge badge-iva ${getBadgeClassIVA(c.id_condicion_iva)}">
+                    ${c.condicion_iva || '-'}
+                </span>
+            </td>
+            <td>${escapeHtml(c.domicilio || '-')}</td>
+            <td>${c.telefono || '-'}</td>
+            <td>${c.email ? `<a href="mailto:${c.email}">${c.email}</a>` : '-'}</td>
+            <td>${c.lista_precio || '<span class="text-muted">-</span>'}</td>
+            <td onclick="event.stopPropagation()">
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" onclick="editarCliente(${c.id_cliente})" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="confirmarEliminar(${c.id_cliente})" title="Desactivar">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+
+    // Event listeners para filas
+    tbody.querySelectorAll('tr').forEach(tr => {
+        tr.addEventListener('click', () => {
+            const id = parseInt(tr.dataset.id);
+            editarCliente(id);
+        });
+    });
+
+    // Event listeners para checkboxes
+    tbody.querySelectorAll('.check-cliente').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+            const id = parseInt(e.target.dataset.id);
+            if (e.target.checked) {
+                clientesSeleccionados.add(id);
+                e.target.closest('tr').classList.add('selected');
+            } else {
+                clientesSeleccionados.delete(id);
+                e.target.closest('tr').classList.remove('selected');
+            }
+            actualizarBarraAcciones();
+        });
+    });
+}
+
+function getBadgeClassIVA(id) {
+    const clases = {
+        1: 'bg-primary',      // RI
+        2: 'bg-info',         // Monotributo
+        3: 'bg-warning text-dark', // Exento
+        4: 'bg-secondary'     // CF
+    };
+    return clases[id] || 'bg-secondary';
+}
+
+function actualizarStats(total) {
+    document.getElementById('totalClientes').textContent = total;
+}
+
+function actualizarBarraAcciones() {
+    const barra = document.getElementById('barraAcciones');
+    const cantidad = document.getElementById('cantidadSeleccionados');
+    
+    if (clientesSeleccionados.size > 0) {
+        barra.classList.add('visible');
+        cantidad.textContent = clientesSeleccionados.size;
+    } else {
+        barra.classList.remove('visible');
+    }
+
+    // Actualizar estado del checkbox "todos"
+    const checkAll = document.getElementById('checkAll');
+    checkAll.checked = clientes.length > 0 && clientesSeleccionados.size === clientes.length;
+    checkAll.indeterminate = clientesSeleccionados.size > 0 && clientesSeleccionados.size < clientes.length;
+}
+
+// ============================================================================
+// EVENTOS
+// ============================================================================
+
+function configurarEventos() {
+    // Búsqueda con debounce
+    document.getElementById('buscadorGlobal').addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => buscarClientes(), 300);
+    });
+
+    // Limpiar búsqueda
+    document.getElementById('btnLimpiarBusqueda').addEventListener('click', () => {
+        document.getElementById('buscadorGlobal').value = '';
+        buscarClientes();
+    });
+
+    // Filtros
+    ['filtroCondicionIVA', 'filtroProvincia', 'filtroListaPrecio', 'filtroActivo'].forEach(id => {
+        document.getElementById(id).addEventListener('change', () => buscarClientes());
+    });
+
+    // Nuevo cliente
+    document.getElementById('btnNuevoCliente').addEventListener('click', () => abrirModalNuevo());
+
+    // Guardar cliente
+    document.getElementById('btnGuardarCliente').addEventListener('click', () => guardarCliente());
+
+    // Checkbox seleccionar todos
+    document.getElementById('checkAll').addEventListener('change', (e) => {
+        if (e.target.checked) {
+            clientes.forEach(c => clientesSeleccionados.add(c.id_cliente));
+        } else {
+            clientesSeleccionados.clear();
+        }
+        renderizarTabla();
+        actualizarBarraAcciones();
+    });
+
+    // Botón buscar AFIP
+    document.getElementById('btnBuscarAFIP').addEventListener('click', () => buscarEnAFIP());
+
+    // Formato CUIT mientras escribe
+    document.getElementById('cuitCuil').addEventListener('input', (e) => {
+        e.target.value = formatearCUIT(e.target.value);
+    });
+
+    // Confirmar eliminación
+    document.getElementById('btnConfirmarEliminar').addEventListener('click', () => eliminarCliente());
+
+    // Acciones masivas
+    document.getElementById('btnActivarMasivo').addEventListener('click', () => cambiarEstadoMasivo(true));
+    document.getElementById('btnDesactivarMasivo').addEventListener('click', () => cambiarEstadoMasivo(false));
+    document.getElementById('btnAsignarDescuento').addEventListener('click', () => abrirModalDescuento());
+    document.getElementById('btnAplicarDescuento').addEventListener('click', () => aplicarDescuentoMasivo());
+    document.getElementById('btnExportarSeleccion').addEventListener('click', () => exportarSeleccion());
+    document.getElementById('btnExportar').addEventListener('click', () => exportarTodos());
+
+    // Dropdown listas
+    document.getElementById('dropdownListas').addEventListener('click', (e) => {
+        if (e.target.matches('[data-lista]')) {
+            e.preventDefault();
+            const idLista = e.target.dataset.lista;
+            asignarListaMasivo(idLista ? parseInt(idLista) : null);
+        }
+    });
+
+    // Cerrar modal limpia formulario
+    document.getElementById('modalCliente').addEventListener('hidden.bs.modal', () => {
+        limpiarFormulario();
+    });
+}
+
+function configurarTeclado() {
+    // Navegación global
+    document.addEventListener('keydown', (e) => {
+        // F2 para guardar
+        if (e.key === 'F2' && document.getElementById('modalCliente').classList.contains('show')) {
+            e.preventDefault();
+            guardarCliente();
+        }
+
+        // Escape para cerrar modal o limpiar búsqueda
+        if (e.key === 'Escape') {
+            if (document.getElementById('modalCliente').classList.contains('show')) {
+                modalCliente.hide();
+            } else {
+                document.getElementById('buscadorGlobal').value = '';
+                buscarClientes();
+            }
+        }
+
+        // Enter en búsqueda
+        if (e.key === 'Enter' && e.target.id === 'buscadorGlobal') {
+            e.preventDefault();
+            buscarClientes();
+        }
+    });
+
+    // Navegación Tab entre campos del formulario
+    document.getElementById('formCliente').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            const nextField = e.target.dataset.next;
+            if (nextField) {
+                const next = document.getElementById(nextField);
+                if (next) next.focus();
+            }
+        }
+    });
+}
+
+// ============================================================================
+// OPERACIONES AFIP
+// ============================================================================
+
+async function buscarEnAFIP() {
+    const cuitInput = document.getElementById('cuitCuil');
+    const btn = document.getElementById('btnBuscarAFIP');
+    const spinner = btn.querySelector('.loading-spinner');
+    const feedback = document.getElementById('cuitFeedback');
+
+    const valor = cuitInput.value.replace(/[-\s.]/g, '');
+
+    // Detectar por longitud: 11 digitos = CUIT/CUIL directo | 7-8 = DNI (resolver CUIL)
+    let endpoint;
+    if (valor.length === 11) {
+        endpoint = `${API_URL}/api/clientes/buscar-datos-cuit/${valor}`;
+    } else if (valor.length === 7 || valor.length === 8) {
+        endpoint = `${API_URL}/api/clientes/buscar-datos-dni/${valor}`;
+    } else {
+        feedback.innerHTML = '<span class="text-danger">Ingrese un CUIT/CUIL de 11 dígitos o un DNI de 7-8 dígitos</span>';
+        return;
+    }
+
+    // Mostrar loading
+    btn.disabled = true;
+    spinner.classList.add('active');
+    feedback.innerHTML = '<span class="text-info">Consultando AFIP...</span>';
+
+    try {
+        const response = await fetch(endpoint, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.mensaje || 'Error al consultar AFIP');
+        }
+
+        // Verificar si ya existe
+        if (data.existe_en_sistema) {
+            feedback.innerHTML = `<span class="text-warning">
+                <i class="bi bi-exclamation-triangle"></i> 
+                Este CUIT ya está registrado como: ${data.cliente_existente.razon_social}
+            </span>`;
+        } else {
+            const cuilMsg = (valor.length !== 11 && data.datos.cuit_cuil)
+                ? ` — CUIL: ${data.datos.cuit_cuil}` : '';
+            feedback.innerHTML = `<span class="text-success">
+                <i class="bi bi-check-circle"></i> Datos obtenidos de AFIP${cuilMsg}
+            </span>`;
+        }
+
+        // Poblar formulario con datos de AFIP
+        const d = data.datos;
+        // Si vino de DNI, escribir el CUIL resuelto en el campo
+        if (d.cuit_cuil) cuitInput.value = d.cuit_cuil;
+        document.getElementById('razonSocial').value = d.razon_social || '';
+        document.getElementById('nombreFantasia').value = d.nombre_fantasia || '';
+        document.getElementById('domicilio').value = d.domicilio || '';
+        document.getElementById('localidad').value = d.localidad || '';
+        document.getElementById('provincia').value = d.provincia || '';
+        document.getElementById('codigoPostal').value = d.codigo_postal || '';
+        // Condicion IVA: respeta lo que AFIP confirmo. Sin evidencia => decide el humano.
+        // Excepcion: walk-in (fisica sin inscripciones) => pre-selecciona Consumidor Final (editable).
+        const selIVA = document.getElementById('condicionIVA');
+        if (d.id_condicion_iva) {
+            selIVA.value = d.id_condicion_iva;
+        } else if (d.sin_inscripciones) {
+            selIVA.value = 4; // Consumidor Final, editable
+        } else {
+            selIVA.value = ''; // fuerza "Seleccione..."
+        }
+
+        // Enfocar siguiente campo
+        document.getElementById('telefono').focus();
+
+    } catch (error) {
+        console.error('Error AFIP:', error);
+        feedback.innerHTML = `<span class="text-danger">
+            <i class="bi bi-x-circle"></i> ${error.message}
+        </span>`;
+    } finally {
+        btn.disabled = false;
+        spinner.classList.remove('active');
+    }
+}
+
+// ============================================================================
+// CRUD OPERACIONES
+// ============================================================================
+
+function abrirModalNuevo() {
+    document.getElementById('modalClienteTitulo').innerHTML = '<i class="bi bi-person-plus"></i> Nuevo Cliente';
+    document.getElementById('clienteId').value = '';
+    limpiarFormulario();
+    modalCliente.show();
+    setTimeout(() => document.getElementById('cuitCuil').focus(), 300);
+}
+
+async function editarCliente(id) {
+    try {
+        const response = await fetch(`${API_URL}/api/clientes/${id}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+        });
+
+        if (!response.ok) throw new Error('Error al cargar cliente');
+
+        const cliente = await response.json();
+
+        document.getElementById('modalClienteTitulo').innerHTML = '<i class="bi bi-pencil"></i> Editar Cliente';
+        document.getElementById('clienteId').value = cliente.id_cliente;
+        document.getElementById('cuitCuil').value = cliente.cuit_cuil || '';
+        document.getElementById('condicionIVA').value = cliente.id_condicion_iva;
+        document.getElementById('razonSocial').value = cliente.razon_social || '';
+        document.getElementById('nombreFantasia').value = cliente.nombre_fantasia || '';
+        document.getElementById('domicilio').value = cliente.domicilio || '';
+        document.getElementById('localidad').value = cliente.localidad || '';
+        document.getElementById('provincia').value = cliente.provincia || '';
+        document.getElementById('codigoPostal').value = cliente.codigo_postal || '';
+        document.getElementById('telefono').value = cliente.telefono || '';
+        document.getElementById('email').value = cliente.email || '';
+        document.getElementById('listaPrecio').value = cliente.id_lista_precio || '';
+        document.getElementById('limiteCredito').value = cliente.limite_credito || 0;
+        document.getElementById('descuento').value = cliente.descuento_predefinido || 0;
+        document.getElementById('observaciones').value = cliente.observaciones || '';
+
+        modalCliente.show();
+        setTimeout(() => document.getElementById('razonSocial').focus(), 300);
+
+    } catch (error) {
+        console.error('Error cargando cliente:', error);
+        mostrarToast('Error', 'No se pudo cargar el cliente', 'danger');
+    }
+}
+
+async function guardarCliente() {
+    const form = document.getElementById('formCliente');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const id = document.getElementById('clienteId').value;
+    const esNuevo = !id;
+
+    const datos = {
+        cuit_cuil: document.getElementById('cuitCuil').value || null,
+        id_condicion_iva: parseInt(document.getElementById('condicionIVA').value),
+        razon_social: document.getElementById('razonSocial').value,
+        nombre_fantasia: document.getElementById('nombreFantasia').value || null,
+        domicilio: document.getElementById('domicilio').value || null,
+        localidad: document.getElementById('localidad').value || null,
+        provincia: document.getElementById('provincia').value || null,
+        codigo_postal: document.getElementById('codigoPostal').value || null,
+        telefono: document.getElementById('telefono').value || null,
+        email: document.getElementById('email').value || null,
+        id_lista_precio: document.getElementById('listaPrecio').value || null,
+        limite_credito: parseFloat(document.getElementById('limiteCredito').value) || 0,
+        descuento_predefinido: parseFloat(document.getElementById('descuento').value) || 0,
+        observaciones: document.getElementById('observaciones').value || null
+    };
+
+    try {
+        const url = esNuevo ? `${API_URL}/api/clientes` : `${API_URL}/api/clientes/${id}`;
+        const method = esNuevo ? 'POST' : 'PUT';
+
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            },
+            body: JSON.stringify(datos)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Error al guardar');
+        }
+
+        modalCliente.hide();
+        mostrarToast('Éxito', esNuevo ? 'Cliente creado correctamente' : 'Cliente actualizado correctamente', 'success');
+        buscarClientes();
+
+    } catch (error) {
+        console.error('Error guardando cliente:', error);
+        mostrarToast('Error', error.message, 'danger');
+    }
+}
+
+function confirmarEliminar(id) {
+    const cliente = clientes.find(c => c.id_cliente === id);
+    if (!cliente) return;
+
+    clienteAEliminar = id;
+    document.getElementById('nombreClienteEliminar').textContent = cliente.razon_social;
+    modalConfirmarEliminar.show();
+}
+
+async function eliminarCliente() {
+    if (!clienteAEliminar) return;
+
+    try {
+        const response = await fetch(`${API_URL}/api/clientes/${clienteAEliminar}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Error al eliminar');
+        }
+
+        modalConfirmarEliminar.hide();
+        mostrarToast('Éxito', 'Cliente desactivado correctamente', 'success');
+        buscarClientes();
+
+    } catch (error) {
+        console.error('Error eliminando cliente:', error);
+        mostrarToast('Error', error.message, 'danger');
+    } finally {
+        clienteAEliminar = null;
+    }
+}
+
+// ============================================================================
+// ACCIONES MASIVAS
+// ============================================================================
+
+async function cambiarEstadoMasivo(activo) {
+    if (clientesSeleccionados.size === 0) return;
+
+    try {
+        const response = await fetch(`${API_URL}/api/clientes/masivo/cambiar-estado`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            },
+            body: JSON.stringify({
+                ids: Array.from(clientesSeleccionados),
+                activo
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) throw new Error(result.error);
+
+        mostrarToast('Éxito', result.message, 'success');
+        clientesSeleccionados.clear();
+        actualizarBarraAcciones();
+        buscarClientes();
+
+    } catch (error) {
+        console.error('Error en acción masiva:', error);
+        mostrarToast('Error', error.message, 'danger');
+    }
+}
+
+async function asignarListaMasivo(idLista) {
+    if (clientesSeleccionados.size === 0) return;
+
+    try {
+        const response = await fetch(`${API_URL}/api/clientes/masivo/asignar-lista`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            },
+            body: JSON.stringify({
+                ids: Array.from(clientesSeleccionados),
+                id_lista_precio: idLista
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) throw new Error(result.error);
+
+        mostrarToast('Éxito', result.message, 'success');
+        clientesSeleccionados.clear();
+        actualizarBarraAcciones();
+        buscarClientes();
+
+    } catch (error) {
+        console.error('Error asignando lista:', error);
+        mostrarToast('Error', error.message, 'danger');
+    }
+}
+
+function abrirModalDescuento() {
+    if (clientesSeleccionados.size === 0) return;
+    document.getElementById('cantDescuento').textContent = clientesSeleccionados.size;
+    document.getElementById('descuentoMasivo').value = 0;
+    modalDescuento.show();
+}
+
+async function aplicarDescuentoMasivo() {
+    const descuento = parseFloat(document.getElementById('descuentoMasivo').value);
+
+    try {
+        const response = await fetch(`${API_URL}/api/clientes/masivo/asignar-descuento`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            },
+            body: JSON.stringify({
+                ids: Array.from(clientesSeleccionados),
+                descuento
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) throw new Error(result.error);
+
+        modalDescuento.hide();
+        mostrarToast('Éxito', result.message, 'success');
+        clientesSeleccionados.clear();
+        actualizarBarraAcciones();
+        buscarClientes();
+
+    } catch (error) {
+        console.error('Error aplicando descuento:', error);
+        mostrarToast('Error', error.message, 'danger');
+    }
+}
+
+// ============================================================================
+// EXPORTACIÓN
+// ============================================================================
+
+async function exportarSeleccion() {
+    if (clientesSeleccionados.size === 0) return;
+    await exportar(Array.from(clientesSeleccionados));
+}
+
+async function exportarTodos() {
+    await exportar([]);
+}
+
+async function exportar(ids) {
+    try {
+        mostrarToast('Info', 'Generando archivo Excel...', 'info');
+        
+        const response = await fetch(`${API_URL}/api/clientes/exportar/excel-file`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            },
+            body: JSON.stringify({ ids: ids.length > 0 ? ids : null })
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || 'Error al exportar');
+        }
+
+        // Descargar el archivo Excel
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `clientes_${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        mostrarToast('Éxito', 'Archivo Excel descargado', 'success');
+    } catch (error) {
+        console.error('Error exportando:', error);
+        mostrarToast('Error', error.message, 'danger');
+    }
+}
+
+
+// ============================================================================
+// UTILIDADES
+// ============================================================================
+
+function poblarSelect(id, datos, valueKey, textKey, agregarTodos = false) {
+    const select = document.getElementById(id);
+    const valorActual = select.value;
+    
+    select.innerHTML = agregarTodos 
+        ? `<option value="todos">Todos</option>` 
+        : '';
+    
+    datos.forEach(item => {
+        select.innerHTML += `<option value="${item[valueKey]}">${item[textKey]}</option>`;
+    });
+
+    if (valorActual) select.value = valorActual;
+}
+
+function poblarSelectSimple(id, valores, agregarTodos = false) {
+    const select = document.getElementById(id);
+    const valorActual = select.value;
+    
+    select.innerHTML = agregarTodos 
+        ? `<option value="todos">Todas las provincias</option>` 
+        : '';
+    
+    valores.forEach(v => {
+        select.innerHTML += `<option value="${v}">${v}</option>`;
+    });
+
+    if (valorActual) select.value = valorActual;
+}
+
+function limpiarFormulario() {
+    document.getElementById('formCliente').reset();
+    document.getElementById('clienteId').value = '';
+    document.getElementById('cuitFeedback').innerHTML = '';
+    document.getElementById('condicionIVA').value = '4'; // Default: Consumidor Final
+}
+
+function formatearCUIT(valor) {
+    // Remover todo excepto números
+    let nums = valor.replace(/\D/g, '');
+    
+    // Limitar a 11 dígitos
+    nums = nums.substring(0, 11);
+    
+    // Formatear XX-XXXXXXXX-X
+    if (nums.length > 2) {
+        nums = nums.substring(0, 2) + '-' + nums.substring(2);
+    }
+    if (nums.length > 11) {
+        nums = nums.substring(0, 11) + '-' + nums.substring(11);
+    }
+    
+    return nums;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function mostrarToast(titulo, mensaje, tipo = 'info') {
+    const toastEl = document.getElementById('toastNotificacion');
+    const toastHeader = toastEl.querySelector('.toast-header');
+    
+    // Cambiar color según tipo
+    toastHeader.className = 'toast-header';
+    if (tipo === 'success') toastHeader.classList.add('bg-success', 'text-white');
+    else if (tipo === 'danger') toastHeader.classList.add('bg-danger', 'text-white');
+    else if (tipo === 'warning') toastHeader.classList.add('bg-warning');
+    
+    document.getElementById('toastTitulo').textContent = titulo;
+    document.getElementById('toastMensaje').textContent = mensaje;
+    
+    toast.show();
+}
+
+// ============================================================================
+// IMPORTACIÓN EXCEL
+// ============================================================================
+
+let datosPreview = [];
+
+function configurarImportacion() {
+    // Abrir modal
+    document.getElementById('btnImportar').addEventListener('click', () => {
+        document.getElementById('importPaso1').style.display = 'block';
+        document.getElementById('importPaso2').style.display = 'none';
+        document.getElementById('importPaso3').style.display = 'none';
+        document.getElementById('archivoImportar').value = '';
+        new bootstrap.Modal(document.getElementById('modalImportar')).show();
+    });
+
+    // Descargar plantilla
+    document.getElementById('btnDescargarPlantilla').addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+            const response = await fetch(`${API_URL}/api/clientes/import/plantilla`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+            });
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'plantilla_clientes.xlsx';
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            mostrarToast('Error', 'No se pudo descargar la plantilla', 'danger');
+        }
+    });
+
+    // Analizar archivo
+    document.getElementById('btnAnalizarArchivo').addEventListener('click', analizarArchivo);
+    
+    // Volver al paso 1
+    document.getElementById('btnVolverPaso1').addEventListener('click', () => {
+        document.getElementById('importPaso1').style.display = 'block';
+        document.getElementById('importPaso2').style.display = 'none';
+    });
+
+    // Ejecutar importación
+    document.getElementById('btnEjecutarImport').addEventListener('click', ejecutarImportacion);
+}
+
+async function analizarArchivo() {
+    const input = document.getElementById('archivoImportar');
+    if (!input.files[0]) {
+        mostrarToast('Error', 'Seleccioná un archivo', 'warning');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('archivo', input.files[0]);
+
+    try {
+        mostrarToast('Info', 'Analizando archivo...', 'info');
+        
+        const response = await fetch(`${API_URL}/api/clientes/import/preview`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+            body: formData
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+
+        datosPreview = result.registros;
+        mostrarPreview(result);
+
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarToast('Error', error.message, 'danger');
+    }
+}
+
+function mostrarPreview(result) {
+    // Mostrar resumen
+    const resumen = document.getElementById('importResumen');
+    resumen.innerHTML = `
+        <strong>Resumen:</strong> ${result.resumen.total} registros encontrados<br>
+        <span class="text-success">✓ ${result.resumen.validos} válidos</span> |
+        <span class="text-danger">✗ ${result.resumen.con_errores} con errores</span> |
+        <span class="text-warning">⚠ ${result.resumen.con_advertencias} con advertencias</span>
+    `;
+
+    // Renderizar tabla
+    const thead = document.querySelector('#tablaPreview thead');
+    const tbody = document.querySelector('#tablaPreview tbody');
+    
+    thead.innerHTML = `<tr>
+        <th>Fila</th><th>Estado</th><th>Razón Social</th><th>CUIT</th><th>Cond. IVA</th><th>Problemas</th>
+    </tr>`;
+    
+    tbody.innerHTML = datosPreview.map(r => {
+        const estado = r.errores.length > 0 ? '❌' : (r.advertencias.length > 0 ? '⚠️' : '✅');
+        const clase = r.errores.length > 0 ? 'table-danger' : (r.advertencias.length > 0 ? 'table-warning' : '');
+        const problemas = [...r.errores, ...r.advertencias].join('; ');
+        return `<tr class="${clase}">
+            <td>${r.fila}</td>
+            <td>${estado}</td>
+            <td>${r.datos.razon_social || '-'}</td>
+            <td>${r.datos.cuit_cuil || '-'}</td>
+            <td>${r.datos.id_condicion_iva || '-'}</td>
+            <td><small>${problemas || '-'}</small></td>
+        </tr>`;
+    }).join('');
+
+    // Cambiar a paso 2
+    document.getElementById('importPaso1').style.display = 'none';
+    document.getElementById('importPaso2').style.display = 'block';
+}
+
+async function ejecutarImportacion() {
+    const importarConAdvertencias = document.getElementById('chkImportarConAdvertencias').checked;
+    const ignorarDuplicados = document.getElementById('chkIgnorarDuplicados').checked;
+
+    try {
+        mostrarToast('Info', 'Importando clientes...', 'info');
+        
+        const response = await fetch(`${API_URL}/api/clientes/import/ejecutar`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            },
+            body: JSON.stringify({
+                registros: datosPreview,
+                importar_con_advertencias: importarConAdvertencias,
+                ignorar_duplicados: ignorarDuplicados
+            })
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+
+        // Mostrar resultado
+        const divResultado = document.getElementById('importResultado');
+        divResultado.className = 'alert alert-success';
+        divResultado.innerHTML = `
+            <h5>✅ Importación completada</h5>
+            <p><strong>${result.importados}</strong> clientes importados correctamente</p>
+            ${result.omitidos > 0 ? `<p><strong>${result.omitidos}</strong> registros omitidos</p>` : ''}
+        `;
+
+        document.getElementById('importPaso2').style.display = 'none';
+        document.getElementById('importPaso3').style.display = 'block';
+
+        // Recargar tabla
+        buscarClientes();
+
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarToast('Error', error.message, 'danger');
+    }
+}
+
+// Inicializar importación cuando cargue la página
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(configurarImportacion, 100);
+});

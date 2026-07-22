@@ -7,514 +7,528 @@
     <title>Dashboard - ERP LAGO</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/erp-lago-styles.css">
     <style>
-        .gradient-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .gradient-success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
-        .gradient-danger { background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); }
-        .gradient-warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-        .gradient-info { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-        
+        /* ===== KPI Cards ===== */
+        .kpi-card {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+        .kpi-card .kpi-icon {
+            width: 48px; height: 48px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem;
+        }
+        .kpi-card .kpi-monto { font-size: 1.5rem; font-weight: 700; line-height: 1.2; }
+        .kpi-card .kpi-label { font-size: 0.78rem; color: #6b7280; font-weight: 500; }
+        .kpi-card .kpi-sub { font-size: 0.72rem; color: #9ca3af; }
+
+        /* ===== Módulos ===== */
         .modulo-card {
-            height: 140px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            text-decoration: none;
-            border-radius: 15px;
-            transition: all 0.3s;
+            height: 120px;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            color: white; text-decoration: none;
+            border-radius: 12px;
+            transition: all 0.2s;
             cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.15);
         }
-        
         .modulo-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
             color: white;
         }
-        
-        .modulo-card i {
-            font-size: 3rem;
-            margin-bottom: 10px;
-        }
-        
-        .modulo-card h5 {
-            margin: 0;
-            font-weight: bold;
-        }
-        
-        .modulo-card small {
-            opacity: 0.9;
-        }
-        
-        .stat-card {
-            border-left: 4px solid;
-            transition: all 0.3s;
-        }
-        
-        .stat-card:hover {
-            transform: translateX(5px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-        
+        .modulo-card i { font-size: 2.2rem; margin-bottom: 6px; }
+        .modulo-card h6 { margin: 0; font-weight: 700; font-size: 0.85rem; }
+        .modulo-card small { opacity: 0.85; font-size: 0.7rem; }
+
         .seccion-titulo {
-            border-left: 5px solid #667eea;
-            padding-left: 15px;
-            margin: 30px 0 20px 0;
+            border-left: 4px solid #2563eb;
+            padding-left: 12px;
+            margin: 28px 0 16px 0;
         }
-        
-        /* Colores por categoría */
-        .cat-ventas { background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); }
-        .cat-inventario { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-        .cat-clientes { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
-        .cat-compras { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-        .cat-finanzas { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
-        .cat-reportes { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .cat-config { background: linear-gradient(135deg, #434343 0%, #000000 100%); }
+        .seccion-titulo h5 { margin: 0; font-weight: 700; color: #1e293b; }
+
+        /* Colores módulos */
+        .cat-ventas { background: linear-gradient(135deg, #dc2626, #f97316); }
+        .cat-inventario { background: linear-gradient(135deg, #0284c7, #06b6d4); }
+        .cat-clientes { background: linear-gradient(135deg, #059669, #34d399); }
+        .cat-compras { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+        .cat-finanzas { background: linear-gradient(135deg, #d97706, #fbbf24); }
+        .cat-reportes { background: linear-gradient(135deg, #2563eb, #7c3aed); }
+        .cat-admin { background: linear-gradient(135deg, #334155, #1e293b); }
+
+        /* Panel lateral */
+        .panel-lateral { max-height: 320px; overflow-y: auto; }
+
+        /* Gráfico */
+        .chart-container { position: relative; height: 280px; }
     </style>
 </head>
 <body>
     <script src="js/connection-indicator.js"></script>
 
-    <nav class="navbar navbar-dark gradient-primary sticky-top">
+    <!-- ================================================================== -->
+    <!-- NAVBAR                                                              -->
+    <!-- ================================================================== -->
+    <nav class="navbar navbar-dark sticky-top" style="background: linear-gradient(135deg, #1e293b, #334155);">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">
-                <i class="bi bi-speedometer2"></i> ERP LAGO - Dashboard
-            </a>
-            <div class="d-flex align-items-center">
-                <span class="text-white me-3">
-                    <i class="bi bi-person-circle"></i> <span id="usuarioNombre"></span>
-                </span>
-                <button class="btn btn-outline-light btn-sm" onclick="cerrarSesion()">
-                    <i class="bi bi-box-arrow-right"></i> Salir
-                </button>
+            <span class="navbar-brand mb-0">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </span>
+            <div class="d-flex align-items-center gap-2">
+                <small class="text-white-50">
+                    <i class="bi bi-arrow-repeat"></i> <span id="ultimaActualizacion">--:--</span>
+                </small>
             </div>
         </div>
     </nav>
 
-    <div class="container-fluid py-4">
-        
-        <!-- ========================================== -->
-        <!-- SECCIÓN 1: VENTAS Y PUNTO DE VENTA -->
-        <!-- ========================================== -->
-        <div class="seccion-titulo">
-            <h3><i class="bi bi-cart-check"></i> VENTAS Y PUNTO DE VENTA</h3>
+    <div class="container-fluid py-3">
+
+        <!-- ================================================================== -->
+        <!-- KPIs PRINCIPALES (6 cards en 1 fila)                               -->
+        <!-- ================================================================== -->
+        <div class="row g-2 mb-3">
+            <!-- Ventas Hoy -->
+            <div class="col-xl-2 col-md-4 col-6">
+                <div class="card kpi-card h-100">
+                    <div class="card-body p-2 p-md-3">
+                        <div class="d-flex align-items-start gap-2">
+                            <div class="kpi-icon bg-success bg-opacity-10 text-success"><i class="bi bi-cash-coin"></i></div>
+                            <div>
+                                <div class="kpi-label">Ventas Hoy</div>
+                                <div class="kpi-monto text-success" id="kpiVentasHoyMonto">$0</div>
+                                <div class="kpi-sub" id="kpiVentasHoyCant">0 pedidos</div>
+                                <div class="kpi-sub" id="kpiVentasHoyTicket">Ticket: $0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ventas Mes -->
+            <div class="col-xl-2 col-md-4 col-6">
+                <div class="card kpi-card h-100">
+                    <div class="card-body p-2 p-md-3">
+                        <div class="d-flex align-items-start gap-2">
+                            <div class="kpi-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-calendar-check"></i></div>
+                            <div>
+                                <div class="kpi-label">Ventas Mes</div>
+                                <div class="kpi-monto text-primary" id="kpiVentasMesMonto">$0</div>
+                                <div class="kpi-sub" id="kpiVentasMesCant">0 pedidos</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Caja -->
+            <div class="col-xl-2 col-md-4 col-6">
+                <div class="card kpi-card h-100">
+                    <div class="card-body p-2 p-md-3">
+                        <div class="d-flex align-items-start gap-2">
+                            <div class="kpi-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-safe"></i></div>
+                            <div>
+                                <div class="kpi-label">Caja</div>
+                                <div class="kpi-monto" id="kpiCajaSaldo">-</div>
+                                <div class="kpi-sub" id="kpiCajaEstado"><span class="badge bg-secondary">CERRADA</span></div>
+                                <div class="kpi-sub" id="kpiCajaDetalle">Sin turno</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cobranzas Hoy -->
+            <div class="col-xl-2 col-md-4 col-6">
+                <div class="card kpi-card h-100">
+                    <div class="card-body p-2 p-md-3">
+                        <div class="d-flex align-items-start gap-2">
+                            <div class="kpi-icon bg-info bg-opacity-10 text-info"><i class="bi bi-wallet2"></i></div>
+                            <div>
+                                <div class="kpi-label">Cobranzas Hoy</div>
+                                <div class="kpi-monto text-info" id="kpiCobranzasMonto">$0</div>
+                                <div class="kpi-sub" id="kpiCobranzasCant">0 recibos</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pendientes Despacho -->
+            <div class="col-xl-2 col-md-4 col-6">
+                <div class="card kpi-card h-100">
+                    <div class="card-body p-2 p-md-3">
+                        <div class="d-flex align-items-start gap-2">
+                            <div class="kpi-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-truck"></i></div>
+                            <div>
+                                <div class="kpi-label">Pend. Despacho</div>
+                                <div class="kpi-monto text-danger" id="kpiPendDespacho">0</div>
+                                <div class="kpi-sub" id="kpiPendDespachoMonto">$0</div>
+                                <div class="kpi-sub">Sin facturar: <b id="kpiPendFacturar">0</b></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stock Crítico -->
+            <div class="col-xl-2 col-md-4 col-6">
+                <div class="card kpi-card h-100">
+                    <div class="card-body p-2 p-md-3">
+                        <div class="d-flex align-items-start gap-2">
+                            <div class="kpi-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-exclamation-triangle"></i></div>
+                            <div>
+                                <div class="kpi-label">Stock Crítico</div>
+                                <div class="kpi-monto"><span id="stockCriticoBadge" class="badge bg-secondary">0</span></div>
+                                <div class="kpi-sub"><a href="inventario.html" class="text-decoration-none">Ver inventario</a></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
+
+        <!-- ================================================================== -->
+        <!-- GRÁFICOS + PANELES LATERALES                                       -->
+        <!-- ================================================================== -->
+        <div class="row g-2 mb-3">
+            <!-- Gráfico Ventas 7 Días -->
+            <div class="col-lg-5">
+                <div class="card kpi-card h-100">
+                    <div class="card-header bg-transparent border-0 pb-0 pt-2 px-3">
+                        <h6 class="mb-0"><i class="bi bi-bar-chart-line"></i> Ventas - Últimos 7 Días</h6>
+                    </div>
+                    <div class="card-body p-2">
+                        <div class="chart-container">
+                            <canvas id="graficoVentas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Productos -->
+            <div class="col-lg-3">
+                <div class="card kpi-card h-100">
+                    <div class="card-header bg-transparent border-0 pb-0 pt-2 px-3">
+                        <h6 class="mb-0"><i class="bi bi-trophy"></i> Top Productos (7 días)</h6>
+                    </div>
+                    <div class="card-body p-2 px-3 panel-lateral" id="topProductos">
+                        <div class="text-muted text-center py-3"><div class="spinner-border spinner-border-sm"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stock Crítico + Deudores -->
+            <div class="col-lg-4">
+                <div class="row g-2 h-100">
+                    <!-- Stock Crítico lista -->
+                    <div class="col-12">
+                        <div class="card kpi-card">
+                            <div class="card-header bg-transparent border-0 pb-0 pt-2 px-3">
+                                <h6 class="mb-0"><i class="bi bi-exclamation-triangle text-warning"></i> Stock Crítico</h6>
+                            </div>
+                            <div class="card-body p-2 px-3 panel-lateral" style="max-height:140px" id="stockCriticoLista">
+                                <div class="text-muted text-center py-2"><div class="spinner-border spinner-border-sm"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Deudores -->
+                    <div class="col-12">
+                        <div class="card kpi-card">
+                            <div class="card-header bg-transparent border-0 pb-0 pt-2 px-3 d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0"><i class="bi bi-person-exclamation text-danger"></i> Deudores</h6>
+                                <small class="fw-bold text-danger" id="deudoresTotal">$0</small>
+                            </div>
+                            <div class="card-body p-2 px-3 panel-lateral" style="max-height:140px" id="deudoresLista">
+                                <div class="text-muted text-center py-2"><div class="spinner-border spinner-border-sm"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================================== -->
+        <!-- ACCESOS A MÓDULOS                                                  -->
+        <!-- ================================================================== -->
+
+        <!-- VENTAS -->
+        <div class="seccion-titulo">
+            <h5><i class="bi bi-cart-check"></i> Ventas y Punto de Venta</h5>
+        </div>
+        <div class="row g-2 mb-3">
+            <div class="col-xl-2 col-md-3 col-6">
                 <a href="venta-rapida.html" class="modulo-card cat-ventas">
                     <i class="bi bi-lightning-charge-fill"></i>
-                    <h5>VENTA RÁPIDA</h5>
-                    <small>Mostrador / Por menor</small>
+                    <h6>VENTA RÁPIDA</h6>
+                    <small>Mostrador / POS</small>
                 </a>
             </div>
-            <div class="col-md-3">
-                <a href="pedidos.html" class="modulo-card cat-ventas">
-                    <i class="bi bi-cart-plus"></i>
-                    <h5>PEDIDOS</h5>
-                    <small>Venta completa + Pagos</small>
-                </a>
-            </div>
-            <div class="col-md-3">
-                <a href="entregas.html" class="modulo-card cat-ventas">
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="gestion-despachos.html" class="modulo-card cat-ventas">
                     <i class="bi bi-truck"></i>
-                    <h5>ENTREGAS</h5>
-                    <small>Entregas parciales</small>
+                    <h6>DESPACHOS</h6>
+                    <small>Viajes y remitos</small>
                 </a>
             </div>
-            <div class="col-md-3">
-                <a href="caja.html" class="modulo-card cat-finanzas">
-                    <i class="bi bi-cash-stack"></i>
-                    <h5>CAJA</h5>
-                    <small>Apertura / Cierre / Arqueo</small>
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="tesoreria.html" class="modulo-card cat-finanzas">
+                    <i class="bi bi-safe"></i>
+                    <h6>TESORERÍA</h6>
+                    <small>Caja, Cobros, CC</small>
+                </a>
+            </div>
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="cuenta-corriente.html" class="modulo-card cat-finanzas">
+                    <i class="bi bi-journal-text"></i>
+                    <h6>CTA. CTE.</h6>
+                    <small>Clientes</small>
                 </a>
             </div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- SECCIÓN 2: FACTURACIÓN Y COMPROBANTES -->
-        <!-- ========================================== -->
+        <!-- FACTURACIÓN -->
         <div class="seccion-titulo">
-            <h3><i class="bi bi-receipt"></i> FACTURACIÓN Y COMPROBANTES</h3>
+            <h5><i class="bi bi-receipt"></i> Facturación y Comprobantes</h5>
         </div>
-        
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
-                <a href="facturas.html" class="modulo-card gradient-success">
+        <div class="row g-2 mb-3">
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="facturas.html" class="modulo-card cat-clientes">
                     <i class="bi bi-receipt-cutoff"></i>
-                    <h5>FACTURAS</h5>
-                    <small>Factura electrónica AFIP</small>
+                    <h6>FACTURAS</h6>
+                    <small>Electrónica AFIP</small>
                 </a>
             </div>
-            <div class="col-md-3">
-                <a href="comprobantes-internos.html" class="modulo-card cat-config">
-                    <i class="bi bi-file-earmark-text"></i>
-                    <h5>COMPROBANTES</h5>
-                    <small>Internos (sin AFIP)</small>
-                </a>
-            </div>
-            <div class="col-md-3">
-                <a href="presupuestos.html" class="modulo-card gradient-info">
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="presupuestos.html" class="modulo-card cat-clientes">
                     <i class="bi bi-file-earmark-spreadsheet"></i>
-                    <h5>PRESUPUESTOS</h5>
+                    <h6>PRESUPUESTOS</h6>
                     <small>Cotizaciones</small>
                 </a>
             </div>
-            <div class="col-md-3">
-                <a href="remitos.html" class="modulo-card gradient-warning">
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="remitos.html" class="modulo-card cat-clientes">
                     <i class="bi bi-box-seam"></i>
-                    <h5>REMITOS</h5>
-                    <small>Documentos de entrega</small>
+                    <h6>REMITOS</h6>
+                    <small>Docs. de entrega</small>
+                </a>
+            </div>
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="notas.html" class="modulo-card cat-clientes">
+                    <i class="bi bi-file-earmark-minus"></i>
+                    <h6>NOTAS</h6>
+                    <small>Crédito / Débito</small>
                 </a>
             </div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- SECCIÓN 3: GESTIÓN DE INVENTARIO -->
-        <!-- ========================================== -->
+        <!-- INVENTARIO -->
         <div class="seccion-titulo">
-            <h3><i class="bi bi-boxes"></i> INVENTARIO Y PRODUCTOS</h3>
+            <h5><i class="bi bi-boxes"></i> Inventario y Productos</h5>
         </div>
-        
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
+        <div class="row g-2 mb-3">
+            <div class="col-xl-2 col-md-3 col-6">
                 <a href="productos.html" class="modulo-card cat-inventario">
                     <i class="bi bi-box-seam"></i>
-                    <h5>PRODUCTOS</h5>
-                    <small>Catálogo completo</small>
+                    <h6>PRODUCTOS</h6>
+                    <small>Catálogo</small>
                 </a>
             </div>
-            <div class="col-md-3">
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="inventario.html" class="modulo-card cat-inventario">
+                    <i class="bi bi-clipboard-data"></i>
+                    <h6>INVENTARIO</h6>
+                    <small>Stock</small>
+                </a>
+            </div>
+            <div class="col-xl-2 col-md-3 col-6">
                 <a href="categorias.html" class="modulo-card cat-inventario">
                     <i class="bi bi-tags"></i>
-                    <h5>CATEGORÍAS</h5>
-                    <small>Organización jerárquica</small>
+                    <h6>CATEGORÍAS</h6>
+                    <small>Organización</small>
                 </a>
             </div>
-            <div class="col-md-3">
+            <div class="col-xl-2 col-md-3 col-6">
                 <a href="marcas.html" class="modulo-card cat-inventario">
                     <i class="bi bi-award"></i>
-                    <h5>MARCAS</h5>
+                    <h6>MARCAS</h6>
                     <small>Fabricantes</small>
                 </a>
             </div>
-            <div class="col-md-3">
-                <a href="variantes.html" class="modulo-card cat-inventario">
-                    <i class="bi bi-palette"></i>
-                    <h5>VARIANTES</h5>
-                    <small>Colores, talles, etc</small>
-                </a>
-            </div>
-        </div>
-        
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
+            <div class="col-xl-2 col-md-3 col-6">
                 <a href="conjuntos.html" class="modulo-card cat-inventario">
                     <i class="bi bi-collection"></i>
-                    <h5>CONJUNTOS</h5>
+                    <h6>CONJUNTOS</h6>
                     <small>Kits y combos</small>
                 </a>
             </div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- SECCIÓN 4: CLIENTES Y PROVEEDORES -->
-        <!-- ========================================== -->
+        <!-- CLIENTES Y PROVEEDORES -->
         <div class="seccion-titulo">
-            <h3><i class="bi bi-people"></i> CLIENTES Y PROVEEDORES</h3>
+            <h5><i class="bi bi-people"></i> Clientes y Proveedores</h5>
         </div>
-        
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
+        <div class="row g-2 mb-3">
+            <div class="col-xl-2 col-md-3 col-6">
                 <a href="clientes.html" class="modulo-card cat-clientes">
                     <i class="bi bi-person-lines-fill"></i>
-                    <h5>CLIENTES</h5>
+                    <h6>CLIENTES</h6>
                     <small>Base de datos</small>
                 </a>
             </div>
-            <div class="col-md-3">
+            <div class="col-xl-2 col-md-3 col-6">
                 <a href="proveedores.html" class="modulo-card cat-compras">
                     <i class="bi bi-building"></i>
-                    <h5>PROVEEDORES</h5>
+                    <h6>PROVEEDORES</h6>
                     <small>Suppliers</small>
                 </a>
             </div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- SECCIÓN 5: REPORTES Y ESTADÍSTICAS -->
-        <!-- ========================================== -->
+        <!-- COMPRAS -->
         <div class="seccion-titulo">
-            <h3><i class="bi bi-graph-up"></i> REPORTES Y ANÁLISIS</h3>
+            <h5><i class="bi bi-cart-dash"></i> Compras y Pagos a Proveedores</h5>
         </div>
-        
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
-                <a href="reportes.html" class="modulo-card cat-reportes">
-                    <i class="bi bi-file-earmark-bar-graph"></i>
-                    <h5>REPORTES</h5>
-                    <small>6 tipos + Excel/PDF</small>
+        <div class="row g-2 mb-3">
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="compras.html" class="modulo-card cat-compras">
+                    <i class="bi bi-cart-plus"></i>
+                    <h6>NUEVA COMPRA</h6>
+                    <small>Cargar facturas</small>
                 </a>
             </div>
-            <div class="col-md-3">
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="compras.html" class="modulo-card cat-compras">
+                    <i class="bi bi-receipt"></i>
+                    <h6>COMPROBANTES</h6>
+                    <small>Historial compras</small>
+                </a>
+            </div>
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="pagos-proveedores.html" class="modulo-card cat-compras">
+                    <i class="bi bi-cash-stack"></i>
+                    <h6>PAGOS</h6>
+                    <small>A proveedores</small>
+                </a>
+            </div>
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="cc-proveedores.html" class="modulo-card cat-compras">
+                    <i class="bi bi-journal-text"></i>
+                    <h6>CC PROVEEDORES</h6>
+                    <small>Cuenta corriente</small>
+                </a>
+            </div>
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="pagos-proveedores-listado.html" class="modulo-card cat-compras">
+                    <i class="bi bi-list-check"></i>
+                    <h6>LISTADO PAGOS</h6>
+                    <small>Historial pagos</small>
+                </a>
+            </div>
+        </div>
+
+        <!-- REPORTES -->
+        <div class="seccion-titulo">
+            <h5><i class="bi bi-graph-up"></i> Reportes y Análisis</h5>
+        </div>
+        <div class="row g-2 mb-3">
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="reportes.html" class="modulo-card cat-reportes">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <h6>REPORTES</h6>
+                    <small>Análisis completo</small>
+                </a>
+            </div>
+            <div class="col-xl-2 col-md-3 col-6">
                 <a href="libro-iva.html" class="modulo-card cat-reportes">
                     <i class="bi bi-journal-text"></i>
-                    <h5>LIBRO IVA</h5>
+                    <h6>LIBRO IVA</h6>
                     <small>Registro fiscal</small>
                 </a>
             </div>
+            <div class="col-xl-2 col-md-3 col-6">
+                <a href="historial-movimientos.html" class="modulo-card cat-reportes">
+                    <i class="bi bi-clock-history"></i>
+                    <h6>HISTORIAL</h6>
+                    <small>Movimientos</small>
+                </a>
+            </div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- ESTADÍSTICAS DEL DÍA -->
-        <!-- ========================================== -->
-        <div class="seccion-titulo">
-            <h3><i class="bi bi-bar-chart"></i> ESTADÍSTICAS DE HOY</h3>
-        </div>
-        
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
-                <div class="card stat-card border-success shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-muted mb-1">Ventas Hoy</h6>
-                                <h3 class="mb-0 text-success" id="ventasHoy">$0.00</h3>
-                                <small class="text-muted" id="pedidosHoy">0 pedidos</small>
-                            </div>
-                            <i class="bi bi-cash-coin text-success" style="font-size: 2.5rem; opacity: 0.3;"></i>
-                        </div>
-                    </div>
-                </div>
+        <!-- ADMINISTRACIÓN (solo admin) -->
+        <div id="seccionAdmin" style="display: none;">
+            <div class="seccion-titulo">
+                <h5><i class="bi bi-gear-fill"></i> Administración</h5>
             </div>
-            
-            <div class="col-md-3">
-                <div class="card stat-card border-primary shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-muted mb-1">Ventas del Mes</h6>
-                                <h3 class="mb-0 text-primary" id="ventasMes">$0.00</h3>
-                                <small class="text-muted" id="pedidosMes">0 pedidos</small>
-                            </div>
-                            <i class="bi bi-calendar-check text-primary" style="font-size: 2.5rem; opacity: 0.3;"></i>
-                        </div>
-                    </div>
+            <div class="row g-2 mb-3">
+                <div class="col-xl-2 col-md-3 col-6">
+                    <a href="configuraciones.html" class="modulo-card cat-admin">
+                        <i class="bi bi-sliders"></i>
+                        <h6>CONFIG</h6>
+                        <small>Parámetros</small>
+                    </a>
                 </div>
-            </div>
-            
-            <div class="col-md-3">
-                <div class="card stat-card border-info shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-muted mb-1">Clientes Activos</h6>
-                                <h3 class="mb-0 text-info" id="clientesActivos">0</h3>
-                                <small class="text-muted">registrados</small>
-                            </div>
-                            <i class="bi bi-people text-info" style="font-size: 2.5rem; opacity: 0.3;"></i>
-                        </div>
-                    </div>
+                <div class="col-xl-2 col-md-3 col-6">
+                    <a href="admin-usuarios.html" class="modulo-card cat-admin">
+                        <i class="bi bi-people-fill"></i>
+                        <h6>USUARIOS</h6>
+                        <small>Gestión</small>
+                    </a>
                 </div>
-            </div>
-            
-            <div class="col-md-3">
-                <div class="card stat-card border-warning shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-muted mb-1">Stock Bajo</h6>
-                                <h3 class="mb-0 text-warning" id="stockBajo">0</h3>
-                                <small class="text-muted">productos</small>
-                            </div>
-                            <i class="bi bi-exclamation-triangle text-warning" style="font-size: 2.5rem; opacity: 0.3;"></i>
-                        </div>
-                    </div>
+                <div class="col-xl-2 col-md-3 col-6">
+                    <a href="admin-dispositivos.html" class="modulo-card cat-admin">
+                        <i class="bi bi-pc-display"></i>
+                        <h6>DISPOSITIVOS</h6>
+                        <small>Control acceso</small>
+                    </a>
+                </div>
+                <div class="col-xl-2 col-md-3 col-6">
+                    <a href="admin-listas-precios.html" class="modulo-card cat-admin">
+                        <i class="bi bi-tags-fill"></i>
+                        <h6>LISTAS PRECIOS</h6>
+                        <small>Configurar</small>
+                    </a>
+                </div>
+                <div class="col-xl-2 col-md-3 col-6">
+                    <a href="backup.html" class="modulo-card cat-admin">
+                        <i class="bi bi-cloud-download"></i>
+                        <h6>BACKUP</h6>
+                        <small>Respaldo BD</small>
+                    </a>
                 </div>
             </div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- GRÁFICOS -->
-        <!-- ========================================== -->
-        <div class="row g-3">
-            <div class="col-md-8">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-white">
-                        <h5><i class="bi bi-graph-up"></i> Ventas Últimos 7 Días</h5>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="graficoVentas" height="80"></canvas>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-4">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-white">
-                        <h5><i class="bi bi-trophy"></i> Top 5 Productos</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="topProductos">
-                            <div class="text-muted text-center py-3">
-                                <div class="spinner-border spinner-border-sm"></div>
-                                Cargando...
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    </div><!-- /container -->
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/dashboard.js"></script>
     <script>
-        const API_URL = 'http://72.60.148.18:3000/api';
-        let graficoVentas;
-
-        document.addEventListener('DOMContentLoaded', async () => {
-            const token = localStorage.getItem('authToken');
-            if (!token) {
-                window.location.href = 'login.html';
-                return;
-            }
-
-            const username = localStorage.getItem('username') || 'Usuario';
-            document.getElementById('usuarioNombre').textContent = username;
-
-            await cargarEstadisticas();
-            setInterval(cargarEstadisticas, 300000); // Actualizar cada 5 min
-        });
-
-        async function cargarEstadisticas() {
+        // Mostrar sección admin si el rol lo permite
+        document.addEventListener('DOMContentLoaded', () => {
             try {
-                const response = await fetch(`${API_URL}/reportes/dashboard`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-                });
-
-                if (!response.ok) throw new Error('Error al cargar estadísticas');
-
-                const data = await response.json();
-
-                // Actualizar cards
-                document.getElementById('ventasHoy').textContent = '$' + parseFloat(data.hoy.ventas || 0).toFixed(2);
-                document.getElementById('pedidosHoy').textContent = (data.hoy.pedidos || 0) + ' pedidos';
-                
-                document.getElementById('ventasMes').textContent = '$' + parseFloat(data.mes.ventas || 0).toFixed(2);
-                document.getElementById('pedidosMes').textContent = (data.mes.pedidos || 0) + ' pedidos';
-                
-                document.getElementById('clientesActivos').textContent = data.clientes_activos || 0;
-                document.getElementById('stockBajo').textContent = data.productos_stock_bajo || 0;
-
-                // Gráfico de ventas
-                crearGraficoVentas(data.ventas_por_dia || []);
-
-                // Top productos
-                mostrarTopProductos(data.top_productos || []);
-
-            } catch (error) {
-                console.error('Error:', error);
-            }
-        }
-
-        function crearGraficoVentas(datos) {
-            const ctx = document.getElementById('graficoVentas');
-            
-            if (graficoVentas) {
-                graficoVentas.destroy();
-            }
-
-            const ultimos7 = datos.slice(0, 7).reverse();
-            
-            graficoVentas = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ultimos7.map(d => new Date(d.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })),
-                    datasets: [{
-                        label: 'Ventas ($)',
-                        data: ultimos7.map(d => parseFloat(d.total_ventas)),
-                        borderColor: 'rgb(102, 126, 234)',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        tension: 0.4,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return '$' + value.toLocaleString();
-                                }
-                            }
-                        }
-                    }
+                const token = localStorage.getItem('authToken');
+                if (!token) return;
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const rol = (payload.rol || '').toLowerCase();
+                if (rol === 'admin' || rol === 'administrador') {
+                    document.getElementById('seccionAdmin').style.display = 'block';
                 }
-            });
-        }
-
-        function mostrarTopProductos(productos) {
-            const container = document.getElementById('topProductos');
-            
-            if (productos.length === 0) {
-                container.innerHTML = '<p class="text-muted text-center">No hay datos de ventas</p>';
-                return;
-            }
-
-            container.innerHTML = productos.slice(0, 5).map((p, index) => `
-                <div class="d-flex align-items-center mb-3">
-                    <div class="me-3">
-                        <span class="badge bg-primary rounded-circle" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
-                            ${index + 1}
-                        </span>
-                    </div>
-                    <div class="flex-grow-1">
-                        <div class="fw-bold">${p.nombre}</div>
-                        <small class="text-muted">${p.cantidad_vendida} unidades | $${parseFloat(p.total_vendido).toFixed(2)}</small>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function cerrarSesion() {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('username');
-            window.location.href = 'login.html';
-        }
+            } catch (e) { /* silenciar */ }
+        });
     </script>
     <script src="js/config-panel.js"></script>
+    <script src="js/auth.js"></script>
 </body>
 </html>
-
-<script>
-// Mostrar tarjeta de administración solo para admin
-document.addEventListener('DOMContentLoaded', () => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const rol = payload.rol;
-            
-            if (rol === 'admin' || rol === 'administrador') {
-                const cardAdmin = document.getElementById('cardAdmin');
-                if (cardAdmin) {
-                    cardAdmin.style.display = 'block';
-                }
-            }
-        } catch (e) {
-            console.error('Error al verificar rol:', e);
-        }
-    }
-});
-</script>

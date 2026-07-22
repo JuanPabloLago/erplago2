@@ -1,0 +1,97 @@
+:root {
+    --lago-dark:          #0a1f0a;
+    --lago-primary:       #1a6b1a;
+    --lago-secondary:     #2e7d32;
+    --lago-light:         #66bb6a;
+    --lago-bg-accent:     #e8f5e9;
+    --lago-bg-focus:      #f0faf0;
+    --lago-gradient-header: linear-gradient(135deg, #0d2b0d 0%, #1a4a1a 100%);
+    --lago-gradient-btn:    linear-gradient(135deg, #1a6b1a, #2e7d32);
+    --lago-bg-app:        #f4f5f7;
+    --lago-bg-card:       #ffffff;
+    --lago-bg-table-head: #fafbfc;
+    --lago-border:        #dee2e6;
+    --lago-border-light:  #e8e8e8;
+    --lago-text:          #1a1a1a;
+    --lago-text-sec:      #444444;
+    --lago-text-muted:    #888888;
+    --lago-text-faint:    #aaaaaa;
+    --lago-success:       #2e7d32;
+    --lago-warning:       #e65100;
+    --lago-danger:        #c62828;
+    --lago-info:          #1565c0;
+    --lago-transit:       #f57f17;
+    --lago-font:          'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    --lago-font-mono:     'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    --lago-shadow-sm:     0 1px 4px rgba(0,0,0,0.06);
+    --lago-shadow-md:     0 4px 12px rgba(0,0,0,0.1);
+    --lago-shadow-lg:     0 12px 40px rgba(0,0,0,0.15);
+    --lago-shadow-btn:    0 2px 8px rgba(26,107,26,0.3);
+    --lago-radius-sm:     6px;
+    --lago-radius:        10px;
+    --lago-radius-lg:     12px;
+}
+body { background: var(--lago-bg-app); font-family: var(--lago-font); color: var(--lago-text); padding-bottom: 40px; }
+
+.lago-header { background: var(--lago-gradient-header); padding: 0 24px; display: flex; align-items: center; height: 56px; position: sticky; top: 0; z-index: 100; }
+.lago-header-menu-btn { background: none; border: none; color: rgba(255,255,255,0.8); font-size: 22px; cursor: pointer; margin-right: 16px; padding: 4px 8px; border-radius: 6px; transition: background 0.15s; }
+.lago-header-menu-btn:hover { background: rgba(255,255,255,0.1); }
+.lago-header-title { color: #fff; font-weight: 700; font-size: 17px; letter-spacing: 0.5px; }
+.lago-header-sub { color: rgba(255,255,255,0.4); font-size: 13px; margin-left: 12px; }
+
+.lago-metrics { display: grid; gap: 12px; margin: 20px 0; }
+.lago-metrics-3 { grid-template-columns: repeat(3, 1fr); }
+.lago-metrics-4 { grid-template-columns: repeat(4, 1fr); }
+.lago-metric-card { background: var(--lago-bg-card); border-radius: var(--lago-radius); padding: 16px 20px; border-left: 4px solid var(--lago-primary); box-shadow: var(--lago-shadow-sm); }
+.lago-metric-label { font-size: 11px; color: var(--lago-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+.lago-metric-value { font-size: 22px; font-weight: 800; font-family: var(--lago-font-mono); margin-top: 4px; color: var(--lago-primary); }
+.lago-metric-sub { font-size: 12px; color: var(--lago-text-faint); margin-top: 2px; }
+.lago-metric-card.success { border-left-color: var(--lago-success); }
+.lago-metric-card.success .lago-metric-value { color: var(--lago-success); }
+.lago-metric-card.warning { border-left-color: var(--lago-warning); }
+.lago-metric-card.warning .lago-metric-value { color: var(--lago-warning); }
+.lago-metric-card.danger { border-left-color: var(--lago-danger); }
+.lago-metric-card.danger .lago-metric-value { color: var(--lago-danger); }
+.lago-metric-card.info { border-left-color: var(--lago-info); }
+.lago-metric-card.info .lago-metric-value { color: var(--lago-info); }
+
+.lago-table-wrap { background: var(--lago-bg-card); border-radius: var(--lago-radius-lg); overflow: hidden; box-shadow: var(--lago-shadow-sm); }
+.lago-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.lago-table thead th { padding: 12px 16px; font-size: 11px; color: var(--lago-text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; background: var(--lago-bg-table-head); border-bottom: 2px solid var(--lago-border-light); white-space: nowrap; }
+.lago-table thead th.text-end { text-align: right; }
+.lago-table tbody tr { border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.1s; }
+.lago-table tbody tr:hover { background: var(--lago-bg-focus); }
+.lago-table tbody tr:last-child { border-bottom: none; }
+.lago-table tbody td { padding: 11px 16px; font-size: 13px; color: var(--lago-text-sec); vertical-align: middle; }
+.lago-table .mono { font-family: var(--lago-font-mono); font-size: 12px; }
+.lago-table .money { text-align: right; font-weight: 700; font-family: var(--lago-font-mono); color: var(--lago-text); }
+.lago-table .td-actions { text-align: center; width: 50px; }
+.lago-table .btn-detalle { background: none; border: 1px solid #ddd; border-radius: var(--lago-radius-sm); padding: 4px 8px; cursor: pointer; font-size: 14px; color: #666; transition: all 0.15s; }
+.lago-table .btn-detalle:hover { border-color: var(--lago-primary); color: var(--lago-primary); background: var(--lago-bg-accent); }
+
+.lago-badge { padding: 3px 10px; border-radius: var(--lago-radius-sm); font-size: 12px; font-weight: 700; letter-spacing: 0.3px; display: inline-block; }
+.lago-badge-emitida, .lago-badge-entregado, .lago-badge-activo { background: #e8f5e9; color: var(--lago-success); }
+.lago-badge-anulada, .lago-badge-cancelado { background: #ffebee; color: var(--lago-danger); }
+.lago-badge-pendiente { background: #fff3e0; color: var(--lago-warning); }
+.lago-badge-aprobado { background: #e3f2fd; color: var(--lago-info); }
+.lago-badge-vencido { background: #fce4ec; color: #ad1457; }
+.lago-badge-en_viaje, .lago-badge-en-viaje { background: #fff8e1; color: var(--lago-transit); }
+.lago-badge-nc { background: #e8f5e9; color: var(--lago-success); }
+.lago-badge-nd { background: #fff3e0; color: var(--lago-warning); }
+
+.lago-btn-primary { padding: 8px 20px; background: var(--lago-gradient-btn); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; box-shadow: var(--lago-shadow-btn); transition: transform 0.1s, box-shadow 0.15s; }
+.lago-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,107,26,0.4); }
+.lago-btn-primary:active { transform: translateY(0); }
+.lago-btn-primary kbd { background: rgba(255,255,255,0.2); border-radius: 3px; padding: 1px 5px; font-size: 10px; font-family: var(--lago-font-mono); }
+
+.lago-shortcuts-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 36px; background: #1a1a1a; display: flex; align-items: center; padding: 0 24px; gap: 24px; z-index: 100; }
+.lago-shortcut { display: flex; align-items: center; gap: 5px; color: rgba(255,255,255,0.4); font-size: 11px; }
+.lago-shortcut kbd { background: rgba(255,255,255,0.1); border-radius: 3px; padding: 1px 6px; font-size: 10px; font-family: var(--lago-font-mono); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); display: inline-block; }
+
+.lago-header-shortcuts { display: flex; gap: 6px; align-items: center; }
+.lago-header-shortcut { display: flex; align-items: center; gap: 4px; color: rgba(255,255,255,0.35); font-size: 11px; }
+.lago-header-shortcut kbd { background: rgba(255,255,255,0.1); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-family: var(--lago-font-mono); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.15); }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #aaa; }

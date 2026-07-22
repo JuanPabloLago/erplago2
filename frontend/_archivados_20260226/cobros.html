@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script src="js/config.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cobros - ERP Lago</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .navbar {
+      background: rgba(255, 255, 255, 0.95) !important;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    .main-container { padding: 30px 15px; }
+    .card-cobro {
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      margin-bottom: 25px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+    .forma-pago-item {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 15px;
+      border-left: 4px solid #667eea;
+    }
+    .total-section {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 15px;
+      padding: 25px;
+      position: sticky;
+      top: 20px;
+    }
+    .monto-display {
+      font-size: 48px;
+      font-weight: 700;
+      text-align: center;
+      margin: 20px 0;
+    }
+    .diferencia-ok { color: #48bb78; }
+    .diferencia-error { color: #f56565; }
+    .btn-cobrar {
+      background: #48bb78;
+      border: none;
+      padding: 15px;
+      font-size: 18px;
+      font-weight: 600;
+      width: 100%;
+      border-radius: 10px;
+      color: white;
+    }
+    .btn-cobrar:hover { background: #38a169; color: white; }
+    .select-moneda {
+      width: 100px;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-light">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="dashboard.html">
+      <i class="fas fa-money-bill-wave me-2"></i>ERP Lago - Cobros
+    </a>
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="dashboard.html"><i class="fas fa-home me-1"></i>Inicio</a></li>
+        <li class="nav-item"><a class="nav-link" href="cajas.html"><i class="fas fa-cash-register me-1"></i>Cajas</a></li>
+        <li class="nav-item"><a class="nav-link active" href="cobros.html"><i class="fas fa-money-bill-wave me-1"></i>Cobros</a></li>
+        <li class="nav-item">
+          <button class="btn btn-outline-danger btn-sm ms-3" onclick="logout()">
+            <i class="fas fa-sign-out-alt me-1"></i>Cerrar Sesión
+          </button>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid main-container">
+  <div class="row">
+    
+    <!-- Formulario Principal -->
+    <div class="col-lg-8">
+      <div class="card-cobro">
+        <h4 class="mb-4"><i class="fas fa-money-check-alt me-2"></i>Nuevo Cobro</h4>
+        
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Cliente (Opcional)</label>
+            <select class="form-select" id="clienteSelect">
+              <option value="">Sin cliente</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Monto Total a Cobrar *</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input type="number" class="form-control" id="montoTotal" placeholder="0.00" min="0.01" step="0.01" required>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">Concepto</label>
+          <input type="text" class="form-control" id="concepto" placeholder="Ej: Cobro de pedido #123">
+        </div>
+
+        <hr>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5><i class="fas fa-credit-card me-2"></i>Formas de Pago</h5>
+          <button class="btn btn-primary btn-sm" onclick="agregarFormaPago()">
+            <i class="fas fa-plus me-2"></i>Agregar Forma de Pago
+          </button>
+        </div>
+
+        <div id="formasPagoContainer">
+          <p class="text-muted text-center">No hay formas de pago agregadas</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Panel Lateral - Resumen -->
+    <div class="col-lg-4">
+      <div class="total-section">
+        <h5 class="text-center mb-3">Resumen del Cobro</h5>
+        
+        <div class="text-center">
+          <small>A Cobrar</small>
+          <div class="monto-display" id="displayTotal">$0.00</div>
+        </div>
+
+        <hr style="border-color: rgba(255,255,255,0.3);">
+
+        <div class="d-flex justify-content-between mb-2">
+          <span>Formas de pago:</span>
+          <strong id="cantidadFormas">0</strong>
+        </div>
+
+        <div class="d-flex justify-content-between mb-2">
+          <span>Total ingresado:</span>
+          <strong id="totalIngresado">$0.00</strong>
+        </div>
+
+        <div class="d-flex justify-content-between mb-3">
+          <span>Diferencia:</span>
+          <strong id="diferencia" class="diferencia-ok">$0.00</strong>
+        </div>
+
+        <button class="btn btn-cobrar" onclick="procesarCobro()" id="btnCobrar" disabled>
+          <i class="fas fa-check-circle me-2"></i>COBRAR
+        </button>
+
+        <div class="mt-3 text-center">
+          <small><i class="fas fa-info-circle me-1"></i>La diferencia debe ser $0 para cobrar</small>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const API_URL = '/api';
+const token = localStorage.getItem('authToken');
+if (!token) window.location.href = 'login.html';
+
+const ID_CAJA = 1; // Caja principal
+
+let turnoActual = null;
+let formasPago = [];
+let tarjetas = [];
+let bancos = [];
+let formasPagoDisponibles = [];
+let monedas = [];
+let cotizaciones = {};
+
+let contadorFormas = 0;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await verificarTurnoAbierto();
+  await cargarClientes();
+  await cargarCatalogos();
+});
+
+async function verificarTurnoAbierto() {
+  try {
+    // RUTA CORREGIDA: /cajas-cobranzas/cajas/:id_caja/turno-actual
+    const res = await fetch(`${API_URL}/cajas-cobranzas/cajas/${ID_CAJA}/turno-actual`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    
+    // Verificar si hay turno abierto (compatible con diferentes formatos de respuesta)
+    const hayTurno = data.turno_abierto === true || 
+                    (data.id_turno && !data.fecha_cierre) ||
+                    (data.turno && data.turno.id_turno && !data.turno.fecha_cierre);
+    
+    if (!hayTurno) {
+      alert('⚠️ No hay una caja abierta. Debes abrir caja primero.');
+      window.location.href = 'cajas.html';
+      return;
+    }
+    
+    turnoActual = data.turno || data;
+  } catch (error) {
+    console.error('Error al verificar turno:', error);
+    alert('Error al verificar turno de caja');
+  }
+}
+
+async function cargarClientes() {
+  try {
+    const res = await fetch(`${API_URL}/clientes`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const clientes = await res.json();
+    
+    const select = document.getElementById('clienteSelect');
+    clientes.forEach(c => {
+      const option = document.createElement('option');
+      option.value = c.id_cliente;
+      option.textContent = c.razon_social;
+      select.appendChild(option);
+    });
+  } catch (error) {
+    console.error('Error al cargar clientes:', error);
+  }
+}
+
+async function cargarCatalogos() {
+  try {
+    const [resTarjetas, resBancos, resFormas, resMonedas] = await Promise.all([
+      fetch(`${API_URL}/tarjetas`, { headers: { 'Authorization': `Bearer ${token}` }}),
+      fetch(`${API_URL}/bancos`, { headers: { 'Authorization': `Bearer ${token}` }}),
+      fetch(`${API_URL}/formas-pago`, { headers: { 'Authorization': `Bearer ${token}` }}),
+      fetch(`${API_URL}/monedas`, { headers: { 'Authorization': `Bearer ${token}` }})
+    ]);
+    
+    tarjetas = await resTarjetas.json();
+    bancos = await resBancos.json();
+    formasPagoDisponibles = await resFormas.json();
+    monedas = await resMonedas.json();
+    
+    // Guardar cotizaciones
+    monedas.forEach(m => {
+      cotizaciones[m.id_moneda] = parseFloat(m.cotizacion) || 1;
+    });
+    
+  } catch (error) {
+    console.error('Error al cargar catálogos:', error);
+  }
+}
+
+function agregarFormaPago() {
+  contadorFormas++;
+  const id = contadorFormas;
+  
+  const container = document.getElementById('formasPagoContainer');
+  
+  if (formasPago.length === 0) {
+    container.innerHTML = '';
+  }
+  
+  const div = document.createElement('div');
+  div.className = 'forma-pago-item';
+  div.id = `forma-${id}`;
+  
+  div.innerHTML = `
+    <div class="row align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Tipo de Pago</label>
+        <select class="form-select" id="tipo-${id}" onchange="cambioTipoFormaPago(${id})">
+          <option value="">Seleccionar...</option>
+          ${formasPagoDisponibles.map(f => `<option value="${f.id_forma_pago}" data-tipo="${f.tipo}">${f.nombre}</option>`).join('')}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Monto</label>
+        <input type="number" class="form-control" id="monto-${id}" placeholder="0.00" min="0.01" step="0.01" oninput="calcularResumen()">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Moneda</label>
+        <select class="form-select" id="moneda-${id}" onchange="calcularResumen()">
+          ${monedas.map(m => `<option value="${m.id_moneda}">${m.simbolo}</option>`).join('')}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-outline-danger btn-sm w-100" onclick="eliminarFormaPago(${id})">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>
+    <div id="extras-${id}" class="mt-3"></div>
+  `;
+  
+  container.appendChild(div);
+  
+  formasPago.push({ id, id_forma_pago: null, monto: 0, id_moneda: 1 });
+}
+
+function cambioTipoFormaPago(id) {
+  const select = document.getElementById(`tipo-${id}`);
+  const selectedOption = select.options[select.selectedIndex];
+  const tipo = selectedOption.dataset.tipo;
+  const id_forma_pago = select.value;
+  
+  const forma = formasPago.find(f => f.id === id);
+  if (forma) {
+    forma.id_forma_pago = parseInt(id_forma_pago);
+    forma.tipo = tipo;
+  }
+  
+  const extrasDiv = document.getElementById(`extras-${id}`);
+  extrasDiv.innerHTML = '';
+  
+  if (tipo === 'tarjeta') {
+    extrasDiv.innerHTML = `
+      <div class="row">
+        <div class="col-md-6">
+          <label class="form-label">Tarjeta</label>
+          <select class="form-select" id="tarjeta-${id}" onchange="calcularInteres(${id})">
+            <option value="">Seleccionar...</option>
+            ${tarjetas.map(t => `<option value="${t.id_tarjeta}" data-i1="${t.interes_1_cuota}" data-i3="${t.interes_3_cuotas}" data-i6="${t.interes_6_cuotas}" data-i12="${t.interes_12_cuotas}">${t.nombre}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Cuotas</label>
+          <select class="form-select" id="cuotas-${id}" onchange="calcularInteres(${id})">
+            <option value="1">1 cuota</option>
+            <option value="3">3 cuotas</option>
+            <option value="6">6 cuotas</option>
+            <option value="12">12 cuotas</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Interés</label>
+          <input type="text" class="form-control" id="interes-${id}" readonly placeholder="0%">
+        </div>
+      </div>
+      <div class="row mt-2">
+        <div class="col-md-12">
+          <label class="form-label">Nro. Autorización</label>
+          <input type="text" class="form-control" id="referencia-${id}" placeholder="AUTH-12345">
+        </div>
+      </div>
+    `;
+  } else if (tipo === 'transferencia' || tipo === 'cheque') {
+    extrasDiv.innerHTML = `
+      <div class="row">
+        <div class="col-md-6">
+          <label class="form-label">Banco</label>
+          <select class="form-select" id="banco-${id}">
+            <option value="">Seleccionar...</option>
+            ${bancos.map(b => `<option value="${b.id_banco}">${b.nombre}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Nro. ${tipo === 'cheque' ? 'Cheque' : 'Operación'}</label>
+          <input type="text" class="form-control" id="referencia-${id}">
+        </div>
+      </div>
+    `;
+  }
+  
+  calcularResumen();
+}
+
+function calcularInteres(id) {
+  const tarjetaSelect = document.getElementById(`tarjeta-${id}`);
+  const cuotas = parseInt(document.getElementById(`cuotas-${id}`).value);
+  
+  if (!tarjetaSelect.value) return;
+  
+  const option = tarjetaSelect.options[tarjetaSelect.selectedIndex];
+  let interes = 0;
+  
+  if (cuotas === 1) interes = parseFloat(option.dataset.i1);
+  else if (cuotas === 3) interes = parseFloat(option.dataset.i3);
+  else if (cuotas === 6) interes = parseFloat(option.dataset.i6);
+  else interes = parseFloat(option.dataset.i12);
+  
+  document.getElementById(`interes-${id}`).value = `${interes}%`;
+  
+  const forma = formasPago.find(f => f.id === id);
+  if (forma) {
+    forma.id_tarjeta = parseInt(tarjetaSelect.value);
+    forma.cuotas = cuotas;
+    forma.interes = interes;
+  }
+  
+  calcularResumen();
+}
+
+function eliminarFormaPago(id) {
+  document.getElementById(`forma-${id}`).remove();
+  formasPago = formasPago.filter(f => f.id !== id);
+  
+  if (formasPago.length === 0) {
+    document.getElementById('formasPagoContainer').innerHTML = '<p class="text-muted text-center">No hay formas de pago agregadas</p>';
+  }
+  
+  calcularResumen();
+}
+
+function calcularResumen() {
+  const montoTotal = parseFloat(document.getElementById('montoTotal').value) || 0;
+  document.getElementById('displayTotal').textContent = `$${montoTotal.toFixed(2)}`;
+  
+  let totalIngresado = 0;
+  
+  formasPago.forEach(forma => {
+    const montoInput = document.getElementById(`monto-${forma.id}`);
+    const monedaSelect = document.getElementById(`moneda-${forma.id}`);
+    const id_moneda = monedaSelect ? parseInt(monedaSelect.value) : 1;
+    
+    if (montoInput && montoInput.value) {
+      let monto = parseFloat(montoInput.value);
+      
+      // Convertir a ARS si es otra moneda
+      if (id_moneda !== 1 && cotizaciones[id_moneda]) {
+        monto = monto * cotizaciones[id_moneda];
+      }
+      
+      forma.monto = parseFloat(montoInput.value);
+      forma.id_moneda = id_moneda;
+      
+      totalIngresado += monto;
+    }
+  });
+  
+  const diferencia = montoTotal - totalIngresado;
+  
+  document.getElementById('cantidadFormas').textContent = formasPago.filter(f => f.monto > 0).length;
+  document.getElementById('totalIngresado').textContent = `$${totalIngresado.toFixed(2)}`;
+  document.getElementById('diferencia').textContent = `$${Math.abs(diferencia).toFixed(2)}`;
+  
+  const difElement = document.getElementById('diferencia');
+  if (Math.abs(diferencia) < 0.01) {
+    difElement.className = 'diferencia-ok';
+    document.getElementById('btnCobrar').disabled = false;
+  } else {
+    difElement.className = 'diferencia-error';
+    document.getElementById('btnCobrar').disabled = true;
+  }
+}
+
+document.getElementById('montoTotal').addEventListener('input', calcularResumen);
+
+async function procesarCobro() {
+  const montoTotal = parseFloat(document.getElementById('montoTotal').value);
+  const id_cliente = document.getElementById('clienteSelect').value || null;
+  const concepto = document.getElementById('concepto').value;
+  
+  if (!montoTotal || montoTotal <= 0) {
+    alert('Ingrese un monto válido');
+    return;
+  }
+  
+  if (formasPago.length === 0) {
+    alert('Agregue al menos una forma de pago');
+    return;
+  }
+  
+  const items = [];
+  
+  for (const forma of formasPago) {
+    if (!forma.monto || forma.monto <= 0) continue;
+    
+    const item = {
+      id_forma_pago: forma.id_forma_pago,
+      id_moneda: forma.id_moneda,
+      monto_original: forma.monto
+    };
+    
+    if (forma.tipo === 'tarjeta') {
+      const tarjetaSelect = document.getElementById(`tarjeta-${forma.id}`);
+      const referenciaInput = document.getElementById(`referencia-${forma.id}`);
+      
+      if (tarjetaSelect && tarjetaSelect.value) {
+        item.id_tarjeta = parseInt(tarjetaSelect.value);
+        item.cuotas = forma.cuotas || 1;
+      }
+      
+      if (referenciaInput) item.numero_referencia = referenciaInput.value;
+    } else if (forma.tipo === 'transferencia' || forma.tipo === 'cheque') {
+      const bancoSelect = document.getElementById(`banco-${forma.id}`);
+      const referenciaInput = document.getElementById(`referencia-${forma.id}`);
+      
+      if (bancoSelect && bancoSelect.value) {
+        item.id_banco = parseInt(bancoSelect.value);
+      }
+      
+      if (referenciaInput) item.numero_referencia = referenciaInput.value;
+    }
+    
+    items.push(item);
+  }
+  
+  if (items.length === 0) {
+    alert('No hay items válidos para cobrar');
+    return;
+  }
+  
+  try {
+    const res = await fetch(`${API_URL}/recibos`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        id_turno: turnoActual.id_turno,
+        id_cliente: id_cliente ? parseInt(id_cliente) : null,
+        total_recibo: montoTotal,
+        id_moneda_recibo: 1,
+        concepto: concepto || null,
+        items: items
+      })
+    });
+    
+    const data = await res.json();
+    
+    if (res.ok) {
+      alert(`✅ Cobro realizado exitosamente!\nRecibo: ${data.numero_completo}\nTotal: $${data.total_recibo}`);
+      window.location.reload();
+    } else {
+      alert('❌ Error: ' + data.error);
+    }
+  } catch (error) {
+    alert('❌ Error de conexión');
+    console.error(error);
+  }
+}
+
+function logout() {
+  localStorage.removeItem('authToken');
+  window.location.href = 'login.html';
+}
+</script>
+<script src="js/connection-indicator.js"></script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

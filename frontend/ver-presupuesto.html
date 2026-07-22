@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script src="js/config.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presupuesto - ERP LAGO</title>
+    <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/erp-lago-styles.css">
+    <style>
+        body { background: #f0f2f5; }
+
+        /* Header presupuesto */
+        .presupuesto-header {
+            background: linear-gradient(135deg, #5b4a9e 0%, #764ba2 50%, #8e6fbf 100%);
+            color: white; border-radius: 12px; padding: 24px; margin-bottom: 20px;
+            position: relative; overflow: hidden;
+        }
+        .presupuesto-header::after {
+            content: ''; position: absolute; top: -40%; right: -8%; width: 250px; height: 250px;
+            background: rgba(255,255,255,0.04); border-radius: 50%;
+        }
+        .presupuesto-header .numero { font-size: 1.8rem; font-weight: 700; letter-spacing: 1px; }
+
+        /* Badges estado */
+        .badge-estado { font-size: 0.9rem; padding: 6px 14px; border-radius: 20px; }
+        .badge-pendiente { background: #ffc107; color: #000; }
+        .badge-aprobado { background: #198754; }
+        .badge-rechazado { background: #dc3545; }
+        .badge-facturado { background: #0d6efd; }
+        .badge-vencido { background: #6c757d; }
+        .badge-anulado { background: #dc3545; }
+
+        /* Vigencia */
+        .vigencia-ok { color: #198754; font-weight: 600; }
+        .vigencia-pronto { color: #ffc107; font-weight: 600; }
+        .vigencia-vencido { color: #dc3545; font-weight: 600; }
+
+        /* Cards info */
+        .info-card { border-radius: 10px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.06); height: 100%; }
+        .info-card .card-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6c757d; margin-bottom: 10px; }
+        .info-card .dato-principal { font-size: 1.1rem; font-weight: 600; color: #212529; }
+        .info-card .dato-label { font-size: 0.78rem; color: #6c757d; }
+        .info-card .dato-valor { font-size: 0.9rem; font-weight: 500; }
+
+        /* Tabla items */
+        .tabla-items { border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .tabla-items thead th {
+            background: #f8f9fa; font-size: 0.78rem; text-transform: uppercase;
+            letter-spacing: 0.5px; color: #6c757d; border-bottom: 2px solid #dee2e6;
+            padding: 10px 12px; white-space: nowrap;
+        }
+        .tabla-items tbody td { font-size: 0.88rem; padding: 10px 12px; vertical-align: middle; }
+        .tabla-items tbody tr:hover { background: #f8f9fa; }
+
+        /* Totales */
+        .totales-box {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 10px; padding: 20px;
+            border-left: 4px solid #764ba2;
+        }
+        .totales-box .total-final { font-size: 1.8rem; font-weight: 800; color: #5b4a9e; }
+        .totales-box .total-label { font-size: 0.85rem; color: #6c757d; }
+        .totales-box .total-valor { font-size: 1rem; font-weight: 600; }
+
+        /* Moneda */
+        .moneda-box {
+            background: #d1ecf1; border-radius: 8px; padding: 12px;
+            border-left: 4px solid #17a2b8;
+        }
+
+        /* Condiciones pago */
+        .condiciones-box {
+            background: #fff3e0; border-radius: 10px; padding: 16px;
+            border-left: 4px solid #ff9800;
+        }
+
+        /* Workflow */
+        .workflow-card {
+            border-radius: 10px; border: 2px dashed #dee2e6;
+            padding: 20px; text-align: center; margin-bottom: 20px;
+        }
+        .workflow-card h6 { color: #6c757d; margin-bottom: 15px; }
+        .workflow-card .btn { min-width: 130px; }
+
+        /* Acciones sticky */
+        .acciones-bar {
+            position: sticky; bottom: 0; background: white;
+            border-top: 2px solid #764ba2; padding: 12px 20px;
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.1); z-index: 100;
+        }
+
+        /* Link modulo */
+        .link-modulo {
+            color: inherit; text-decoration: none; border-bottom: 1px dashed #6c757d;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .link-modulo:hover { color: #5b4a9e; border-color: #5b4a9e; }
+
+        /* Print */
+        @media print {
+            .no-print { display: none !important; }
+            body { padding: 0; background: white; }
+            .presupuesto-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .acciones-bar { display: none !important; }
+            .workflow-card { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark no-print" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="dashboard.html"><i class="bi bi-receipt"></i> ERP LAGO</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="dashboard.html">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="facturas.html">Facturas</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="presupuestos.html">Presupuestos</a></li>
+                    <li class="nav-item"><a class="nav-link" href="pedidos.html">Pedidos</a></li>
+                    <li class="nav-item"><a class="nav-link" href="remitos.html">Remitos</a></li>
+                </ul>
+                <div class="navbar-nav">
+                    <button class="btn btn-outline-light btn-sm me-2" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+                    <button class="btn btn-outline-light btn-sm" onclick="history.back()"><i class="bi bi-arrow-left"></i> Volver</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenido -->
+    <div class="container-fluid py-3" id="contenido">
+        <div class="text-center py-5" id="loading">
+            <div class="spinner-border" style="width:3rem;height:3rem;color:#764ba2;"></div>
+            <p class="mt-2 text-muted">Cargando presupuesto...</p>
+        </div>
+    </div>
+
+    <!-- Barra acciones sticky -->
+    <div class="acciones-bar no-print" id="barraAcciones" style="display:none;">
+        <div class="container-fluid d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <button class="btn btn-outline-secondary btn-sm me-2" onclick="history.back()">
+                    <i class="bi bi-arrow-left"></i> Volver
+                </button>
+                <span class="text-muted" id="accionesInfo"></span>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <button class="btn btn-outline-primary btn-sm" onclick="verPedido()" id="btnVerPedido" style="display:none;">
+                    <i class="bi bi-box-seam"></i> Ver Pedido
+                </button>
+                <button class="btn btn-success btn-sm" onclick="cambiarEstado('aprobado')" id="btnAprobar" style="display:none;">
+                    <i class="bi bi-check-circle"></i> Aprobar
+                </button>
+                <button class="btn btn-warning btn-sm" onclick="cambiarEstado('rechazado')" id="btnRechazar" style="display:none;">
+                    <i class="bi bi-x-circle"></i> Rechazar
+                </button>
+                <button class="btn btn-primary btn-sm" onclick="facturar()" id="btnFacturar" style="display:none;">
+                    <i class="bi bi-receipt"></i> Facturar
+                </button>
+                <button class="btn btn-outline-info btn-sm" onclick="window.print()">
+                    <i class="bi bi-printer"></i> Imprimir
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="duplicar()" id="btnDuplicar">
+                    <i class="bi bi-copy"></i> Duplicar
+                </button>
+                <button class="btn btn-outline-danger btn-sm" onclick="anular()" id="btnAnular" style="display:none;">
+                    <i class="bi bi-trash"></i> Anular
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    const API_BASE = window.CONFIG?.API_BASE_URL || '/api';
+    const TK_KEY = window.CONFIG?.TOKEN_KEY || 'authToken';
+    function hdr() { return { 'Authorization': 'Bearer ' + (localStorage.getItem(TK_KEY) || ''), 'Content-Type': 'application/json' }; }
+    function fm(v) { return '$ ' + (parseFloat(v) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function fd(v) { return v ? new Date(v).toLocaleDateString('es-AR') : '-'; }
+    function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    let presupData = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const id = new URLSearchParams(window.location.search).get('id');
+        if (!id) { window.location.href = 'presupuestos.html'; return; }
+
+        try {
+            const res = await fetch(`${API_BASE}/presupuestos/${id}`, { headers: hdr() });
+            if (!res.ok) throw new Error(res.status === 404 ? 'Presupuesto no encontrado' : 'Error ' + res.status);
+            const json = await res.json();
+            presupData = json.id_presupuesto ? json : (json.presupuesto || json.data || json);
+            render(presupData);
+        } catch (e) {
+            document.getElementById('contenido').innerHTML =
+                `<div class="alert alert-danger mt-4"><i class="bi bi-exclamation-triangle"></i> ${e.message}</div>`;
+        }
+    });
+
+    function calcVigencia(fechaVenc) {
+        if (!fechaVenc) return { texto: 'Sin vencimiento', clase: 'vigencia-ok', dias: null };
+        const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+        const venc = new Date(fechaVenc); venc.setHours(0, 0, 0, 0);
+        const diff = Math.ceil((venc - hoy) / (1000 * 60 * 60 * 24));
+        if (diff < 0) return { texto: `Vencido hace ${Math.abs(diff)} día${Math.abs(diff) !== 1 ? 's' : ''}`, clase: 'vigencia-vencido', dias: diff };
+        if (diff === 0) return { texto: 'Vence hoy', clase: 'vigencia-pronto', dias: 0 };
+        if (diff <= 3) return { texto: `Vence en ${diff} día${diff !== 1 ? 's' : ''}`, clase: 'vigencia-pronto', dias: diff };
+        return { texto: `Vigente (${diff} días restantes)`, clase: 'vigencia-ok', dias: diff };
+    }
+
+    function badgeEstado(estado) {
+        const map = {
+            pendiente: 'badge-pendiente', aprobado: 'badge-aprobado', rechazado: 'badge-rechazado',
+            facturado: 'badge-facturado', vencido: 'badge-vencido', anulado: 'badge-anulado'
+        };
+        return map[estado] || 'badge-secondary';
+    }
+
+    function render(p) {
+        const items = p.items || [];
+        const estado = p.estado || 'pendiente';
+        const vigencia = calcVigencia(p.fecha_vencimiento);
+        const clienteNombre = p.razon_social || p.cliente_razon_social || 'Sin cliente';
+
+        let html = '';
+
+        // ══════════ HEADER ══════════
+        html += `<div class="presupuesto-header">
+            <div class="row align-items-center">
+                <div class="col">
+                    <div class="text-white-50" style="font-size:0.85rem;">Presupuesto</div>
+                    <div class="numero">${esc(p.numero_completo || '#' + p.id_presupuesto)}</div>
+                    <span class="badge badge-estado ${badgeEstado(estado)}">${estado.toUpperCase()}</span>
+                    ${p.fecha_vencimiento && estado === 'pendiente' ?
+                        `<span class="ms-2 ${vigencia.clase}" style="font-size:0.85rem;">
+                            <i class="bi bi-clock"></i> ${vigencia.texto}
+                        </span>` : ''}
+                </div>
+                <div class="col-auto text-end">
+                    <div class="text-white-50" style="font-size:0.78rem;">Emisión</div>
+                    <div style="font-size:1.3rem;font-weight:600;">${fd(p.fecha_emision)}</div>
+                    ${p.fecha_vencimiento ? `<div class="text-white-50 mt-1" style="font-size:0.78rem;">Validez hasta: ${fd(p.fecha_vencimiento)}</div>` : ''}
+                </div>
+            </div>
+        </div>`;
+
+        // ══════════ WORKFLOW (solo si pendiente o aprobado) ══════════
+        if (estado === 'pendiente' || estado === 'aprobado') {
+            html += `<div class="workflow-card no-print">
+                <h6><i class="bi bi-signpost-split"></i> Acciones disponibles</h6>
+                <div class="d-flex justify-content-center gap-2 flex-wrap">`;
+            if (estado === 'pendiente') {
+                html += `<button class="btn btn-success" onclick="cambiarEstado('aprobado')">
+                            <i class="bi bi-check-circle"></i> Aprobar
+                         </button>
+                         <button class="btn btn-outline-warning" onclick="cambiarEstado('rechazado')">
+                            <i class="bi bi-x-circle"></i> Rechazar
+                         </button>`;
+            }
+            if (estado === 'aprobado') {
+                html += `<button class="btn btn-primary" onclick="facturar()">
+                            <i class="bi bi-receipt"></i> Convertir a Factura
+                         </button>
+                         <button class="btn btn-outline-secondary" onclick="crearPedido()">
+                            <i class="bi bi-box-seam"></i> Crear Pedido
+                         </button>`;
+            }
+            html += `</div></div>`;
+        }
+
+        // ══════════ CARDS INFO ══════════
+        html += `<div class="row mb-3">`;
+
+        // Card Cliente
+        html += `<div class="col-md-4 mb-3">
+            <div class="card info-card">
+                <div class="card-body">
+                    <div class="card-title"><i class="bi bi-person-circle"></i> Cliente</div>
+                    <div class="dato-principal">
+                        ${p.id_cliente ?
+                            `<a href="clientes.html?id=${p.id_cliente}" class="link-modulo">${esc(clienteNombre)}</a>` :
+                            `<span class="text-muted">Sin asignar</span>`}
+                    </div>
+                    ${p.cuit_cuil ? `<div class="mt-1"><span class="dato-label">CUIT:</span> <span class="dato-valor">${esc(p.cuit_cuil)}</span></div>` : ''}
+                    ${p.condicion_iva_nombre ? `<div><span class="dato-label">IVA:</span> <span class="dato-valor">${esc(p.condicion_iva_nombre)}</span></div>` : ''}
+                    ${p.domicilio || p.cliente_domicilio ? `<div><span class="dato-label">Domicilio:</span> <span class="dato-valor">${esc(p.domicilio || p.cliente_domicilio)}</span></div>` : ''}
+                    ${p.telefono || p.cliente_telefono ? `<div><span class="dato-label">Teléfono:</span> <span class="dato-valor">${esc(p.telefono || p.cliente_telefono)}</span></div>` : ''}
+                </div>
+            </div>
+        </div>`;
+
+        // Card Datos Presupuesto
+        html += `<div class="col-md-4 mb-3">
+            <div class="card info-card">
+                <div class="card-body">
+                    <div class="card-title"><i class="bi bi-file-earmark-text"></i> Datos</div>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="dato-label">Número</div>
+                            <div class="dato-valor fw-bold">${esc(p.numero_completo || '#' + p.id_presupuesto)}</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="dato-label">Estado</div>
+                            <div><span class="badge badge-estado ${badgeEstado(estado)}" style="font-size:0.75rem;">${estado}</span></div>
+                        </div>
+                    </div>
+                    ${p.id_pedido ? `<div class="mt-2"><span class="dato-label">Pedido asociado:</span> <a href="ver-pedido.html?id=${p.id_pedido}" class="link-modulo fw-bold">#${p.id_pedido}</a></div>` : ''}
+                    ${p.usuario_nombre ? `<div class="mt-1"><span class="dato-label">Creado por:</span> <span class="dato-valor">${esc(p.usuario_nombre)}</span></div>` : ''}
+                    <div class="mt-1">
+                        <span class="dato-label">Creado:</span>
+                        <span class="dato-valor">${fd(p.fecha_emision)}</span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        // Card Resumen
+        html += `<div class="col-md-4 mb-3">
+            <div class="card info-card">
+                <div class="card-body">
+                    <div class="card-title"><i class="bi bi-cash-coin"></i> Resumen</div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="dato-label">Subtotal</span>
+                        <span class="dato-valor">${fm(p.subtotal)}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="dato-label">IVA</span>
+                        <span class="dato-valor">${fm(p.iva)}</span>
+                    </div>
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between">
+                        <span style="font-size:1.1rem;font-weight:700;">TOTAL</span>
+                        <span style="font-size:1.3rem;font-weight:800;color:#5b4a9e;">${fm(p.total)}</span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        html += `</div>`; // row
+
+        // ══════════ MONEDA EXTRANJERA ══════════
+        if (p.id_moneda && p.id_moneda !== 1 && p.cotizacion) {
+            html += `<div class="moneda-box mb-3">
+                <i class="bi bi-currency-exchange"></i>
+                <strong>Moneda extranjera</strong> &nbsp;|&nbsp;
+                Cotización: <strong>${fm(p.cotizacion)}</strong> &nbsp;|&nbsp;
+                Total M/E: <strong>${parseFloat(p.total_moneda_extranjera || 0).toLocaleString('es-AR', {minimumFractionDigits:2})}</strong>
+            </div>`;
+        }
+
+        // ══════════ TABLA ITEMS ══════════
+        html += `<div class="card tabla-items mb-3">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+                <span class="fw-bold" style="font-size:0.9rem;"><i class="bi bi-list-ul"></i> Items (${items.length})</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width:5%">#</th>
+                            <th style="width:40%">Producto</th>
+                            <th class="text-center" style="width:10%">Cant.</th>
+                            <th class="text-end" style="width:15%">P. Unitario</th>
+                            <th class="text-center" style="width:10%">IVA%</th>
+                            <th class="text-end" style="width:20%">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+        items.forEach((it, idx) => {
+            html += `<tr>
+                <td class="text-muted">${idx + 1}</td>
+                <td>
+                    <strong>${esc(it.descripcion || it.nombre)}</strong>
+                    ${it.id_producto ? `<br><small class="text-muted">Cód: ${it.id_producto}</small>` : ''}
+                </td>
+                <td class="text-center">${parseFloat(it.cantidad)}</td>
+                <td class="text-end">${fm(it.precio_unitario)}</td>
+                <td class="text-center">${it.porcentaje_iva || it.iva_porcentaje || 21}%</td>
+                <td class="text-end fw-bold">${fm(it.subtotal || (parseFloat(it.cantidad) * parseFloat(it.precio_unitario)))}</td>
+            </tr>`;
+        });
+
+        if (items.length === 0) {
+            html += `<tr><td colspan="6" class="text-center text-muted py-4">Sin items</td></tr>`;
+        }
+
+        html += `</tbody></table></div></div>`;
+
+        // ══════════ OBSERVACIONES + CONDICIONES + TOTALES ══════════
+        html += `<div class="row">`;
+
+        // Columna izquierda
+        html += `<div class="col-md-6">`;
+        if (p.condiciones_pago) {
+            html += `<div class="condiciones-box mb-3">
+                <strong><i class="bi bi-file-earmark-ruled"></i> Condiciones de Pago</strong>
+                <p class="mb-0 mt-2">${esc(p.condiciones_pago)}</p>
+            </div>`;
+        }
+        if (p.observaciones) {
+            html += `<div class="card info-card">
+                <div class="card-body">
+                    <div class="card-title"><i class="bi bi-chat-text"></i> Observaciones</div>
+                    <p class="mb-0">${esc(p.observaciones)}</p>
+                </div>
+            </div>`;
+        }
+        html += `</div>`;
+
+        // Columna derecha - Totales
+        html += `<div class="col-md-6">
+            <div class="totales-box">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="total-label">Subtotal</span>
+                    <span class="total-valor">${fm(p.subtotal)}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="total-label">IVA</span>
+                    <span class="total-valor">${fm(p.iva)}</span>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between">
+                    <span class="total-label" style="font-size:1.1rem;font-weight:700;">TOTAL</span>
+                    <span class="total-final">${fm(p.total)}</span>
+                </div>
+            </div>
+        </div>`;
+
+        html += `</div>`;
+
+        // Render
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('contenido').innerHTML = html;
+        document.getElementById('barraAcciones').style.display = 'block';
+
+        // Info barra
+        document.getElementById('accionesInfo').textContent =
+            `Presupuesto ${p.numero_completo || '#' + p.id_presupuesto} — ${estado.toUpperCase()}`;
+
+        // Botones contextuales
+        if (p.id_pedido) document.getElementById('btnVerPedido').style.display = '';
+        if (estado === 'pendiente') {
+            document.getElementById('btnAprobar').style.display = '';
+            document.getElementById('btnRechazar').style.display = '';
+            document.getElementById('btnAnular').style.display = '';
+        }
+        if (estado === 'aprobado') {
+            document.getElementById('btnFacturar').style.display = '';
+            document.getElementById('btnAnular').style.display = '';
+        }
+
+        document.title = `Presupuesto ${p.numero_completo || '#' + p.id_presupuesto} - ERP LAGO`;
+    }
+
+    // ══════════ ACCIONES ══════════
+
+    function verPedido() {
+        if (presupData?.id_pedido) window.location.href = `ver-pedido.html?id=${presupData.id_pedido}`;
+    }
+
+    async function cambiarEstado(nuevoEstado) {
+        if (!presupData) return;
+        const textos = { aprobado: 'aprobar', rechazado: 'rechazar' };
+        if (!confirm(`¿${textos[nuevoEstado] || nuevoEstado} este presupuesto?`)) return;
+
+        try {
+            const res = await fetch(`${API_BASE}/presupuestos/${presupData.id_presupuesto}/estado`, {
+                method: 'PUT', headers: hdr(),
+                body: JSON.stringify({ estado: nuevoEstado })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Error');
+            alert(`Presupuesto ${nuevoEstado} correctamente`);
+            location.reload();
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    }
+
+    async function facturar() {
+        if (!presupData) return;
+        if (!confirm('¿Convertir este presupuesto en factura?')) return;
+        // Redirigir a facturas con el presupuesto pre-cargado
+        window.location.href = `facturas.html?desde_presupuesto=${presupData.id_presupuesto}`;
+    }
+
+    async function crearPedido() {
+        if (!presupData) return;
+        if (!confirm('¿Crear un pedido desde este presupuesto?')) return;
+        window.location.href = `pedidos.html?desde_presupuesto=${presupData.id_presupuesto}`;
+    }
+
+    async function duplicar() {
+        if (!presupData) return;
+        if (!confirm('¿Duplicar este presupuesto como nuevo borrador?')) return;
+        window.location.href = `presupuestos.html?duplicar=${presupData.id_presupuesto}`;
+    }
+
+    async function anular() {
+        if (!presupData) return;
+        if (!confirm(`¿Anular presupuesto ${presupData.numero_completo}?\n\nEsta acción no se puede deshacer.`)) return;
+
+        try {
+            const res = await fetch(`${API_BASE}/presupuestos/${presupData.id_presupuesto}`, {
+                method: 'DELETE', headers: hdr()
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Error');
+            alert('Presupuesto anulado');
+            window.location.href = 'presupuestos.html';
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    }
+    </script>
+</body>
+</html>

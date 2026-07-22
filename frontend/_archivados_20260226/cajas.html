@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script src="js/config.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestión de Cajas - ERP Lago</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .navbar {
+      background: rgba(255, 255, 255, 0.95) !important;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    .main-container { padding: 30px 15px; }
+    .card-caja {
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      margin-bottom: 25px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+    .estado-badge {
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 16px;
+    }
+    .estado-abierto { background: #48bb78; color: white; }
+    .estado-cerrado { background: #ed8936; color: white; }
+    .monto-box {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 15px;
+      padding: 20px;
+      margin: 10px 0;
+      text-align: center;
+    }
+    .monto-valor {
+      font-size: 36px;
+      font-weight: 700;
+      margin: 10px 0;
+    }
+    .btn-action {
+      padding: 15px 40px;
+      font-size: 18px;
+      font-weight: 600;
+      border-radius: 10px;
+      border: none;
+    }
+    .btn-abrir { background: #48bb78; color: white; }
+    .btn-cerrar { background: #f56565; color: white; }
+    .btn-cobrar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-light">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="dashboard.html">
+      <i class="fas fa-cash-register me-2"></i>ERP Lago - Cajas
+    </a>
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="dashboard.html"><i class="fas fa-home me-1"></i>Inicio</a></li>
+        <li class="nav-item"><a class="nav-link active" href="cajas.html"><i class="fas fa-cash-register me-1"></i>Cajas</a></li>
+        <li class="nav-item"><a class="nav-link" href="cobros.html"><i class="fas fa-money-bill-wave me-1"></i>Cobros</a></li>
+        <li class="nav-item">
+          <button class="btn btn-outline-danger btn-sm ms-3" onclick="logout()">
+            <i class="fas fa-sign-out-alt me-1"></i>Cerrar Sesión
+          </button>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid main-container">
+  <div class="card-caja" id="estadoTurno">
+    <div class="text-center">
+      <h3><i class="fas fa-spinner fa-spin me-2"></i>Cargando estado de caja...</h3>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalAbrirCaja" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fas fa-door-open me-2"></i>Abrir Caja</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold">Monto Inicial ARS ($)</label>
+            <input type="number" class="form-control" id="montoInicialARS" value="5000" min="0" step="0.01">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Monto Inicial USD (US$)</label>
+            <input type="number" class="form-control" id="montoInicialUSD" value="100" min="0" step="0.01">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-success" onclick="abrirCaja()">
+            <i class="fas fa-unlock me-2"></i>Abrir Caja
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalCerrarCaja" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fas fa-lock me-2"></i>Cerrar Caja - Arqueo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info">
+            <strong>Esperado en efectivo:</strong><br>
+            💵 ARS: $<span id="esperadoARS">0.00</span><br>
+            💵 USD: US$<span id="esperadoUSD">0.00</span>
+          </div>
+          <h6 class="mt-3">Conteo Real (Arqueo):</h6>
+          <div class="row">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Efectivo ARS ($)</label>
+              <input type="number" class="form-control" id="arqueoARS" min="0" step="0.01">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Efectivo USD (US$)</label>
+              <input type="number" class="form-control" id="arqueoUSD" min="0" step="0.01">
+            </div>
+          </div>
+          <div class="mb-3 mt-3">
+            <label class="form-label fw-bold">Observaciones</label>
+            <textarea class="form-control" id="observacionesCierre" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-danger" onclick="cerrarCaja()">
+            <i class="fas fa-lock me-2"></i>Cerrar Caja
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONFIGURACIÓN - Rutas corregidas para cajas-cobranzas
+// ═══════════════════════════════════════════════════════════════════════════════
+const API_URL = window.CONFIG?.API_URL || '/api';
+const token = localStorage.getItem('authToken');
+if (!token) window.location.href = 'login.html';
+
+let turnoActual = null;
+const ID_CAJA = 1; // Caja principal por defecto
+
+document.addEventListener('DOMContentLoaded', () => {
+  cargarEstadoCaja();
+  setInterval(cargarEstadoCaja, 30000);
+});
+
+async function cargarEstadoCaja() {
+  try {
+    // RUTA CORREGIDA: /cajas-cobranzas/cajas/:id_caja/turno-actual
+    const res = await fetch(`${API_URL}/cajas-cobranzas/cajas/${ID_CAJA}/turno-actual`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    
+    const data = await res.json();
+    const container = document.getElementById('estadoTurno');
+    
+    // Verificar si hay turno abierto
+    // El endpoint puede devolver { turno_abierto: false } o un objeto turno con fecha_cierre null
+    const hayTurnoAbierto = data.turno_abierto === true || 
+                           (data.id_turno && !data.fecha_cierre) ||
+                           (data.turno && data.turno.id_turno && !data.turno.fecha_cierre);
+    
+    if (!hayTurnoAbierto) {
+      turnoActual = null;
+      container.innerHTML = `
+        <div class="text-center">
+          <i class="fas fa-lock-open" style="font-size: 64px; color: #ed8936;"></i>
+          <h3 class="mt-3">Caja Cerrada</h3>
+          <p class="text-muted">No hay un turno abierto actualmente</p>
+          <button class="btn btn-action btn-abrir" onclick="mostrarModalAbrir()">
+            <i class="fas fa-unlock me-2"></i>Abrir Caja
+          </button>
+        </div>
+      `;
+    } else {
+      // Obtener el turno del formato correcto
+      turnoActual = data.turno || data;
+      
+      const esperadoARS = parseFloat(turnoActual.monto_inicial_ars || 0) + 
+                          parseFloat(turnoActual.ingresos_efectivo_ars || 0) - 
+                          parseFloat(turnoActual.egresos_efectivo_ars || 0);
+      const esperadoUSD = parseFloat(turnoActual.monto_inicial_usd || 0) + 
+                          parseFloat(turnoActual.ingresos_efectivo_usd || 0) - 
+                          parseFloat(turnoActual.egresos_efectivo_usd || 0);
+      
+      container.innerHTML = `
+        <div class="row">
+          <div class="col-md-12 text-center mb-4">
+            <span class="estado-badge estado-abierto">
+              <i class="fas fa-lock-open me-2"></i>CAJA ABIERTA
+            </span>
+            <p class="mt-2 mb-0"><strong>${turnoActual.nombre_caja || turnoActual.caja_nombre || 'Caja Principal'}</strong></p>
+            <small class="text-muted">Abierta por ${turnoActual.usuario_apertura || 'Usuario'} - ${new Date(turnoActual.fecha_apertura).toLocaleString()}</small>
+          </div>
+          <div class="col-md-6">
+            <div class="monto-box">
+              <div>💵 Pesos Argentinos</div>
+              <div class="monto-valor">$${esperadoARS.toFixed(2)}</div>
+              <small>Inicial: $${parseFloat(turnoActual.monto_inicial_ars || 0).toFixed(2)} | Ingresos: $${parseFloat(turnoActual.ingresos_efectivo_ars || 0).toFixed(2)}</small>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="monto-box" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);">
+              <div>💵 Dólares</div>
+              <div class="monto-valor">US$${esperadoUSD.toFixed(2)}</div>
+              <small>Inicial: US$${parseFloat(turnoActual.monto_inicial_usd || 0).toFixed(2)} | Ingresos: US$${parseFloat(turnoActual.ingresos_efectivo_usd || 0).toFixed(2)}</small>
+            </div>
+          </div>
+          <div class="col-md-12 text-center mt-4">
+            <button class="btn btn-action btn-cobrar me-3" onclick="window.location.href='cobros.html'">
+              <i class="fas fa-money-bill-wave me-2"></i>Realizar Cobro
+            </button>
+            <button class="btn btn-action btn-cerrar" onclick="mostrarModalCerrar()">
+              <i class="fas fa-lock me-2"></i>Cerrar Caja
+            </button>
+          </div>
+        </div>
+      `;
+    }
+  } catch (error) {
+    console.error('Error cargando estado de caja:', error);
+    document.getElementById('estadoTurno').innerHTML = `
+      <div class="text-center">
+        <i class="fas fa-exclamation-triangle" style="font-size: 64px; color: #ed8936;"></i>
+        <h3 class="mt-3">Error de conexión</h3>
+        <p class="text-muted">No se pudo conectar con el servidor</p>
+        <button class="btn btn-primary" onclick="cargarEstadoCaja()">
+          <i class="fas fa-sync me-2"></i>Reintentar
+        </button>
+      </div>
+    `;
+  }
+}
+
+function mostrarModalAbrir() {
+  new bootstrap.Modal(document.getElementById('modalAbrirCaja')).show();
+}
+
+function mostrarModalCerrar() {
+  if (!turnoActual) return;
+  const esperadoARS = parseFloat(turnoActual.monto_inicial_ars || 0) + 
+                      parseFloat(turnoActual.ingresos_efectivo_ars || 0) - 
+                      parseFloat(turnoActual.egresos_efectivo_ars || 0);
+  const esperadoUSD = parseFloat(turnoActual.monto_inicial_usd || 0) + 
+                      parseFloat(turnoActual.ingresos_efectivo_usd || 0) - 
+                      parseFloat(turnoActual.egresos_efectivo_usd || 0);
+  document.getElementById('esperadoARS').textContent = esperadoARS.toFixed(2);
+  document.getElementById('esperadoUSD').textContent = esperadoUSD.toFixed(2);
+  document.getElementById('arqueoARS').value = esperadoARS.toFixed(2);
+  document.getElementById('arqueoUSD').value = esperadoUSD.toFixed(2);
+  new bootstrap.Modal(document.getElementById('modalCerrarCaja')).show();
+}
+
+async function abrirCaja() {
+  const montoARS = document.getElementById('montoInicialARS').value;
+  const montoUSD = document.getElementById('montoInicialUSD').value;
+  try {
+    // RUTA CORREGIDA: /cajas-cobranzas/cajas/abrir
+    const res = await fetch(`${API_URL}/cajas-cobranzas/cajas/abrir`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        id_caja: ID_CAJA,
+        monto_inicial_ars: parseFloat(montoARS),
+        monto_inicial_usd: parseFloat(montoUSD)
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      alert('✅ Caja abierta exitosamente');
+      bootstrap.Modal.getInstance(document.getElementById('modalAbrirCaja')).hide();
+      cargarEstadoCaja();
+    } else {
+      alert('❌ ' + (data.error || data.mensaje || 'Error al abrir caja'));
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('❌ Error de conexión');
+  }
+}
+
+async function cerrarCaja() {
+  const arqueoARS = document.getElementById('arqueoARS').value;
+  const arqueoUSD = document.getElementById('arqueoUSD').value;
+  const observaciones = document.getElementById('observacionesCierre').value;
+  if (!confirm('¿Está seguro que desea cerrar la caja?')) return;
+  try {
+    // RUTA CORREGIDA: /cajas-cobranzas/cajas/cerrar
+    const res = await fetch(`${API_URL}/cajas-cobranzas/cajas/cerrar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        id_turno: turnoActual.id_turno,
+        arqueo_efectivo_ars: parseFloat(arqueoARS),
+        arqueo_efectivo_usd: parseFloat(arqueoUSD),
+        observaciones: observaciones
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      alert(`✅ Caja cerrada exitosamente\n\nDiferencias:\nARS: $${data.diferencia_ars || 0}\nUSD: US$${data.diferencia_usd || 0}`);
+      bootstrap.Modal.getInstance(document.getElementById('modalCerrarCaja')).hide();
+      cargarEstadoCaja();
+    } else {
+      alert('❌ ' + (data.error || data.mensaje || 'Error al cerrar caja'));
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('❌ Error de conexión');
+  }
+}
+
+function logout() {
+  localStorage.removeItem('authToken');
+  window.location.href = 'login.html';
+}
+</script>
+<script src="js/connection-indicator.js"></script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

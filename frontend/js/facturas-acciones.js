@@ -1,0 +1,1153 @@
+// Auto-cargar modal de anulacion cascada (S3b)
+(function() {
+    if (!document.querySelector('script[src*="anulacion-pedido.modal"]')) {
+        const s = document.createElement('script');
+        s.src = 'js/anulacion-pedido.modal.js';
+        document.head.appendChild(s);
+    }
+})();
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * FACTURAS-ACCIONES.JS — ERP LAGO
+ * Acciones por fila: ver detalle, modificar, imprimir, confirmar, anular
+ * Se carga DESPUÉS de facturas.js
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+let modalDetallePedido;
+let pedidoDetalleActual = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const el = document.getElementById('modalDetallePedido');
+    if (el) modalDetallePedido = new bootstrap.Modal(el);
+});
+
+// ════════════════════════════════════════
+// RENDER ACCIONES POR FILA
+// ════════════════════════════════════════
+function renderAcciones(v) {
+    const facturado = v.facturado;
+    const presupuestado = v.presupuestado;
+    const confirmado = v.estado_pago === 'confirmado';
+    const pendConf = v.estado_pago === 'pendiente_confirmar';
+    const puedeEditar = !facturado && !v.presupuestado;
+    const puedeAnular = !facturado && !v.presupuestado;
+
+    // Botón primario contextual
+    let primaryBtn = '';
+    if (pendConf && v.puede_confirmar_rapido) {
+        primaryBtn = `<button class="btn btn-success btn-sm px-2" onclick="event.stopPropagation(); confirmarPagoRapido(${v.id_pedido})" title="Confirmar pago">
+            <i class="bi bi-check-lg"></i>
+        </button>`;
+    } else if (confirmado && !facturado) {
+        primaryBtn = `<button class="btn btn-primary btn-sm px-2" onclick="event.stopPropagation(); facturarIndividual(${v.id_pedido})" title="Facturar">
+            <i class="bi bi-receipt"></i>
+        </button>`;
+    } else if (!facturado && v.estado_pago === 'fiado') {
+        primaryBtn = `<button class="btn btn-info btn-sm px-2 text-white" onclick="event.stopPropagation(); facturarIndividual(${v.id_pedido})" title="Facturar">
+            <i class="bi bi-receipt"></i>
+        </button>`;
+    }
+
+    // Dropdown items
+    let items = '';
+    if (puedeEditar) {
+        items += `<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); editarPedido(${v.id_pedido})">
+            <i class="bi bi-pencil-square me-2 text-warning"></i>Modificar items
+        </a></li>`;
+    }
+    items += `<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); imprimirTicket(${v.id_pedido})">
+        <i class="bi bi-printer me-2 text-dark"></i>Imprimir ticket
+    </a></li>`;
+
+    // Gestionar pago (registrar nuevo O corregir existente)
+    if (!facturado) {
+        items += `<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); gestionarPago(${v.id_pedido})">
+            <i class="bi bi-cash-coin me-2 text-success"></i>Gestionar pago
+        </a></li>`;
+    }
+
+    if (facturado && v.id_factura) {
+        items += `<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); imprimirFactura(${v.id_factura})">
+            <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>Imprimir factura
+        </a></li>`;
+        items += `<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); window.open('ver-factura.html?id=${v.id_factura}','_blank')">
+            <i class="bi bi-eye me-2 text-primary"></i>Ver factura
+        </a></li>`;
+    }
+
+    if (!facturado && !presupuestado) {
+        items += `<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); presupuestarIndividual(${v.id_pedido})">
+            <i class="bi bi-file-earmark-text me-2 text-primary"></i>Generar presupuesto
+        </a></li>`;
+    }
+
+    if (presupuestado && v.id_presupuesto) {
+        items += `<li><a class="dropdown-item py-2" href="#" onclick="event.preventDefault(); window.open('ver-presupuesto.html?id=${v.id_presupuesto}','_blank')">
+            <i class="bi bi-file-text me-2 text-info"></i>Ver presupuesto
+        </a></li>`;
+    }
+
+    if (puedeAnular) {
+        items += `<li><hr class="dropdown-divider"></li>`;
+        items += `<li><a class="dropdown-item py-2 text-danger" href="#" onclick="event.preventDefault(); anularPedidoAction(${v.id_pedido})">
+            <i class="bi bi-x-circle me-2"></i>Anular pedido
+        </a></li>`;
+    }
+
+    return `<div class="btn-group btn-group-sm" role="group">
+        <button class="btn btn-outline-secondary btn-sm px-2" onclick="event.stopPropagation(); verDetallePedido(${v.id_pedido})" title="Ver detalle">
+            <i class="bi bi-eye"></i>
+        </button>
+        ${primaryBtn}
+        <button class="btn btn-outline-secondary btn-sm dropdown-toggle px-2" data-bs-toggle="dropdown" data-bs-auto-close="true" title="Más">
+            <i class="bi bi-three-dots-vertical"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow">${items}</ul>
+    </div>`;
+}
+
+// ════════════════════════════════════════
+// VER DETALLE PEDIDO
+// ════════════════════════════════════════
+async function verDetallePedido(idPedido) {
+    const modal = document.getElementById('modalDetallePedido');
+    const contenido = document.getElementById('dpContenido');
+    const footer = document.getElementById('dpFooter');
+
+    contenido.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-success"></div><p class="mt-2">Cargando detalle...</p></div>`;
+    footer.innerHTML = '';
+    modalDetallePedido.show();
+
+    try {
+        const response = await fetch(`${API_URL}/pedidos/${idPedido}/detalle`, {
+            headers: { 'Authorization': `Bearer ${TOKEN}` }
+        });
+        if (!response.ok) throw new Error('Error al cargar');
+        pedidoDetalleActual = await response.json();
+        renderDetallePedido(pedidoDetalleActual);
+    } catch (error) {
+        contenido.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> ${error.message}</div>`;
+    }
+}
+
+function renderDetallePedido(p) {
+    const contenido = document.getElementById('dpContenido');
+    const footer = document.getElementById('dpFooter');
+
+    document.getElementById('dpNumero').textContent = `#${p.id_pedido}`;
+
+    // Badges de estado
+    const estadoPago = p.resumen_pago;
+    const facturado = p.permisos.facturado;
+
+    contenido.innerHTML = `
+        <!-- Metric cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="dp-metric">
+                    <div class="dp-metric-value">$${formatearMoneda(p.total_final || p.total)}</div>
+                    <div class="dp-metric-label">Total</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="dp-metric">
+                    <div class="dp-metric-value" style="color: var(--bs-success)">$${formatearMoneda(estadoPago.total_pagado)}</div>
+                    <div class="dp-metric-label">Pagado</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="dp-metric">
+                    <div class="dp-metric-value" style="color: var(--bs-primary)">${p.estado_nombre || '-'}</div>
+                    <div class="dp-metric-label">Estado pedido</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="dp-metric">
+                    <div class="dp-metric-value">${p.vendedor || '-'}</div>
+                    <div class="dp-metric-label">Vendedor</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info del pedido -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="dp-section">
+                    <div class="dp-section-title"><i class="bi bi-person"></i> Cliente</div>
+                    <div class="dp-info-row"><span>Razón Social</span><strong>${p.cliente || 'Consumidor Final'}</strong></div>
+                    <div class="dp-info-row"><span>CUIT</span><strong>${p.cuit_cuil || '-'}</strong></div>
+                    <div class="dp-info-row"><span>Condición IVA</span><strong>${p.condicion_iva || '-'}</strong></div>
+                    <div class="dp-info-row"><span>Domicilio</span><strong>${p.domicilio_cliente || '-'}</strong></div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="dp-section">
+                    <div class="dp-section-title"><i class="bi bi-info-circle"></i> Datos del pedido</div>
+                    <div class="dp-info-row"><span>Fecha</span><strong>${formatearFechaCorta(p.fecha_creacion)}</strong></div>
+                    <div class="dp-info-row"><span>Tipo entrega</span><strong>
+                        <button class="btn btn-sm ${p.tipo_entrega === 'retiro' ? 'btn-outline-secondary' : 'btn-outline-primary'}" 
+                            onclick="event.stopPropagation(); toggleTipoEntrega(${p.id_pedido}, '${p.tipo_entrega}')" 
+                            title="Click para cambiar">
+                            ${p.tipo_entrega === 'retiro' ? '🏪 Retiro' : '🚚 Entrega'} <i class="bi bi-arrow-repeat" style="font-size:10px"></i>
+                        </button>
+                    </strong></div>
+                    <div class="dp-info-row"><span>Forma pago</span><strong>${p.forma_pago_nombre || '-'}</strong></div>
+                    ${p.observaciones ? `<div class="dp-info-row"><span>Observaciones</span><strong>${p.observaciones}</strong></div>` : ''}
+                </div>
+            </div>
+        </div>
+
+        <!-- Items -->
+        <div class="dp-section mb-4">
+            <div class="dp-section-title"><i class="bi bi-cart3"></i> Items (${p.items.length})</div>
+            <table class="table table-sm table-hover mb-0">
+                <thead>
+                    <tr style="background:#f8fafc; font-size:0.8rem; text-transform:uppercase; color:#64748b;">
+                        <th>SKU</th><th>Descripción</th><th class="text-center">Cant.</th>
+                        <th class="text-end">P. Unit.</th><th class="text-center">Dto%</th>
+                        <th class="text-end">IVA</th><th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${p.items.map(i => `<tr>
+                        <td><code class="text-primary">${i.sku || '-'}</code></td>
+                        <td>${i.descripcion_congelada || i.producto_nombre}</td>
+                        <td class="text-center">${i.cantidad}</td>
+                        <td class="text-end">$${formatearMoneda(i.precio_unitario_congelado)}</td>
+                        <td class="text-center">${parseFloat(i.porcentaje_descuento) > 0 ? i.porcentaje_descuento + '%' : '-'}</td>
+                        <td class="text-end"><small>$${formatearMoneda(i.monto_iva)}</small></td>
+                        <td class="text-end fw-bold">$${formatearMoneda(i.total_linea)}</td>
+                    </tr>`).join('')}
+                </tbody>
+                <tfoot style="border-top: 2px solid #e2e8f0;">
+                    <tr><td colspan="5"></td><td class="text-end text-muted small">Subtotal</td><td class="text-end">$${formatearMoneda(p.subtotal_sin_iva)}</td></tr>
+                    ${parseFloat(p.descuento_monto) > 0 ? `<tr><td colspan="5"></td><td class="text-end text-danger small">Descuento</td><td class="text-end text-danger">-$${formatearMoneda(p.descuento_monto)}</td></tr>` : ''}
+                    <tr><td colspan="5"></td><td class="text-end text-muted small">IVA</td><td class="text-end">$${formatearMoneda(p.total_iva)}</td></tr>
+                    <tr style="font-size:1.1rem;"><td colspan="5"></td><td class="text-end fw-bold">TOTAL</td><td class="text-end fw-bold text-success">$${formatearMoneda(p.total_final || p.total)}</td></tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Pagos -->
+        ${p.pagos.length > 0 ? `
+        <div class="dp-section mb-4">
+            <div class="dp-section-title"><i class="bi bi-credit-card"></i> Pagos (${p.pagos.length})</div>
+            <div class="d-flex flex-wrap gap-2">
+                ${p.pagos.map(pg => `
+                    <div class="dp-pago-chip">
+                        <span class="badge bg-${'success'} me-1">${pg.metodo_nombre}</span>
+                        <strong>$${formatearMoneda(pg.monto)}</strong>
+                        ${pg.id_transaccion_externa ? `<small class="text-muted ms-1">(${pg.id_transaccion_externa})</small>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        </div>` : ''}
+
+        <!-- Documentos relacionados -->
+        <div class="dp-section">
+            <div class="dp-section-title"><i class="bi bi-link-45deg"></i> Documentos relacionados</div>
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <div class="dp-doc-card ${p.factura ? 'dp-doc-active' : ''}">
+                        <i class="bi bi-receipt fs-4"></i>
+                        <div class="small fw-bold mt-1">Factura</div>
+                        ${p.factura
+                            ? `<a href="ver-factura.html?id=${p.factura.id_factura}" target="_blank" class="stretched-link"></a>
+                               <span class="badge bg-success mt-1">${p.factura.numero_completo}</span>`
+                            : `<span class="text-muted small">Sin factura</span>`}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="dp-doc-card ${p.presupuesto ? 'dp-doc-active' : ''}">
+                        <i class="bi bi-file-earmark-text fs-4"></i>
+                        <div class="small fw-bold mt-1">Presupuesto</div>
+                        ${p.presupuesto
+                            ? `<a href="ver-presupuesto.html?id=${p.presupuesto.id_presupuesto}" target="_blank" class="stretched-link"></a>
+                               <span class="badge bg-primary mt-1">${p.presupuesto.numero_completo}</span>`
+                            : `<span class="text-muted small">Sin presupuesto</span>`}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="dp-doc-card ${p.remitos.length > 0 ? 'dp-doc-active' : ''}">
+                        <i class="bi bi-truck fs-4"></i>
+                        <div class="small fw-bold mt-1">Remitos</div>
+                        ${p.remitos.length > 0
+                            ? `<span class="badge bg-info mt-1">${p.remitos.length} remito(s)</span>`
+                            : `<span class="text-muted small">Sin remitos</span>`}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="dp-doc-card ${p.notas.length > 0 ? 'dp-doc-active' : ''}">
+                        <i class="bi bi-journal-text fs-4"></i>
+                        <div class="small fw-bold mt-1">Notas C/D</div>
+                        ${p.notas.length > 0
+                            ? p.notas.map(n => `<span class="badge bg-dark mt-1">${n.numero_completo}</span>`).join('')
+                            : `<span class="text-muted small">Sin notas</span>`}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historial de modificaciones -->
+        ${renderHistorial(p.historial_modificaciones)}
+    `;
+
+    // Footer con acciones contextuales
+    let footerBtns = `<button class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg me-1"></i>Cerrar</button>`;
+    footerBtns += `<button class="btn btn-outline-dark" onclick="imprimirTicket(${p.id_pedido})"><i class="bi bi-printer me-1"></i>Imprimir ticket</button>`;
+
+    if (p.permisos.puede_editar) {
+        footerBtns += `<button class="btn btn-warning" onclick="editarPedido(${p.id_pedido})"><i class="bi bi-pencil-square me-1"></i>Modificar</button>`;
+    }
+    if (!facturado) {
+        footerBtns += `<button class="btn btn-success" onclick="modalDetallePedido.hide(); facturarIndividual(${p.id_pedido})"><i class="bi bi-receipt me-1"></i>Facturar</button>`;
+    }
+    footer.innerHTML = footerBtns;
+}
+
+// ════════════════════════════════════════
+// EDITAR PEDIDO (Modal inline)
+// ════════════════════════════════════════
+async function editarPedido(idPedido) {
+    const modal = document.getElementById('modalDetallePedido');
+    const contenido = document.getElementById('dpContenido');
+    const footer = document.getElementById('dpFooter');
+
+    contenido.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-warning"></div><p class="mt-2">Cargando para edición...</p></div>`;
+    footer.innerHTML = '';
+    modalDetallePedido.show();
+
+    try {
+        const response = await fetch(`${API_URL}/pedidos/${idPedido}/detalle`, {
+            headers: { 'Authorization': `Bearer ${TOKEN}` }
+        });
+        if (!response.ok) throw new Error('Error al cargar');
+        const p = await response.json();
+        pedidoDetalleActual = p;
+
+        if (!p.permisos.puede_editar) {
+            contenido.innerHTML = `<div class="alert alert-warning"><i class="bi bi-lock"></i> Este pedido no se puede modificar (tiene pagos confirmados o factura).</div>`;
+            footer.innerHTML = `<button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>`;
+            return;
+        }
+
+        document.getElementById('dpNumero').textContent = `#${p.id_pedido} — Editando`;
+        renderEdicionPedido(p);
+    } catch (error) {
+        contenido.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+    }
+}
+
+function renderEdicionPedido(p) {
+    const contenido = document.getElementById('dpContenido');
+    const footer = document.getElementById('dpFooter');
+
+    contenido.innerHTML = `
+        <div class="alert alert-warning py-2 d-flex align-items-center gap-2">
+            <i class="bi bi-exclamation-triangle fs-5"></i>
+            <div>
+                <strong>Modo edición</strong> — Modificá cantidades o precios y hacé clic en <kbd>Guardar</kbd> de cada fila.
+                ${parseFloat(p.resumen_pago.total_pagado) > 0
+                    ? `<br><small class="text-danger">⚠️ Este pedido tiene pagos por $${formatearMoneda(p.resumen_pago.total_pagado)}. Si el total baja por debajo de lo pagado, puede quedar un crédito.</small>`
+                    : ''}
+            </div>
+        </div>
+
+        <table class="table table-sm align-middle" id="tablaEdicion">
+            <thead>
+                <tr style="background:#f8fafc; font-size:0.8rem; text-transform:uppercase; color:#64748b;">
+                    <th>Producto</th>
+                    <th class="text-end" style="width:100px;">Precio Unit.</th>
+                    <th class="text-center" style="width:120px;">Cantidad</th>
+                    <th class="text-end" style="width:110px;">Total</th>
+                    <th class="text-center" style="width:130px;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${p.items.map(i => `
+                <tr id="edit-row-${i.id_item}">
+                    <td>
+                        <strong>${i.descripcion_congelada || i.producto_nombre}</strong>
+                        <br><small class="text-muted">${i.sku || ''}</small>
+                    </td>
+                    <td class="text-end text-muted">
+                        $${formatearMoneda(i.precio_unitario_congelado)}
+                    </td>
+                    <td class="text-center">
+                        <input type="number" class="form-control form-control-sm text-center edit-cantidad"
+                               value="${i.cantidad}" min="0.01" step="0.01"
+                               data-id-item="${i.id_item}" data-original="${i.cantidad}"
+                               style="width:90px; margin:0 auto;">
+                    </td>
+                    <td class="text-end fw-bold edit-total" id="edit-total-${i.id_item}">
+                        $${formatearMoneda(i.total_linea)}
+                    </td>
+                    <td class="text-center">
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-success btn-sm" onclick="guardarItemEdit(${p.id_pedido}, ${i.id_item})" title="Guardar cambio">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="eliminarItemEdit(${p.id_pedido}, ${i.id_item})"
+                                    title="Eliminar item" ${p.items.length <= 1 ? 'disabled' : ''}>
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>`).join('')}
+            </tbody>
+        </table>
+
+        <div class="d-flex justify-content-between align-items-center mt-3 p-3 rounded" style="background:#f0fdf4;" id="editTotalesBox">
+            <div>
+                <span class="text-muted">Pagado:</span>
+                <strong id="editTotalPagado">$${formatearMoneda(p.resumen_pago?.total_pagado || 0)}</strong>
+            </div>
+            <div>
+                <span class="fs-5">Total actual: <strong class="text-success" id="editTotalActual">$${formatearMoneda(p.total_final || p.total)}</strong></span>
+            </div>
+        </div>
+    `;
+
+    // Live preview de totales
+    contenido.querySelectorAll('.edit-cantidad, .edit-precio').forEach(input => {
+        input.addEventListener('input', () => recalcularPreviewTotales());
+    });
+
+    footer.innerHTML = `
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg me-1"></i>Cerrar</button>
+        <button class="btn btn-outline-primary" onclick="verDetallePedido(${p.id_pedido})"><i class="bi bi-eye me-1"></i>Ver detalle</button>
+    `;
+}
+
+function recalcularPreviewTotales() {
+    // Preview solo informativo - el cálculo real lo hace el backend
+}
+
+async function guardarItemEdit(idPedido, idItem) {
+    const row = document.getElementById(`edit-row-${idItem}`);
+    const cantidad = parseFloat(row.querySelector('.edit-cantidad').value);
+
+    if (!cantidad || cantidad <= 0) return alert('Cantidad debe ser mayor a 0');
+
+    try {
+        const btn = row.querySelector('.btn-success');
+        btn.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
+        btn.disabled = true;
+
+        const response = await fetch(`${API_URL}/pedidos/${idPedido}/items/${idItem}`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cantidad })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Error al guardar');
+
+        btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+        btn.disabled = false;
+
+        // Actualizar totales
+        if (data.totales) {
+            document.getElementById('editTotalActual').textContent = '$' + formatearMoneda(data.totales.total_final);
+            document.getElementById('editTotalPagado').textContent = '$' + formatearMoneda(data.totales.total_pagado);
+        }
+
+        // Flash verde
+        row.style.transition = 'background 0.3s';
+        row.style.background = '#d1fae5';
+        setTimeout(() => row.style.background = '', 800);
+
+        // Manejar sobrepago
+        if (data.sobrepago) {
+            await manejarSobrepago(idPedido, data.sobrepago);
+        }
+
+    } catch (error) {
+        alert(error.message);
+        const btn = row.querySelector('.btn-success');
+        btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+        btn.disabled = false;
+    }
+}
+
+async function eliminarItemEdit(idPedido, idItem) {
+    if (!confirm('¿Eliminar este item del pedido?')) return;
+
+    try {
+        const response = await fetch(`${API_URL}/pedidos/${idPedido}/items/${idItem}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${TOKEN}` }
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Error al eliminar');
+
+        // Remover fila con animación
+        const row = document.getElementById(`edit-row-${idItem}`);
+        row.style.transition = 'opacity 0.3s, transform 0.3s';
+        row.style.opacity = '0';
+        row.style.transform = 'translateX(20px)';
+        setTimeout(() => row.remove(), 300);
+
+        if (data.totales) {
+            document.getElementById('editTotalActual').textContent = '$' + formatearMoneda(data.totales.total_final);
+            document.getElementById('editTotalPagado').textContent = '$' + formatearMoneda(data.totales.total_pagado);
+        }
+
+        // Manejar sobrepago
+        if (data.sobrepago) {
+            await manejarSobrepago(idPedido, data.sobrepago);
+        }
+
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
+// ════════════════════════════════════════
+// CONFIRMAR PAGO RÁPIDO
+// ════════════════════════════════════════
+async function confirmarPagoRapido(idPedido) {
+    if (!confirm(`¿Confirmar todos los pagos del pedido #${idPedido}?`)) return;
+
+    try {
+        const resp = await fetch(`${API_URL}/facturas/confirmar-rapido`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_pedido: idPedido })
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Error al confirmar');
+
+        // Toast de éxito
+        mostrarToast('success', `Pago confirmado: $${formatearMoneda(data.total_confirmado)}`);
+        buscarPedidos();
+
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// ════════════════════════════════════════
+// FACTURAR INDIVIDUAL
+// ════════════════════════════════════════
+async function facturarIndividual(idPedido) {
+    if (!confirm(`¿Generar factura electrónica para el pedido #${idPedido}?\n\nSe solicitará CAE a AFIP.`)) return;
+
+    mostrarLoading(true, 'Generando factura...', 'Solicitando CAE a AFIP...');
+
+    try {
+        // Determinar tipo factura (usa endpoint existente)
+        const response = await fetch(`${API_URL}/facturas/desde-pedido/${idPedido}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+
+        const data = await response.json();
+        mostrarLoading(false);
+
+        if (!response.ok) throw new Error(data.error || 'Error al facturar');
+
+        mostrarToast('success', `Factura ${data.factura.numero_completo} generada — CAE: ${data.factura.cae}`);
+        buscarPedidos();
+
+    } catch (error) {
+        mostrarLoading(false);
+        alert('Error: ' + error.message);
+    }
+}
+
+// ════════════════════════════════════════
+// PRESUPUESTAR INDIVIDUAL
+// ════════════════════════════════════════
+async function presupuestarIndividual(idPedido) {
+    if (!confirm(`¿Generar presupuesto para el pedido #${idPedido}?`)) return;
+
+    try {
+        const response = await fetch(`${API_URL}/presupuestos/desde-pedido/${idPedido}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Error al generar presupuesto');
+
+        mostrarToast('success', `Presupuesto generado correctamente`);
+        buscarPedidos();
+
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// ════════════════════════════════════════
+// ANULAR PEDIDO
+// ════════════════════════════════════════
+async function anularPedidoAction(idPedido) {
+    // S3b — delega en modal de anulacion cascada
+    if (typeof AnulacionPedidoModal === 'undefined') {
+        // Esperar a que cargue el script del modal (max 2s)
+        for (let i = 0; i < 20; i++) {
+            await new Promise(r => setTimeout(r, 100));
+            if (typeof AnulacionPedidoModal !== 'undefined') break;
+        }
+        if (typeof AnulacionPedidoModal === 'undefined') {
+            alert('Error: módulo de anulación no disponible. Recargue la página.');
+            return;
+        }
+    }
+    AnulacionPedidoModal.abrir(idPedido, () => {
+        // Callback al terminar: refrescar la lista de facturas/pedidos
+        if (typeof cargarFacturas === 'function')       cargarFacturas();
+        else if (typeof recargarListado === 'function') recargarListado();
+        else location.reload();
+    });
+}
+
+
+// ════════════════════════════════════════
+// IMPRIMIR TICKET (comprobante no fiscal)
+// ════════════════════════════════════════
+async function imprimirTicket(idPedido) {
+    // UNIFICADO: la nota de pedido es ver-pedido.html (unica fuente, lee de BD, con la X y forma de pago).
+    // Abre en pestana nueva con auto-print; no traba Facturacion. Reemplaza la Via B (/print/comprobante).
+    if (!idPedido) return;
+    const ventana = window.open('ver-pedido.html?id=' + idPedido + '&print=1', '_blank');
+    if (!ventana) {
+        alert('Habilita las ventanas emergentes para imprimir la nota de pedido.');
+    }
+}
+
+function imprimirTicketFallback(p) {
+    const w = window.open('', '_blank', 'width=800,height=1100');
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+        <title>Ticket #${p.id_pedido}</title>
+        <style>
+            body{font-family:Arial,sans-serif;padding:20px;max-width:800px;margin:0 auto;color:#333}
+            .header{border-bottom:3px solid #1a5f7a;padding-bottom:15px;margin-bottom:20px;display:flex;justify-content:space-between}
+            .titulo{font-size:24px;font-weight:bold;color:#1a5f7a}
+            .comprobante{text-align:center;border:2px solid #1a5f7a;padding:10px 20px}
+            .letra{font-size:28px;font-weight:bold;color:#1a5f7a}
+            table{width:100%;border-collapse:collapse;margin:15px 0}
+            th{background:#1a5f7a;color:white;padding:8px;text-align:left;font-size:11px;text-transform:uppercase}
+            td{padding:8px;border-bottom:1px solid #eee}
+            .text-right{text-align:right} .text-center{text-align:center}
+            .total-row{font-size:18px;font-weight:bold;border-top:2px solid #1a5f7a;padding-top:10px;text-align:right}
+            .footer{text-align:center;color:#666;font-size:10px;margin-top:30px;border-top:1px solid #ddd;padding-top:15px}
+            @media print{.no-print{display:none}}
+        </style></head><body>
+        <div class="header">
+            <div><div class="titulo">LAGO</div><div style="font-size:11px;color:#666">Materiales para la construcción</div></div>
+            <div class="comprobante"><div class="letra">X</div><div style="font-size:10px">Doc. No Fiscal</div><div style="font-size:14px;font-weight:bold;margin-top:5px">Nº ${String(p.id_pedido).padStart(8,'0')}</div><div style="font-size:11px">${formatearFechaCorta(p.fecha_creacion)}</div></div>
+        </div>
+        <div style="background:#f8f9fa;padding:12px;border-radius:5px;margin-bottom:15px">
+            <strong>Cliente:</strong> ${p.cliente || 'Consumidor Final'} | <strong>CUIT:</strong> ${p.cuit_cuil || '-'} | <strong>Vendedor:</strong> ${p.vendedor || '-'}
+        </div>
+        <table><thead><tr><th>Cant.</th><th>Descripción</th><th class="text-right">P.Unit.</th><th class="text-right">Total</th></tr></thead>
+        <tbody>${p.items.map(i => `<tr><td class="text-center">${i.cantidad}</td><td>${i.descripcion_congelada || i.producto_nombre}</td><td class="text-right">$${formatearMoneda(i.precio_unitario_congelado)}</td><td class="text-right">$${formatearMoneda(i.total_linea)}</td></tr>`).join('')}</tbody></table>
+        <div class="total-row">TOTAL: $${formatearMoneda(p.total_final || p.total)}</div>
+        <div class="footer"><p>Documento no válido como factura • ERP LAGO</p></div>
+        <div class="text-center mt-3 no-print"><button onclick="window.print()" style="padding:10px 30px;background:#1a5f7a;color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px">🖨️ Imprimir</button></div>
+    </body></html>`);
+    w.document.close();
+}
+
+// ════════════════════════════════════════
+// TOAST HELPER
+// ════════════════════════════════════════
+function mostrarToast(tipo, mensaje) {
+    const container = document.getElementById('toastContainer') || crearToastContainer();
+    const toast = document.createElement('div');
+    const bgColor = tipo === 'success' ? '#10b981' : tipo === 'error' ? '#ef4444' : '#f59e0b';
+    const icon = tipo === 'success' ? 'check-circle' : tipo === 'error' ? 'x-circle' : 'exclamation-triangle';
+
+    toast.innerHTML = `<div style="display:flex;align-items:center;gap:10px;background:${bgColor};color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 15px rgba(0,0,0,0.2);font-size:14px;min-width:300px;">
+        <i class="bi bi-${icon} fs-5"></i><span>${mensaje}</span>
+    </div>`;
+    toast.style.cssText = 'transition:all 0.4s ease; transform:translateX(100%); opacity:0;';
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => { toast.style.transform = 'translateX(0)'; toast.style.opacity = '1'; });
+    setTimeout(() => {
+        toast.style.transform = 'translateX(100%)'; toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 400);
+    }, 3500);
+}
+
+function crearToastContainer() {
+    const c = document.createElement('div');
+    c.id = 'toastContainer';
+    c.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;display:flex;flex-direction:column;gap:10px;';
+    document.body.appendChild(c);
+    return c;
+}
+
+
+// ════════════════════════════════════════
+// SOBREPAGO — Diálogo de confirmación
+// ════════════════════════════════════════
+async function manejarSobrepago(idPedido, sobrepago) {
+    // NO registrar automáticamente — solo mostrar banner persistente
+    // El usuario decide al final cuando termina TODAS las ediciones
+    let banner = document.getElementById('bannerSobrepago');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'bannerSobrepago';
+        banner.style.cssText = 'background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:10px;padding:15px;margin-top:15px;display:flex;align-items:center;justify-content:space-between;gap:15px;';
+        const editBox = document.getElementById('editTotalesBox');
+        if (editBox) editBox.parentNode.insertBefore(banner, editBox.nextSibling);
+    }
+    
+    // Guardar datos para el botón
+    banner._idPedido = idPedido;
+    banner._sobrepago = sobrepago;
+
+    banner.innerHTML = `
+        <div>
+            <strong style="color:#92400e;">💰 Sobrepago detectado</strong><br>
+            <span>El cliente <strong>${sobrepago.cliente_nombre}</strong> pagó <strong>$${formatearMoneda(sobrepago.monto)}</strong> de más.</span>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-warning btn-sm" onclick="confirmarRegistroSobrepago()">
+                <i class="bi bi-check-circle me-1"></i>Registrar saldo a favor en CC
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('bannerSobrepago').remove()">
+                Después
+            </button>
+        </div>
+    `;
+}
+
+async function confirmarRegistroSobrepago() {
+    const banner = document.getElementById('bannerSobrepago');
+    if (!banner || !banner._sobrepago) return;
+    
+    const { _idPedido: idPedido, _sobrepago: sobrepago } = banner;
+
+    if (!confirm(`¿Registrar $${formatearMoneda(sobrepago.monto)} como saldo a favor de ${sobrepago.cliente_nombre} en Cuenta Corriente?`)) return;
+
+    try {
+        const btn = banner.querySelector('.btn-warning');
+        btn.innerHTML = '<div class="spinner-border spinner-border-sm"></div> Registrando...';
+        btn.disabled = true;
+
+        const response = await fetch(`${API_URL}/pedidos/${idPedido}/registrar-sobrepago`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ monto: sobrepago.monto, id_cliente: sobrepago.id_cliente })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Error');
+
+        banner.innerHTML = `<div style="color:#065f46;"><i class="bi bi-check-circle-fill me-2"></i><strong>Saldo a favor de $${formatearMoneda(sobrepago.monto)} registrado en CC de ${sobrepago.cliente_nombre}</strong></div>`;
+        banner.style.background = 'linear-gradient(135deg,#d1fae5,#a7f3d0)';
+        banner.style.borderColor = '#10b981';
+        setTimeout(() => banner.remove(), 5000);
+        
+        mostrarToast('success', `Saldo a favor registrado correctamente`);
+    } catch (error) {
+        alert('Error: ' + error.message);
+        const btn = banner.querySelector('.btn-warning');
+        if (btn) { btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Reintentar'; btn.disabled = false; }
+    }
+}
+
+// ════════════════════════════════════════
+// HISTORIAL DE MODIFICACIONES (en detalle)
+// ════════════════════════════════════════
+function renderHistorial(historial) {
+    if (!historial || historial.length === 0) return '';
+
+    const accionLabels = {
+        'CONFIRMADO': { text: 'Confirmado', color: 'success' },
+        'PAGO_REGISTRADO': { text: 'Pago registrado', color: 'primary' },
+        'PAGO_CAMBIADO': { text: 'Pago cambiado', color: 'info' },
+        'PAGO_ANULADO': { text: 'Pago anulado', color: 'danger' },
+        'ESTADO_CAMBIADO': { text: 'Estado cambiado', color: 'info' },
+        'ITEM_EDITADO': { text: 'Item editado', color: 'warning' },
+        'ITEM_ELIMINADO': { text: 'Item eliminado', color: 'danger' },
+        'ANULADO': { text: 'Anulado', color: 'danger' },
+        'DESCUENTO_APLICADO': { text: 'Descuento', color: 'info' },
+        'CLIENTE_CAMBIADO': { text: 'Cliente cambiado', color: 'info' },
+        'FORMA_PAGO_CAMBIADA': { text: 'F.Pago corregida', color: 'info' },
+        'RECUPERADO': { text: 'Recuperado', color: 'success' },
+        'SUSPENDIDO': { text: 'Suspendido', color: 'secondary' },
+        'TIPO_ENTREGA_CAMBIADO': { text: 'Entrega cambiada', color: 'info' },
+        'EDIT_POST_VENTA': { text: 'Editado', color: 'warning' },
+        'DELETE_POST_VENTA': { text: 'Eliminado', color: 'danger' },
+        'ANULACION_PEDIDO': { text: 'Anulado', color: 'danger' },
+        'ELIMINACION': { text: 'Eliminado (borrador)', color: 'secondary' },
+        'MODIFICACION': { text: 'Modificado (borrador)', color: 'info' },
+        'AGREGADO': { text: 'Agregado', color: 'success' }
+    };
+
+    return `
+        <div class="dp-section mt-4">
+            <div class="dp-section-title"><i class="bi bi-clock-history"></i> Historial de Modificaciones (${historial.length})</div>
+            <div style="max-height:200px; overflow-y:auto;">
+                ${historial.map(h => {
+                    const label = accionLabels[h.accion] || { text: h.accion, color: 'dark' };
+                    const fechaRaw = h.created_at || h.fecha;
+                    const fecha = fechaRaw ? new Date(fechaRaw).toLocaleString('es-AR') : '-';
+                    const usuario = h.usuario_nombre || h.usuario || '?';
+                    // Detalle contextual según acción
+                    let detalle = '';
+                    const da = h.detalle_antes || {};
+                    const dd = h.detalle_despues || {};
+                    if (h.accion === 'FORMA_PAGO_CAMBIADA') {
+                        detalle = '<span class="small"><strong>' + (da.metodo||'') + '</strong> → <strong>' + (dd.metodo||'') + '</strong></span>';
+                        if (dd.motivo) detalle += ' <span class="small fst-italic text-muted">(' + dd.motivo + ')</span>';
+                    } else if (h.accion === 'PAGO_REGISTRADO') {
+                        detalle = '<span class="small text-success">$' + ((dd.monto||0).toLocaleString?.()||dd.monto) + '</span>';
+                    } else if (h.accion === 'ITEM_EDITADO') {
+                        detalle = '<span class="small">qty: ' + (da.cantidad_anterior||'?') + ' → ' + (dd.nueva_cantidad||'?') + '</span>';
+                    } else if (h.accion === 'ITEM_ELIMINADO') {
+                        detalle = '<span class="small text-danger">' + (da.producto||'') + ' (x' + (da.cantidad||'') + ')</span>';
+                    } else if (h.accion === 'ANULADO') {
+                        detalle = dd.stock_devuelto ? '<span class="small">Stock devuelto</span>' : '';
+                    } else if (h.accion === 'TIPO_ENTREGA_CAMBIADO') {
+                        detalle = '<span class="small"><strong>' + (da.tipo_entrega||'') + '</strong> → <strong>' + (dd.tipo_entrega||'') + '</strong></span>';
+                    } else if (h.accion === 'CONFIRMADO') {
+                        detalle = dd.nro_pedido ? '<span class="small">#' + dd.nro_pedido + '</span>' : '';
+                    } else {
+                        const prod = h.producto_nombre || dd.producto || da.producto || '';
+                        detalle = prod ? '<span><strong>' + prod + '</strong></span>' : '';
+                        if (h.cantidad_anterior) detalle += ' <span class="small text-muted">qty: ' + h.cantidad_anterior + ' → ' + h.cantidad + '</span>';
+                    }
+                    return `<div class="d-flex align-items-center gap-2 py-2" style="border-bottom:1px solid #f1f5f9;">
+                        <span class="badge bg-${label.color}" style="min-width:110px;">${label.text}</span>
+                        <span class="text-muted small" style="min-width:120px;">${fecha}</span>
+                        ${detalle}
+                        <span class="ms-auto small text-muted">por ${usuario}</span>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+// ═══ Toggle tipo entrega ═══
+async function toggleTipoEntrega(idPedido, tipoActual) {
+    var nuevoTipo = tipoActual === 'retiro' ? 'entrega' : 'retiro';
+    var texto = nuevoTipo === 'retiro' ? '🏪 Retiro en local' : '🚚 Entrega a domicilio';
+    if (!confirm('¿Cambiar a ' + texto + '?')) return;
+    try {
+        var token = localStorage.getItem('authToken');
+        var response = await fetch((window.CONFIG?.API_BASE_URL || '/api') + '/pedidos/' + idPedido + '/campos', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ campos: { tipo_entrega: nuevoTipo } })
+        });
+        if (!response.ok) { var err = await response.json(); throw new Error(err.error || 'Error'); }
+        if (typeof mostrarToast === 'function') mostrarToast('Cambiado a ' + texto, 'success');
+        else alert('Cambiado a ' + texto);
+        if (typeof cargarPedidosFacturables === 'function') cargarPedidosFacturables();
+        else location.reload();
+    } catch (error) {
+        if (typeof mostrarToast === 'function') mostrarToast('Error: ' + error.message, 'danger');
+        else alert('Error: ' + error.message);
+    }
+}
+
+
+// [Bug 7] gestionarPago duplicada rota eliminada — la versión correcta está más abajo
+
+
+// [Bug 15] corregirFormaPago eliminada — ya fusionada en gestionarPago abajo
+
+// ════════════════════════════════════════════════════════════════
+// GESTIONAR PAGO (registrar nuevo + corregir existente) — FUSIONADO
+// ════════════════════════════════════════════════════════════════
+async function gestionarPago(idPedido) {
+    try {
+        const [detResp, metodosResp] = await Promise.all([
+            fetch(`${API_URL}/pedidos/${idPedido}/detalle`, { headers: { 'Authorization': `Bearer ${TOKEN}` } }),
+            fetch(`${API_URL}/facturas/metodos-pago`, { headers: { 'Authorization': `Bearer ${TOKEN}` } })
+        ]);
+        if (!detResp.ok || !metodosResp.ok) throw new Error('Error al cargar datos');
+
+        const pedido = await detResp.json();
+        const metodos = await metodosResp.json();
+        const pagos = (pedido.pagos || []);
+        const totalPedido = parseFloat(pedido.total_final || pedido.total || 0);
+        const totalPagadoReal = pagos.reduce((s, p) => s + parseFloat(p.monto || 0), 0);
+        const totalPagado = pagos.reduce((s, p) => s + parseFloat(p.monto || 0), 0);
+        const restante = Math.max(0, totalPedido - totalPagadoReal); // CC no cuenta como pagado real
+
+        const modalId = 'modalGestionarPago';
+        const existing = document.getElementById(modalId);
+        if (existing) existing.remove();
+
+        // ── Pagos existentes: corregir ──
+        const pagosReales = pagos.filter(p => p.monto > 0);
+        const pagosCC = []; // Legacy: ya no hay pagos CC
+        let seccionCorregir = '';
+        if (pagosCC.length > 0 && pagosReales.length === 0) {
+            seccionCorregir = `
+                <div class="alert alert-warning py-2 mb-2">
+                    <i class="bi bi-journal-text me-1"></i><strong>Fiado en Cuenta Corriente:</strong>
+                    ${pagosCC.map(p => '<span class="badge bg-warning text-dark ms-1">$' + formatearMoneda(p.monto) + '</span>').join('')}
+                    <br><small class="text-muted">Para cancelar el fiado, registrá el cobro real abajo. La CC se ajusta automáticamente.</small>
+                </div><hr>`;
+        }
+        if (pagosReales.length > 0) {
+            const filas = pagosReales.map(pg => {
+                const opts = metodos.filter(m => m.id_metodo_pago !== pg.id_metodo_pago)
+                    .map(m => `<option value="${m.id_metodo_pago}">${m.nombre}</option>`).join('');
+                return `<div class="d-flex align-items-center gap-2 mb-2 p-2 border rounded gp-corr-row" data-id-pago="${pg.id_pago}">
+                    <span class="badge bg-secondary">${pg.metodo_nombre}</span>
+                    <strong>$${formatearMoneda(pg.monto)}</strong>
+                    <i class="bi bi-arrow-right text-muted"></i>
+                    <select class="form-select form-select-sm gp-select-corr" style="width:auto;">
+                        <option value="">Sin cambio</option>${opts}
+                    </select>
+                </div>`;
+            }).join('');
+
+            seccionCorregir = (pagosCC.length > 0 ? `
+                <div class="alert alert-warning py-2 mb-2">
+                    <i class="bi bi-journal-text me-1"></i><strong>Fiado en Cuenta Corriente:</strong>
+                    ${pagosCC.map(p => '<span class="badge bg-warning text-dark ms-1">$' + formatearMoneda(p.monto) + '</span>').join('')}
+                    <br><small class="text-muted">Para cancelar el fiado, registrá el cobro real abajo. La CC se ajusta automáticamente.</small>
+                </div>` : '') + `
+                <label class="form-label fw-bold"><i class="bi bi-arrow-left-right me-1"></i>Pagos registrados</label>
+                ${filas}
+                <input type="text" class="form-control form-control-sm mt-1" id="gpMotivo" placeholder="Motivo (obligatorio si corrige)">
+                <hr>`;
+        }
+
+        // ── Registrar nuevo pago ──
+        let seccionNuevo = '';
+        if (restante > 0.01 || pagos.length === 0 || totalPagadoReal < totalPedido - 0.01) {
+            const metodoOpts = metodos.map(m => `<option value="${m.id_metodo_pago}">${m.nombre}</option>`).join('');
+            seccionNuevo = `
+                <label class="form-label fw-bold"><i class="bi bi-plus-circle me-1"></i>Registrar pago</label>
+                <div class="alert alert-info py-1 mb-2">
+                    <small>Total: <strong>$${formatearMoneda(totalPedido)}</strong> | Cobrado: <strong>$${formatearMoneda(totalPagadoReal)}</strong>${totalPagado !== totalPagadoReal ? " | Fiado: <strong class=\"text-warning\">$" + formatearMoneda(totalPagado - totalPagadoReal) + "</strong>" : ""} | Restante: <strong class="text-danger">$${formatearMoneda(restante)}</strong></small>
+                </div>
+                <div class="row g-2">
+                    <div class="col-5"><select class="form-select form-select-sm" id="gpNuevoMetodo">${metodoOpts}</select></div>
+                    <div class="col-4"><input type="number" class="form-control form-control-sm" id="gpNuevoMonto" value="${restante.toFixed(2)}" min="0.01" step="0.01"></div>
+                    <div class="col-3"><input type="text" class="form-control form-control-sm" id="gpNuevaRef" placeholder="Ref."></div>
+                </div>
+                <div id="gpCuotasSection" style="display:none;" class="mt-2 p-2 border rounded bg-light">
+                    <label class="form-label fw-bold small mb-1"><i class="bi bi-credit-card me-1"></i>Terminal y Cuotas</label>
+                    <div class="row g-2 mb-1">
+                        <div class="col-6"><select class="form-select form-select-sm" id="gpTerminal"><option value="">Seleccione terminal...</option></select></div>
+                        <div class="col-6"><select class="form-select form-select-sm" id="gpPlanCuotas" disabled><option value="">Primero elija terminal</option></select></div>
+                    </div>
+                    <div id="gpCuotasDetalle" class="small text-muted"></div>
+                </div>`;
+        } else {
+            seccionNuevo = `<div class="alert alert-success py-2 mb-0"><i class="bi bi-check-circle me-1"></i>Completamente pagado ($${formatearMoneda(totalPagado)})</div>`;
+        }
+
+        const modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = 'modal fade';
+        modal.tabIndex = -1;
+        modal.innerHTML = `<div class="modal-dialog"><div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg, var(--lago-primary, #1a5f7a), var(--lago-secondary, #0d3b4f));color:#fff">
+                <h5 class="modal-title"><i class="bi bi-cash-coin me-2"></i>Gestionar Pago — Pedido #${idPedido}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">${seccionCorregir}${seccionNuevo}</div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-success" id="btnGPConfirmar"><i class="bi bi-check-lg me-1"></i>Confirmar</button>
+            </div>
+        </div></div>`;
+
+        document.body.appendChild(modal);
+        const bsModal = new bootstrap.Modal(modal);
+
+        document.getElementById('btnGPConfirmar').onclick = async () => {
+            const btn = document.getElementById('btnGPConfirmar');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner-border spinner-border-sm me-1"></div> Procesando...';
+
+            try {
+                let hizoCambios = false;
+
+                // 1. Correcciones
+                const correcciones = [];
+                modal.querySelectorAll('.gp-corr-row').forEach(el => {
+                    const sel = el.querySelector('.gp-select-corr');
+                    if (sel && sel.value) correcciones.push({ id_pago: parseInt(el.dataset.idPago), nuevo_id_metodo_pago: parseInt(sel.value) });
+                });
+
+                if (correcciones.length > 0) {
+                    const motivo = (document.getElementById('gpMotivo') || {}).value || '';
+                    if (!motivo.trim()) { alert('Ingresá el motivo de la corrección'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Confirmar'; return; }
+                    for (const corr of correcciones) {
+                        const resp = await fetch(`${API_URL}/facturas/corregir-metodo-pago`, {
+                            method: 'PUT',
+                            headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id_pago: corr.id_pago, nuevo_id_metodo_pago: corr.nuevo_id_metodo_pago, motivo })
+                        });
+                        const data = await resp.json();
+                        if (!resp.ok) throw new Error(data.error || 'Error al corregir');
+                        mostrarToast('success', `Pago #${corr.id_pago}: ${data.metodo_anterior || ''} → ${data.metodo_nuevo || ''}`);
+                        hizoCambios = true;
+                    }
+                }
+
+                // 2. Nuevo pago
+                const nuevoMontoEl = document.getElementById('gpNuevoMonto');
+                const nuevoMetodoEl = document.getElementById('gpNuevoMetodo');
+                const nuevaRefEl = document.getElementById('gpNuevaRef');
+                if (nuevoMontoEl && nuevoMetodoEl) {
+                    const nuevoMonto = parseFloat(nuevoMontoEl.value);
+                    if (nuevoMonto > 0) {
+                        const resp = await fetch(`${API_URL}/facturas/registrar-pago`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify(Object.assign({
+                                id_pedido: idPedido,
+                                id_metodo_pago: parseInt(nuevoMetodoEl.value),
+                                monto: nuevoMonto,
+                                referencia: (nuevaRefEl || {}).value || null
+                            }, window._gpCuotaState || {}))
+                        });
+                        const data = await resp.json();
+                        if (!resp.ok) throw new Error(data.error || 'Error al registrar pago');
+                        mostrarToast('success', `Pago de $${formatearMoneda(nuevoMonto)} registrado`);
+                        hizoCambios = true;
+                    }
+                }
+
+                if (!hizoCambios) {
+                    alert('No se realizaron cambios');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Confirmar';
+                    return;
+                }
+
+                bsModal.hide();
+                buscarPedidos();
+            } catch (error) {
+                alert('Error: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Confirmar';
+            }
+        };
+
+        modal.addEventListener('hidden.bs.modal', () => { modal.remove(); window._gpCuotaState = null; });
+
+        // ── Cuotas: mostrar/ocultar según método seleccionado ──
+        var _gpMetodoSel = document.getElementById('gpNuevoMetodo');
+        if (_gpMetodoSel) {
+            _gpMetodoSel.addEventListener('change', async function() {
+                var val = parseInt(this.value);
+                var sec = document.getElementById('gpCuotasSection');
+                window._gpCuotaState = null;
+                if (!sec) return;
+                if (val === 4 || val === 5) {
+                    sec.style.display = 'block';
+                    try {
+                        var tResp = await fetch(API_URL + '/terminales/activas', { headers: { 'Authorization': 'Bearer ' + TOKEN } });
+                        var terminales = await tResp.json();
+                        var tSel = document.getElementById('gpTerminal');
+                        tSel.innerHTML = '<option value="">Seleccione terminal...</option>' +
+                            terminales.map(function(t) { return '<option value="' + t.id_terminal + '">' + t.nombre + '</option>'; }).join('');
+                        document.getElementById('gpPlanCuotas').disabled = true;
+                        document.getElementById('gpPlanCuotas').innerHTML = '<option value="">Primero elija terminal</option>';
+                        document.getElementById('gpCuotasDetalle').innerHTML = '';
+                    } catch (e) { console.error('Error terminales:', e); }
+                } else {
+                    sec.style.display = 'none';
+                    var montoEl = document.getElementById('gpNuevoMonto');
+                    if (montoEl) montoEl.value = restante.toFixed(2);
+                    document.getElementById('gpCuotasDetalle').innerHTML = '';
+                }
+            });
+        }
+        // Terminal -> cargar planes
+        var _gpTermSel = document.getElementById('gpTerminal');
+        if (_gpTermSel) {
+            _gpTermSel.addEventListener('change', async function() {
+                var idTerm = this.value;
+                var planSel = document.getElementById('gpPlanCuotas');
+                var detalle = document.getElementById('gpCuotasDetalle');
+                window._gpCuotaState = null;
+                detalle.innerHTML = '';
+                if (!idTerm) {
+                    planSel.disabled = true;
+                    planSel.innerHTML = '<option value="">Primero elija terminal</option>';
+                    var me2 = document.getElementById('gpNuevoMonto');
+                    if (me2) me2.value = restante.toFixed(2);
+                    return;
+                }
+                try {
+                    var pResp = await fetch(API_URL + '/terminales/' + idTerm + '/preview/' + restante, { headers: { 'Authorization': 'Bearer ' + TOKEN } });
+                    var data = await pResp.json();
+                    var planes = data.planes || data;
+                    if (!Array.isArray(planes) || planes.length === 0) {
+                        planSel.innerHTML = '<option value="">Sin planes</option>';
+                        planSel.disabled = true;
+                        return;
+                    }
+                    planSel.disabled = false;
+                    planSel.innerHTML = planes.map(function(p) {
+                        var label = (p.cuotas === 1 ? '1 pago' : p.cuotas + ' cuotas');
+                        var cuota = parseFloat(p.valor_cuota).toLocaleString('es-AR', {maximumFractionDigits: 0});
+                        var tot = parseFloat(p.monto_final).toLocaleString('es-AR', {maximumFractionDigits: 0});
+                        return '<option value="' + p.id_plan + '"' +
+                            ' data-cuotas="' + p.cuotas + '"' +
+                            ' data-coef="' + p.coeficiente + '"' +
+                            ' data-total="' + p.monto_final + '"' +
+                            ' data-cuota="' + p.valor_cuota + '"' +
+                            ' data-interes="' + p.interes + '"' +
+                            ' data-monto-orig="' + p.monto_original + '">' +
+                            label + ' - $' + cuota + ' c/u (total $' + tot + ')</option>';
+                    }).join('');
+                    planSel.dispatchEvent(new Event('change'));
+                } catch (e) {
+                    planSel.innerHTML = '<option value="">Error</option>';
+                    console.error('Error planes:', e);
+                }
+            });
+        }
+        // Plan -> actualizar monto + state
+        var _gpPlanSel = document.getElementById('gpPlanCuotas');
+        if (_gpPlanSel) {
+            _gpPlanSel.addEventListener('change', function() {
+                var opt = this.selectedOptions[0];
+                if (!opt || !opt.dataset.cuotas) { window._gpCuotaState = null; return; }
+                var nc = parseInt(opt.dataset.cuotas);
+                var coef = parseFloat(opt.dataset.coef);
+                var totalF = parseFloat(opt.dataset.total);
+                var valCuota = parseFloat(opt.dataset.cuota);
+                var inter = parseFloat(opt.dataset.interes);
+                var montoO = parseFloat(opt.dataset.montoOrig);
+                var idT = parseInt(document.getElementById('gpTerminal').value);
+                var montoEl = document.getElementById('gpNuevoMonto');
+                if (montoEl) montoEl.value = totalF.toFixed(2);
+                var det = document.getElementById('gpCuotasDetalle');
+                if (det) {
+                    if (nc === 1) {
+                        det.innerHTML = '<span class="text-success"><i class="bi bi-info-circle me-1"></i>1 pago de <strong>$' + totalF.toLocaleString('es-AR') + '</strong> (interes: $' + inter.toLocaleString('es-AR') + ')</span>';
+                    } else {
+                        det.innerHTML = '<span class="text-primary"><i class="bi bi-info-circle me-1"></i>' + nc + ' cuotas de <strong>$' + valCuota.toLocaleString('es-AR') + '</strong> | Original: $' + montoO.toLocaleString('es-AR') + ' + Interes: $' + inter.toLocaleString('es-AR') + ' = <strong>$' + totalF.toLocaleString('es-AR') + '</strong></span>';
+                    }
+                }
+                window._gpCuotaState = {
+                    id_terminal: idT,
+                    cuotas: nc,
+                    coeficiente: coef,
+                    monto_original: montoO,
+                    comision_estimada: inter
+                };
+            });
+        }
+        bsModal.show();
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}

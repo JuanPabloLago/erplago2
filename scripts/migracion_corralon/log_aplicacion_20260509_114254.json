@@ -1,0 +1,653 @@
+{
+  "timestamp": "2026-05-09T11:42:54.665888",
+  "csv_origen": "/root/mi_erp/scripts/migracion_corralon/propuesta_corralon_20260509_090615_temas_20260509_103033.csv",
+  "id_madre": 18,
+  "nombre_madre": "CORRALON",
+  "opcion": "2 — solo mueve productos en la madre",
+  "productos_no_tocados": 86,
+  "subcategorias_creadas": [
+    {
+      "id": 841,
+      "nombre": "AGLOMERANTES"
+    },
+    {
+      "id": 842,
+      "nombre": "EMBALAJE"
+    },
+    {
+      "id": 843,
+      "nombre": "HIERROS Y MALLAS"
+    },
+    {
+      "id": 844,
+      "nombre": "IMPERMEABILIZACIÓN"
+    },
+    {
+      "id": 845,
+      "nombre": "LADRILLOS Y BLOQUES"
+    },
+    {
+      "id": 846,
+      "nombre": "PINTURAS Y ADITIVOS"
+    },
+    {
+      "id": 847,
+      "nombre": "VIGUETAS"
+    },
+    {
+      "id": 848,
+      "nombre": "ÁRIDOS"
+    }
+  ],
+  "productos_modificados": [
+    {
+      "id_producto": 2030,
+      "sku": "CB25",
+      "id_cat_old": 18,
+      "id_cat_new": 841,
+      "sub_destino": "AGLOMERANTES"
+    },
+    {
+      "id_producto": 2124,
+      "sku": "CC10",
+      "id_cat_old": 18,
+      "id_cat_new": 841,
+      "sub_destino": "AGLOMERANTES"
+    },
+    {
+      "id_producto": 2134,
+      "sku": "CC15",
+      "id_cat_old": 18,
+      "id_cat_new": 841,
+      "sub_destino": "AGLOMERANTES"
+    },
+    {
+      "id_producto": 2155,
+      "sku": "CC30",
+      "id_cat_old": 18,
+      "id_cat_new": 841,
+      "sub_destino": "AGLOMERANTES"
+    },
+    {
+      "id_producto": 2447,
+      "sku": "CLN",
+      "id_cat_old": 18,
+      "id_cat_new": 841,
+      "sub_destino": "AGLOMERANTES"
+    },
+    {
+      "id_producto": 2451,
+      "sku": "CM",
+      "id_cat_old": 18,
+      "id_cat_new": 841,
+      "sub_destino": "AGLOMERANTES"
+    },
+    {
+      "id_producto": 2459,
+      "sku": "CM12",
+      "id_cat_old": 18,
+      "id_cat_new": 841,
+      "sub_destino": "AGLOMERANTES"
+    },
+    {
+      "id_producto": 2737,
+      "sku": "CP",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    },
+    {
+      "id_producto": 2744,
+      "sku": "CP12",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    },
+    {
+      "id_producto": 2788,
+      "sku": "CP3",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    },
+    {
+      "id_producto": 4958,
+      "sku": "GCP",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    },
+    {
+      "id_producto": 5158,
+      "sku": "GSP",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    },
+    {
+      "id_producto": 5175,
+      "sku": "H10",
+      "id_cat_old": 18,
+      "id_cat_new": 843,
+      "sub_destino": "HIERROS Y MALLAS"
+    },
+    {
+      "id_producto": 5176,
+      "sku": "H10C",
+      "id_cat_old": 18,
+      "id_cat_new": 844,
+      "sub_destino": "IMPERMEABILIZACIÓN"
+    },
+    {
+      "id_producto": 5180,
+      "sku": "H12",
+      "id_cat_old": 18,
+      "id_cat_new": 843,
+      "sub_destino": "HIERROS Y MALLAS"
+    },
+    {
+      "id_producto": 5182,
+      "sku": "H129",
+      "id_cat_old": 18,
+      "id_cat_new": 845,
+      "sub_destino": "LADRILLOS Y BLOQUES"
+    },
+    {
+      "id_producto": 5183,
+      "sku": "H129C",
+      "id_cat_old": 18,
+      "id_cat_new": 845,
+      "sub_destino": "LADRILLOS Y BLOQUES"
+    },
+    {
+      "id_producto": 5184,
+      "sku": "H129F",
+      "id_cat_old": 18,
+      "id_cat_new": 845,
+      "sub_destino": "LADRILLOS Y BLOQUES"
+    },
+    {
+      "id_producto": 5190,
+      "sku": "H16",
+      "id_cat_old": 18,
+      "id_cat_new": 843,
+      "sub_destino": "HIERROS Y MALLAS"
+    },
+    {
+      "id_producto": 5191,
+      "sku": "H18",
+      "id_cat_old": 18,
+      "id_cat_new": 845,
+      "sub_destino": "LADRILLOS Y BLOQUES"
+    },
+    {
+      "id_producto": 5194,
+      "sku": "H20C",
+      "id_cat_old": 18,
+      "id_cat_new": 844,
+      "sub_destino": "IMPERMEABILIZACIÓN"
+    },
+    {
+      "id_producto": 5198,
+      "sku": "H42",
+      "id_cat_old": 18,
+      "id_cat_new": 843,
+      "sub_destino": "HIERROS Y MALLAS"
+    },
+    {
+      "id_producto": 5200,
+      "sku": "H4C",
+      "id_cat_old": 18,
+      "id_cat_new": 844,
+      "sub_destino": "IMPERMEABILIZACIÓN"
+    },
+    {
+      "id_producto": 5203,
+      "sku": "H6",
+      "id_cat_old": 18,
+      "id_cat_new": 843,
+      "sub_destino": "HIERROS Y MALLAS"
+    },
+    {
+      "id_producto": 5208,
+      "sku": "H8",
+      "id_cat_old": 18,
+      "id_cat_new": 843,
+      "sub_destino": "HIERROS Y MALLAS"
+    },
+    {
+      "id_producto": 5209,
+      "sku": "H86C",
+      "id_cat_old": 18,
+      "id_cat_new": 845,
+      "sub_destino": "LADRILLOS Y BLOQUES"
+    },
+    {
+      "id_producto": 5210,
+      "sku": "H86F",
+      "id_cat_old": 18,
+      "id_cat_new": 845,
+      "sub_destino": "LADRILLOS Y BLOQUES"
+    },
+    {
+      "id_producto": 5246,
+      "sku": "HL6",
+      "id_cat_old": 18,
+      "id_cat_new": 843,
+      "sub_destino": "HIERROS Y MALLAS"
+    },
+    {
+      "id_producto": 5658,
+      "sku": "LC",
+      "id_cat_old": 18,
+      "id_cat_new": 845,
+      "sub_destino": "LADRILLOS Y BLOQUES"
+    },
+    {
+      "id_producto": 6383,
+      "sku": "LM",
+      "id_cat_old": 18,
+      "id_cat_new": 845,
+      "sub_destino": "LADRILLOS Y BLOQUES"
+    },
+    {
+      "id_producto": 6585,
+      "sku": "LT",
+      "id_cat_old": 18,
+      "id_cat_new": 845,
+      "sub_destino": "LADRILLOS Y BLOQUES"
+    },
+    {
+      "id_producto": 6586,
+      "sku": "LT12",
+      "id_cat_old": 18,
+      "id_cat_new": 845,
+      "sub_destino": "LADRILLOS Y BLOQUES"
+    },
+    {
+      "id_producto": 6705,
+      "sku": "M42",
+      "id_cat_old": 18,
+      "id_cat_new": 843,
+      "sub_destino": "HIERROS Y MALLAS"
+    },
+    {
+      "id_producto": 6706,
+      "sku": "M4215",
+      "id_cat_old": 18,
+      "id_cat_new": 843,
+      "sub_destino": "HIERROS Y MALLAS"
+    },
+    {
+      "id_producto": 6723,
+      "sku": "M6",
+      "id_cat_old": 18,
+      "id_cat_new": 843,
+      "sub_destino": "HIERROS Y MALLAS"
+    },
+    {
+      "id_producto": 6725,
+      "sku": "M615",
+      "id_cat_old": 18,
+      "id_cat_new": 843,
+      "sub_destino": "HIERROS Y MALLAS"
+    },
+    {
+      "id_producto": 7768,
+      "sku": "P",
+      "id_cat_old": 18,
+      "id_cat_new": 846,
+      "sub_destino": "PINTURAS Y ADITIVOS"
+    },
+    {
+      "id_producto": 8356,
+      "sku": "PL",
+      "id_cat_old": 18,
+      "id_cat_new": 842,
+      "sub_destino": "EMBALAJE"
+    },
+    {
+      "id_producto": 8431,
+      "sku": "PMB",
+      "id_cat_old": 18,
+      "id_cat_new": 846,
+      "sub_destino": "PINTURAS Y ADITIVOS"
+    },
+    {
+      "id_producto": 8462,
+      "sku": "PP12",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    },
+    {
+      "id_producto": 8479,
+      "sku": "PP3",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    },
+    {
+      "id_producto": 11648,
+      "sku": "V200",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11649,
+      "sku": "V220",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11650,
+      "sku": "V240",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11652,
+      "sku": "V260",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11654,
+      "sku": "V280",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11655,
+      "sku": "V300",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11659,
+      "sku": "V310",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11660,
+      "sku": "V320",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11661,
+      "sku": "V330",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11662,
+      "sku": "V340",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11663,
+      "sku": "V350",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11664,
+      "sku": "V360",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11665,
+      "sku": "V370",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11666,
+      "sku": "V380",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11667,
+      "sku": "V390",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11668,
+      "sku": "V400",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11670,
+      "sku": "V420",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11671,
+      "sku": "V440",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11672,
+      "sku": "V460",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11673,
+      "sku": "V480",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11674,
+      "sku": "V500",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11675,
+      "sku": "V520",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11676,
+      "sku": "V540",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11677,
+      "sku": "V550",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11678,
+      "sku": "V560",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11679,
+      "sku": "V600",
+      "id_cat_old": 18,
+      "id_cat_new": 847,
+      "sub_destino": "VIGUETAS"
+    },
+    {
+      "id_producto": 11826,
+      "sku": "Y40",
+      "id_cat_old": 18,
+      "id_cat_new": 841,
+      "sub_destino": "AGLOMERANTES"
+    },
+    {
+      "id_producto": 11828,
+      "sku": "YP40",
+      "id_cat_old": 18,
+      "id_cat_new": 841,
+      "sub_destino": "AGLOMERANTES"
+    },
+    {
+      "id_producto": 66,
+      "sku": "A",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    },
+    {
+      "id_producto": 73,
+      "sku": "A12",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    },
+    {
+      "id_producto": 104,
+      "sku": "A3",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    },
+    {
+      "id_producto": 145,
+      "sku": "ABA",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    },
+    {
+      "id_producto": 862,
+      "sku": "BA",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    },
+    {
+      "id_producto": 11974,
+      "sku": "ppba",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    },
+    {
+      "id_producto": 11975,
+      "sku": "CPBA",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    },
+    {
+      "id_producto": 364,
+      "sku": "AL1H",
+      "id_cat_old": 18,
+      "id_cat_new": 846,
+      "sub_destino": "PINTURAS Y ADITIVOS"
+    },
+    {
+      "id_producto": 395,
+      "sku": "AP1H",
+      "id_cat_old": 18,
+      "id_cat_new": 846,
+      "sub_destino": "PINTURAS Y ADITIVOS"
+    },
+    {
+      "id_producto": 401,
+      "sku": "AP4H",
+      "id_cat_old": 18,
+      "id_cat_new": 846,
+      "sub_destino": "PINTURAS Y ADITIVOS"
+    },
+    {
+      "id_producto": 393,
+      "sku": "AP10H",
+      "id_cat_old": 18,
+      "id_cat_new": 846,
+      "sub_destino": "PINTURAS Y ADITIVOS"
+    },
+    {
+      "id_producto": 5192,
+      "sku": "H1H",
+      "id_cat_old": 18,
+      "id_cat_new": 844,
+      "sub_destino": "IMPERMEABILIZACIÓN"
+    },
+    {
+      "id_producto": 5202,
+      "sku": "H5H",
+      "id_cat_old": 18,
+      "id_cat_new": 844,
+      "sub_destino": "IMPERMEABILIZACIÓN"
+    },
+    {
+      "id_producto": 5177,
+      "sku": "H10H",
+      "id_cat_old": 18,
+      "id_cat_new": 844,
+      "sub_destino": "IMPERMEABILIZACIÓN"
+    },
+    {
+      "id_producto": 5195,
+      "sku": "H24H",
+      "id_cat_old": 18,
+      "id_cat_new": 844,
+      "sub_destino": "IMPERMEABILIZACIÓN"
+    },
+    {
+      "id_producto": 6754,
+      "sku": "MAP30H",
+      "id_cat_old": 18,
+      "id_cat_new": 841,
+      "sub_destino": "AGLOMERANTES"
+    },
+    {
+      "id_producto": 6743,
+      "sku": "MA30H",
+      "id_cat_old": 18,
+      "id_cat_new": 841,
+      "sub_destino": "AGLOMERANTES"
+    },
+    {
+      "id_producto": 8456,
+      "sku": "PP",
+      "id_cat_old": 18,
+      "id_cat_new": 848,
+      "sub_destino": "ÁRIDOS"
+    }
+  ]
+}

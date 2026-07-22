@@ -1,0 +1,15 @@
+<div style="font-family:Arial,sans-serif;max-width:600px;color:#222">
+  <h2 style="color:#B83333">⚠ Pedido web sin atender</h2>
+  <p>El pedido <b>#{{nro_pedido}}</b> está pendiente de revisión hace <b>{{horas_espera}} horas</b>.</p>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px">
+    <tr><td style="padding:6px;width:140px"><b>Cliente:</b></td><td>{{cliente_nombre}}</td></tr>
+    <tr><td style="padding:6px"><b>Total:</b></td><td><b>$ {{total_final}}</b></td></tr>
+  </table>
+  <p>Aprobalo o rechazalo cuanto antes para no perder la venta.</p>
+  <p style="margin-top:24px">
+    <a href="https://app.lago.ar/pedidos-web.html?pedido={{id_pedido}}"
+       style="background:#B83333;color:white;padding:12px 24px;text-decoration:none;border-radius:4px;display:inline-block">
+      Ver pedido #{{nro_pedido}}
+    </a>
+  </p>
+</div>

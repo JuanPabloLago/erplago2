@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1b8a4a">
+<title>Factura Foto — LAGO ERP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%231b8a4a'/><text x='50%25' y='58%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='18' font-weight='bold' font-family='sans-serif'>L</text></svg>">
+<style>
+:root{--verde:#1b8a4a;--verde-dark:#145a32;--verde-light:#e8f5e9;--bg:#f8f9fa;--card:#ffffff;--text:#1a1a1a;--text2:#6b7280;--text3:#9ca3af;--border:#e5e7eb;--danger:#dc2626;--danger-bg:#fef2f2;--warn:#f59e0b;--warn-bg:#fef3c7;--ok-bg:#ecfdf5}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-tap-highlight-color:transparent}
+.app{max-width:500px;margin:0 auto;padding:16px;padding-bottom:80px}
+.step{display:none}.step.active{display:block}
+
+/* Header */
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 0;margin-bottom:16px;border-bottom:1px solid var(--border)}
+.hdr-left{display:flex;align-items:center;gap:10px}
+.hdr-logo{width:36px;height:36px;background:var(--verde);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px}
+.hdr h1{font-size:17px;font-weight:600}
+.hdr-sub{font-size:11px;color:var(--text2)}
+.hdr-gear{width:36px;height:36px;border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;background:var(--card)}
+
+/* Form */
+h2{font-size:16px;font-weight:600;margin-bottom:12px}
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.fg input,.fg select,.fg textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:15px;font-family:inherit;color:var(--text);background:var(--card);-webkit-appearance:none}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--verde);box-shadow:0 0 0 3px rgba(27,138,74,.12)}
+.fg input[readonly]{background:#f3f4f6;color:var(--text2)}
+.fg textarea{min-height:60px;resize:vertical}
+.fg select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* Buttons */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:10px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;border:none;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.btn:active{transform:scale(.98)}
+.btn-v{background:var(--verde);color:#fff}.btn-v:hover{background:var(--verde-dark)}
+.btn-v:disabled{background:#aaa;cursor:not-allowed;transform:none}
+.btn-o{background:var(--card);color:var(--text);border:1px solid var(--border)}.btn-o:hover{background:#f3f4f6}
+.btn-d{background:var(--danger);color:#fff}
+
+/* Camera */
+.cam{border:2px dashed var(--border);border-radius:12px;padding:40px 20px;text-align:center;position:relative;overflow:hidden;transition:border-color .2s;background:var(--card)}
+.cam:active{border-color:var(--verde)}
+.cam input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:200px}
+.cam-icon{font-size:56px;margin-bottom:8px}
+.cam-txt{font-size:14px;color:var(--text2)}
+.preview{width:100%;border-radius:10px;margin-top:12px;display:none;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+
+/* Cards & Badges */
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.b-ok{background:var(--ok-bg);color:var(--verde)}
+.b-new{background:var(--warn-bg);color:#92400e}
+.b-err{background:var(--danger-bg);color:var(--danger)}
+.prov-box{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;margin-bottom:14px}
+
+/* Totals */
+.totals{background:#f3f4f6;border-radius:10px;padding:14px 16px;margin:14px 0}
+.trow{display:flex;justify-content:space-between;padding:4px 0;font-size:14px;color:var(--text2)}
+.trow.big{color:var(--text);font-weight:700;font-size:17px;border-top:1px solid var(--border);padding-top:10px;margin-top:6px}
+
+/* Spinner */
+.loading{text-align:center;padding:40px 0}
+.spin{display:inline-block;width:36px;height:36px;border:3px solid #e5e7eb;border-top-color:var(--verde);border-radius:50%;animation:sp .6s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.prog{font-size:14px;color:var(--text2);margin-top:12px}
+
+/* Separator */
+.sep{border:none;border-top:1px solid var(--border);margin:16px 0}
+
+/* Alert */
+.alert{padding:12px 14px;border-radius:10px;font-size:13px;margin:10px 0}
+.alert-ok{background:var(--ok-bg);color:var(--verde-dark)}
+.alert-err{background:var(--danger-bg);color:var(--danger)}
+
+/* Success */
+.success-icon{width:64px;height:64px;background:var(--ok-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:32px}
+
+/* Config modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:none;align-items:flex-end;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border-radius:16px 16px 0 0;padding:24px 20px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto}
+.modal h2{margin-bottom:16px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-left">
+    <div class="hdr-logo">L</div>
+    <div><h1>Factura foto</h1><div class="hdr-sub">ERP LAGO</div></div>
+  </div>
+  <div class="hdr-gear" id="btnConfig" title="Configuración">⚙</div>
+</div>
+
+<!-- STEP 0: LOGIN -->
+<div id="s0" class="step active">
+  <h2>Iniciar sesión</h2>
+  <div class="fg"><label>Usuario</label><input id="c_user" value="" autocomplete="username"></div>
+  <div class="fg"><label>Contraseña</label><input id="c_pass" type="password" value="" autocomplete="current-password"></div>
+  <button class="btn btn-v" id="btnLogin">Ingresar</button>
+  <div id="loginMsg" class="prog" style="margin-top:10px"></div>
+</div>
+
+<!-- STEP 1: FOTO -->
+<div id="s1" class="step">
+  <h2>Sacale foto a la factura</h2>
+  <div class="cam" id="dropZone">
+    <input type="file" accept="image/*" capture="environment" id="fileIn">
+    <div class="cam-icon">📷</div>
+    <div class="cam-txt">Tocar para abrir la cámara</div>
+  </div>
+  <img id="prev" class="preview">
+  <button class="btn btn-v" id="btnScan" disabled style="margin-top:14px">Analizar factura</button>
+</div>
+
+<!-- STEP 2: PROCESANDO -->
+<div id="s2" class="step">
+  <div class="loading"><div class="spin"></div><div class="prog" id="progTxt">Enviando imagen...</div></div>
+</div>
+
+<!-- STEP 3: REVIEW -->
+<div id="s3" class="step">
+  <h2>Revisar datos</h2>
+  <div id="provBox" class="prov-box" style="background:var(--ok-bg)"></div>
+
+  <div class="fg"><label>Razón social</label><input id="f_rs"></div>
+  <div class="row">
+    <div class="fg"><label>CUIT</label><input id="f_cuit" readonly></div>
+    <div class="fg"><label>Cond. IVA</label>
+      <select id="f_civa"><option value="1">Resp. Inscripto</option><option value="2">Monotributista</option><option value="4">Exento</option></select>
+    </div>
+  </div>
+  <div class="row">
+    <div class="fg"><label>Domicilio</label><input id="f_dom"></div>
+    <div class="fg"><label>Localidad</label><input id="f_loc"></div>
+  </div>
+
+  <hr class="sep">
+
+  <div class="row3">
+    <div class="fg"><label>Tipo</label>
+      <select id="f_tipo"><option value="1">FC A (mercaderia)</option><option value="2">FC B (mercaderia)</option><option value="3">FC C (mercaderia)</option><option value="8">FG A (gasto)</option><option value="9">FG B (gasto)</option><option value="10">FG C (gasto)</option><option value="4">NC</option><option value="5">ND</option></select>
+    </div>
+    <div class="fg"><label>Pto. venta</label><input id="f_pv"></div>
+    <div class="fg"><label>Número</label><input id="f_num"></div>
+  </div>
+  <div class="row">
+    <div class="fg"><label>Fecha emisión</label><input type="date" id="f_fecha"></div>
+    <div class="fg"><label>Tipo compra</label>
+      <select id="f_gasto"><option value="1">Gasto operativo</option><option value="0">Mercadería</option></select>
+    </div>
+  </div>
+
+  <hr class="sep">
+  <h2>Ítems</h2>
+  <div id="itemsBox"></div>
+
+  <div class="totals">
+    <div class="trow"><span>Neto gravado</span><span id="t_n">$0</span></div>
+    <div class="trow"><span>IVA</span><span id="t_i">$0</span></div>
+    <div class="trow"><span>Imp. internos</span><span id="t_ii">$0</span></div>
+    <div class="trow"><span>Otros tributos</span><span id="t_ot">$0</span></div>
+    <div class="trow big"><span>Total</span><span id="t_t">$0</span></div>
+  </div>
+
+  <div class="fg"><label>Observaciones</label><textarea id="f_obs"></textarea></div>
+  <div class="row">
+    <div class="fg"><label>Estado</label>
+      <select id="f_est"><option value="pagado">Pagado</option><option value="pendiente">Pendiente (CC)</option></select>
+    </div>
+    <div class="fg"><label>Forma pago</label><input id="f_fp" value="Efectivo"></div>
+  </div>
+
+  <button class="btn btn-v" id="btnRegistrar" style="margin-top:6px">Registrar en ERP</button>
+  <button class="btn btn-o" id="btnOtra1" style="margin-top:8px">Escanear otra</button>
+</div>
+
+<!-- STEP 4: REGISTRANDO -->
+<div id="s4" class="step">
+  <div class="loading"><div class="spin"></div><div class="prog" id="regTxt">Registrando...</div></div>
+</div>
+
+<!-- STEP 5: OK -->
+<div id="s5" class="step" style="text-align:center">
+  <div class="success-icon">✓</div>
+  <h2 style="color:var(--verde)">Factura registrada</h2>
+  <div id="okDetail" class="card" style="text-align:left;margin:16px 0"></div>
+  <button class="btn btn-v" id="btnOtra2">Escanear otra factura</button>
+  <button class="btn btn-o" id="btnLogout" style="margin-top:8px">Cerrar sesión</button>
+</div>
+</div>
+
+<!-- MODAL CONFIG -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal">
+    <h2>Configuración</h2>
+    <div class="fg"><label>API Key de Anthropic</label><input id="cfg_apikey" type="password" placeholder="sk-ant-..."></div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:14px">Necesaria para que Claude analice las fotos. Se guarda solo en tu teléfono.</p>
+    <button class="btn btn-v" id="btnSaveConfig">Guardar</button>
+    <button class="btn btn-o" id="btnCloseConfig" style="margin-top:8px">Cerrar</button>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=n=>'$'+Number(n||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+let token=localStorage.getItem('lago_token')||'';
+let apiKey=localStorage.getItem('lago_anthropic_key')||'';
+let imgB64=null, parsed=null, provResult=null;
+
+// Base URL = same origin (app is hosted on the ERP)
+const baseUrl = window.location.origin;
+
+// Restore saved config
+$('cfg_apikey').value=apiKey;
+if(localStorage.getItem('lago_user'))$('c_user').value=localStorage.getItem('lago_user');
+
+// Auto-login if token exists
+if(token){checkToken()}
+
+function go(n){document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));$('s'+n).classList.add('active')}
+
+// ====== CONFIG MODAL ======
+$('btnConfig').onclick=()=>$('configModal').classList.add('show');
+$('btnCloseConfig').onclick=()=>$('configModal').classList.remove('show');
+$('configModal').onclick=e=>{if(e.target===$('configModal'))$('configModal').classList.remove('show')};
+$('btnSaveConfig').onclick=()=>{
+  apiKey=$('cfg_apikey').value.trim();
+  localStorage.setItem('lago_anthropic_key',apiKey);
+  $('configModal').classList.remove('show');
+};
+
+// ====== LOGIN ======
+$('btnLogin').onclick=async()=>{
+  $('loginMsg').textContent='Conectando...';
+  $('loginMsg').style.color='var(--text2)';
+  try{
+    const r=await fetch(baseUrl+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('c_user').value,password:$('c_pass').value})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||d.mensaje||'Login fallido');
+    token=d.token;
+    localStorage.setItem('lago_token',token);
+    localStorage.setItem('lago_user',$('c_user').value);
+    $('loginMsg').textContent='';
+    
+    go(1);
+  }catch(e){$('loginMsg').textContent=e.message;$('loginMsg').style.color='var(--danger)'}
+};
+
+async function checkToken(){
+  try{
+    const r=await fetch(baseUrl+'/api/auth/perfil',{headers:{'Authorization':'Bearer '+token}});
+    if(r.ok){go(1);if(!apiKey)$('configModal').classList.add('show')}
+    else{token='';localStorage.removeItem('lago_token')}
+  }catch(e){token='';localStorage.removeItem('lago_token')}
+}
+
+// ====== FOTO ======
+$('fileIn').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    imgB64=ev.target.result.split(',')[1];
+    $('prev').src=ev.target.result;
+    $('prev').style.display='block';
+    $('btnScan').disabled=false;
+  };
+  reader.readAsDataURL(f);
+};
+
+// ====== ANALIZAR ======
+$('btnScan').onclick=async()=>{
+  if(!imgB64)return;
+  
+  go(2);$('progTxt').textContent='Analizando con Claude...';
+  try{
+    // PROXY via ERP backend
+    const r=await fetch(baseUrl+'/api/factura-foto/analizar',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify({imagen_base64:imgB64})
+    });
+    if(!r.ok){const err=await r.json();throw new Error(err.error||'Error analizando');}
+    const d=await r.json();
+    parsed=d.data;
+
+    $('progTxt').textContent='Buscando CUIT en el sistema...';
+    await buscarCuit(parsed.proveedor.cuit);
+    fillForm();
+    go(3);
+  }catch(e){
+    $('progTxt').innerHTML='<span style="color:var(--danger)">'+e.message+'</span>';
+    setTimeout(()=>go(1),4000);
+  }
+};
+
+// ====== BUSCAR CUIT ======
+async function buscarCuit(cuit){
+  const clean=cuit.replace(/-/g,'');
+  try{
+    const r=await fetch(baseUrl+'/api/compras/buscar-cuit/'+clean,{headers:{'Authorization':'Bearer '+token}});
+    const d=await r.json();
+    if(d.success){
+      provResult=d;
+      const box=$('provBox');
+      if(d.existe_en_sistema){
+        box.style.background='var(--ok-bg)';
+        box.innerHTML='<span class="badge b-ok">Existe</span><span style="font-size:14px"><strong>'+d.proveedor_existente.razon_social+'</strong> (id: '+d.proveedor_existente.id_proveedor+')</span>';
+        // Usar datos de AFIP si hay
+        if(d.datos){
+          parsed.proveedor.razon_social=d.datos.razon_social||parsed.proveedor.razon_social;
+          parsed.proveedor.condicion_iva=d.datos.id_condicion_iva||parsed.proveedor.condicion_iva;
+        }
+      }else{
+        box.style.background='var(--warn-bg)';
+        box.innerHTML='<span class="badge b-new">Nuevo</span><span style="font-size:14px">Se creará automáticamente al registrar</span>';
+        if(d.datos){
+          parsed.proveedor.razon_social=d.datos.razon_social||parsed.proveedor.razon_social;
+          parsed.proveedor.domicilio=d.datos.domicilio||parsed.proveedor.domicilio;
+          parsed.proveedor.localidad=d.datos.localidad||parsed.proveedor.localidad;
+          parsed.proveedor.provincia=d.datos.provincia||parsed.proveedor.provincia;
+          parsed.proveedor.condicion_iva=d.datos.id_condicion_iva||parsed.proveedor.condicion_iva;
+        }
+      }
+    }else{
+      $('provBox').style.background='#f3f4f6';
+      $('provBox').innerHTML='<span class="badge b-err">Sin datos</span><span style="font-size:14px">Verificá el CUIT</span>';
+      provResult=null;
+    }
+  }catch(e){
+    $('provBox').style.background='var(--danger-bg)';
+    $('provBox').innerHTML='<span class="badge b-err">Error</span><span style="font-size:14px">'+e.message+'</span>';
+    provResult=null;
+  }
+}
+
+// ====== FILL FORM ======
+function fillForm(){
+  const p=parsed.proveedor, c=parsed.comprobante, t=parsed.totales;
+  $('f_rs').value=p.razon_social||'';
+  $('f_cuit').value=p.cuit||'';
+  $('f_civa').value=p.condicion_iva||1;
+  $('f_dom').value=p.domicilio||'';
+  $('f_loc').value=(p.localidad||'')+(p.provincia?' - '+p.provincia:'');
+  $('f_tipo').value=c.tipo_id||1;
+  $('f_pv').value=c.punto_venta||'';
+  $('f_num').value=c.numero||'';
+  $('f_fecha').value=c.fecha||'';
+  $('f_obs').value=parsed.observaciones||'';
+  $('f_est').value=parsed.pago?.pagado?'pagado':'pendiente';
+  $('f_fp').value=parsed.pago?.forma||'Efectivo';
+  const ivaTot=(t.iva_21||0)+(t.iva_105||0)+(t.iva_27||0);
+  $('t_n').textContent=fmt(t.neto_gravado);
+  $('t_i').textContent=fmt(ivaTot);
+  $('t_ii').textContent=fmt(t.impuestos_internos);
+  $('t_ot').textContent=fmt(t.otros_tributos);
+  $('t_t').textContent=fmt(t.total);
+  const ib=$('itemsBox');ib.innerHTML='';
+  (parsed.items||[]).forEach(it=>{
+    const d=document.createElement('div');d.className='card';
+    d.innerHTML='<div style="font-size:14px;font-weight:600;margin-bottom:4px">'+it.descripcion+'</div><div style="font-size:13px;color:var(--text2)">'+it.cantidad+' u × '+fmt(it.precio_unitario_neto)+' neto — IVA '+it.iva_porcentaje+'% — Sub: '+fmt(it.subtotal_neto)+'</div>';
+    ib.appendChild(d);
+  });
+}
+
+// ====== REGISTRAR ======
+$('btnRegistrar').onclick=async()=>{
+  go(4);
+  const esGasto=$('f_gasto').value==='1';
+  // Mapeo automatico: si es gasto, convertir id_tipo de FC_* a FG_* equivalente
+  // FC_A(1) -> FG_A(8), FC_B(2) -> FG_B(9), FC_C(3) -> FG_C(10)
+  const MAPEO_GASTO={1:8,2:9,3:10,8:8,9:9,10:10};
+  const MAPEO_MERC={8:1,9:2,10:3,1:1,2:2,3:3};
+  const tipoActual=parseInt($('f_tipo').value);
+  if(esGasto && MAPEO_GASTO[tipoActual]) $('f_tipo').value=MAPEO_GASTO[tipoActual];
+  else if(!esGasto && MAPEO_MERC[tipoActual]) $('f_tipo').value=MAPEO_MERC[tipoActual];
+  const esPagado=$('f_est').value==='pagado';
+  let idProv=null;
+
+  try{
+    // 1) Proveedor
+    if(provResult?.existe_en_sistema){
+      idProv=provResult.proveedor_existente.id_proveedor;
+      $('regTxt').textContent='Proveedor existente (id='+idProv+')';
+    }else{
+      $('regTxt').textContent='Creando proveedor...';
+      const rp=await fetch(baseUrl+'/api/compras/proveedores/alta-rapida',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body:JSON.stringify({
+          cuit:$('f_cuit').value,
+          razon_social:$('f_rs').value,
+          id_condicion_iva:parseInt($('f_civa').value),
+          domicilio:$('f_dom').value
+        })
+      });
+      const dp=await rp.json();
+      if(!rp.ok)throw new Error(dp.error||'Error creando proveedor');
+      idProv=dp.data.id_proveedor;
+      $('regTxt').textContent='Proveedor creado (id='+idProv+')';
+    }
+
+    // 2) Items
+    const items=parsed.items.map(it=>({
+      id_producto:null,
+      descripcion:it.descripcion,
+      cantidad:it.cantidad,
+      precio_unitario:it.precio_unitario_neto,
+      iva_porcentaje:it.iva_porcentaje,
+      subtotal:it.subtotal_neto,
+      iva_monto:it.iva_monto||0,
+      total:Math.round(((it.subtotal_neto||0)+(it.iva_monto||0))*100)/100
+    }));
+
+    // 3) Comprobante
+    $('regTxt').textContent='Registrando comprobante...';
+    const body={
+      id_proveedor:idProv,
+      id_tipo:parseInt($('f_tipo').value),
+      punto_venta:$('f_pv').value,
+      numero_comprobante:$('f_num').value,
+      fecha_emision:$('f_fecha').value,
+      items:items,
+      observaciones:$('f_obs').value||$('f_fp').value+' — '+(parsed.items||[]).map(i=>i.descripcion).join(', '),
+      percepcion_iva:0,
+      percepcion_iibb:0,
+      impuestos_internos:parsed.totales.impuestos_internos||0,
+      actualizar_precios:false,
+      total_comprobante:parsed.totales.total
+    };
+
+    const rc=await fetch(baseUrl+'/api/compras/',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify(body)
+    });
+    const dc=await rc.json();
+    if(!rc.ok)throw new Error(dc.error||'Error guardando comprobante');
+
+    // 4) Éxito
+    $('okDetail').innerHTML=
+      '<div style="font-size:16px;font-weight:700">'+(dc.data?.numero_completo||$('f_pv').value+'-'+$('f_num').value)+'</div>'+
+      '<div style="font-size:13px;color:var(--text2);margin-top:4px">'+$('f_rs').value+' — CUIT '+$('f_cuit').value+'</div>'+
+      '<div style="font-size:13px;color:var(--text2)">Proveedor id: '+idProv+'</div>'+
+      '<div style="font-size:20px;font-weight:700;margin-top:10px;color:var(--verde)">'+fmt(parsed.totales.total)+'</div>'+
+      '<div style="font-size:12px;color:var(--text2);margin-top:2px">'+(esGasto?'Gasto operativo':'Mercadería')+' — '+(esPagado?'Pagado':'Pendiente CC')+'</div>';
+    go(5);
+  }catch(e){
+    $('regTxt').innerHTML='<span style="color:var(--danger)">'+e.message+'</span>';
+    setTimeout(()=>go(3),4000);
+  }
+};
+
+// ====== RESET / LOGOUT ======
+function reset(){imgB64=null;parsed=null;provResult=null;$('prev').style.display='none';$('fileIn').value='';$('btnScan').disabled=true;go(1)}
+$('btnOtra1').onclick=reset;
+$('btnOtra2').onclick=reset;
+$('btnLogout').onclick=()=>{token='';localStorage.removeItem('lago_token');go(0)};
+</script>
+</body>
+</html>

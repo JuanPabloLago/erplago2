@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script src="js/config.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tesorería - ERP LAGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root { --lago-primary: #1a5f7a; --lago-secondary: #159895; --lago-accent: #57c5b6; --lago-light: #f8fafc; --lago-dark: #0f172a; --lago-success: #10b981; --lago-warning: #f59e0b; --lago-danger: #ef4444; --lago-muted: #64748b; }
+        * { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; box-sizing: border-box; }
+        body { background: var(--lago-light); min-height: 100vh; margin: 0; }
+        .header-bar { background: linear-gradient(135deg, var(--lago-primary) 0%, var(--lago-secondary) 100%); color: white; padding: 12px 20px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 20px; }
+        .header-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: white; font-weight: 600; font-size: 1.1rem; }
+        .header-logo:hover { color: rgba(255,255,255,0.9); }
+        .search-container { flex: 1; max-width: 500px; position: relative; }
+        .search-box { display: flex; align-items: center; background: white; border-radius: 24px; padding: 6px 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: box-shadow 0.2s; }
+        .search-box:focus-within { box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+        .search-box i { color: #666; font-size: 1rem; }
+        .search-input { flex: 1; border: none; outline: none; padding: 8px 12px; font-size: 0.95rem; background: transparent; }
+        .search-input::placeholder { color: #999; }
+        .search-clear { background: none; border: none; color: #666; cursor: pointer; padding: 4px; display: none; border-radius: 50%; }
+        .search-clear:hover { background: #f0f0f0; }
+        .search-clear.visible { display: flex; }
+        .search-results { position: absolute; top: 100%; left: 0; right: 0; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); margin-top: 8px; max-height: 400px; overflow-y: auto; display: none; z-index: 1001; }
+        .search-results.visible { display: block; }
+        .search-result-item { padding: 12px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background 0.15s; }
+        .search-result-item:hover, .search-result-item.active { background: #f5f7fa; }
+        .search-result-item:last-child { border-bottom: none; }
+        .search-result-icon { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--lago-primary), var(--lago-secondary)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 1rem; flex-shrink: 0; }
+        .search-result-info { flex: 1; min-width: 0; }
+        .search-result-name { font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .search-result-meta { font-size: 0.8rem; color: #666; margin-top: 2px; }
+        .search-result-saldo { font-weight: 700; color: var(--lago-danger); font-size: 0.9rem; white-space: nowrap; }
+        .search-result-saldo.sin-deuda { color: var(--lago-success); font-size: 0.8rem; }
+        .header-estado { display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: rgba(255,255,255,0.15); border-radius: 20px; font-size: 0.85rem; }
+        .estado-indicador { width: 10px; height: 10px; border-radius: 50%; animation: pulse-glow 2s infinite; }
+        .estado-indicador.abierta { background: var(--lago-success); }
+        .estado-indicador.cerrada { background: var(--lago-danger); }
+        @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } }
+        .header-totales { display: flex; gap: 15px; align-items: center; }
+        .header-total-item { text-align: right; padding: 4px 12px; border-radius: 8px; background: rgba(255,255,255,0.1); }
+        .header-total-item .etiqueta { font-size: 0.65rem; opacity: 0.8; text-transform: uppercase; }
+        .header-total-item .valor { font-size: 1rem; font-weight: 700; }
+        .header-actions { display: flex; gap: 8px; }
+        .btn-header { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
+        .btn-header:hover { background: rgba(255,255,255,0.3); }
+        .nav-tabs-custom { background: white; border-bottom: 2px solid #e2e8f0; padding: 0 20px; display: flex; gap: 5px; overflow-x: auto; }
+        .nav-tabs-custom .nav-link { border: none; border-bottom: 3px solid transparent; color: var(--lago-muted); padding: 15px 25px; font-weight: 600; display: flex; align-items: center; gap: 8px; white-space: nowrap; transition: all 0.2s; cursor: pointer; background: none; }
+        .nav-tabs-custom .nav-link:hover { color: var(--lago-primary); background: rgba(26, 95, 122, 0.05); }
+        .nav-tabs-custom .nav-link.active { color: var(--lago-primary); border-bottom-color: var(--lago-primary); background: rgba(26, 95, 122, 0.08); }
+        .main-content { padding: 20px; max-width: 1600px; margin: 0 auto; }
+        .lago-card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; overflow: visible; margin-bottom: 20px; }
+        .lago-card-header { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 15px 20px; border-bottom: 1px solid #e2e8f0; font-weight: 600; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .lago-card-body { padding: 20px; }
+        .filtros-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+        .filtro-grupo { display: flex; align-items: center; gap: 6px; }
+        .filtro-grupo label { font-size: 0.8rem; color: var(--lago-muted); font-weight: 500; }
+        .filtro-input { padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.85rem; background: white; }
+        .filtro-input:focus { outline: none; border-color: var(--lago-primary); box-shadow: 0 0 0 2px rgba(26, 95, 122, 0.1); }
+        .filtro-divider { width: 1px; height: 24px; background: #ddd; margin: 0 5px; }
+        .fecha-presets { display: flex; gap: 4px; }
+        .fecha-preset { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; background: white; font-size: 0.75rem; cursor: pointer; transition: all 0.15s; color: var(--lago-muted); }
+        .fecha-preset:hover { border-color: var(--lago-primary); color: var(--lago-primary); }
+        .fecha-preset.active { background: var(--lago-primary); border-color: var(--lago-primary); color: white; }
+        .acciones-bar { display: none; align-items: center; gap: 10px; padding: 10px 20px; background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%); border-bottom: 1px solid #bae6fd; }
+        .acciones-bar.visible { display: flex; }
+        .acciones-bar .contador { font-weight: 600; color: var(--lago-primary); }
+        .btn-accion { padding: 6px 12px; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.15s; }
+        .btn-accion-primary { background: var(--lago-primary); color: white; }
+        .btn-accion-primary:hover { background: #164e63; }
+        .btn-accion-secondary { background: white; color: var(--lago-dark); border: 1px solid #ddd; }
+        .btn-accion-secondary:hover { background: #f0f0f0; }
+        .btn-accion-danger { background: var(--lago-danger); color: white; }
+        .btn-accion-danger:hover { background: #dc2626; }
+        .tabla-lago { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .tabla-lago thead th { background: #f8fafc; padding: 12px 15px; font-weight: 600; color: var(--lago-muted); font-size: 0.75rem; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; text-align: left; position: sticky; top: 0; }
+        .tabla-lago tbody td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .tabla-lago tbody tr:hover { background: rgba(26, 95, 122, 0.03); }
+        .tabla-lago tbody tr.seleccionada { background: #e0f2fe; }
+        .tabla-lago .checkbox-col { width: 40px; text-align: center; }
+        .badge-lago { padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 0.7rem; text-transform: uppercase; }
+        .badge-lago.success { background: #d1fae5; color: #065f46; }
+        .badge-lago.warning { background: #fef3c7; color: #92400e; }
+        .badge-lago.danger { background: #fee2e2; color: #991b1b; }
+        .badge-lago.info { background: #dbeafe; color: #1e40af; }
+        .formas-pago-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(85px, 1fr)); gap: 8px; margin-bottom: 15px; }
+        .forma-pago-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 8px; border: 2px solid #e2e8f0; border-radius: 10px; background: white; cursor: pointer; transition: all 0.2s; text-align: center; }
+        .forma-pago-btn:hover { border-color: var(--lago-primary); background: #f8fafc; }
+        .forma-pago-btn.selected { border-color: var(--lago-primary); background: linear-gradient(135deg, rgba(26, 95, 122, 0.1) 0%, rgba(21, 152, 149, 0.1) 100%); }
+        .forma-pago-btn i { font-size: 1.3rem; color: var(--lago-primary); margin-bottom: 4px; }
+        .forma-pago-btn span { font-size: 0.7rem; font-weight: 500; color: var(--lago-dark); }
+        .cliente-panel { display: none; background: linear-gradient(135deg, #f0fdfa 0%, #ecfeff 100%); border: 1px solid #99f6e4; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
+        .cliente-panel.visible { display: block; }
+        .cliente-panel-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .cliente-panel-info { display: flex; align-items: center; gap: 12px; }
+        .cliente-avatar { width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, var(--lago-primary), var(--lago-secondary)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.1rem; }
+        .cliente-datos h5 { margin: 0; font-size: 1rem; color: var(--lago-dark); }
+        .cliente-datos p { margin: 2px 0 0; font-size: 0.8rem; color: var(--lago-muted); }
+        .cliente-saldo-box { text-align: right; }
+        .cliente-saldo-box .label { font-size: 0.7rem; color: var(--lago-muted); }
+        .cliente-saldo-box .monto { font-size: 1.3rem; font-weight: 700; color: var(--lago-danger); }
+        .cliente-saldo-box .monto.sin-deuda { color: var(--lago-success); }
+        .btn-cambiar-cliente { background: none; border: none; color: var(--lago-danger); cursor: pointer; padding: 4px; margin-left: 10px; }
+        .resumen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .resumen-card { background: white; border-radius: 10px; padding: 15px; border-left: 4px solid var(--lago-primary); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .resumen-card.success { border-left-color: var(--lago-success); }
+        .resumen-card.warning { border-left-color: var(--lago-warning); }
+        .resumen-card.danger { border-left-color: var(--lago-danger); }
+        .resumen-card .etiqueta { font-size: 0.75rem; color: var(--lago-muted); margin-bottom: 4px; }
+        .resumen-card .valor { font-size: 1.4rem; font-weight: 700; }
+        .pagos-agregados { margin-top: 15px; }
+        .pago-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #f8fafc; border-radius: 8px; margin-bottom: 8px; border: 1px solid #e2e8f0; }
+        .pago-item .info { display: flex; align-items: center; gap: 10px; }
+        .pago-item .info i { color: var(--lago-primary); }
+        .pago-item .monto { font-weight: 700; color: var(--lago-dark); }
+        .pago-item .btn-remove { background: none; border: none; color: var(--lago-danger); cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+        .pago-item .btn-remove:hover { background: #fee2e2; }
+        .total-grande { background: linear-gradient(135deg, var(--lago-primary) 0%, var(--lago-secondary) 100%); color: white; border-radius: 12px; padding: 20px; text-align: center; margin-top: 15px; }
+        .total-grande .monto { font-size: 2rem; font-weight: 700; }
+        .total-grande .etiqueta { font-size: 0.85rem; opacity: 0.9; }
+        .btn-lago { background: linear-gradient(135deg, var(--lago-primary) 0%, var(--lago-secondary) 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-lago:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26, 95, 122, 0.3); }
+        .btn-lago:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-lago-outline { background: transparent; color: var(--lago-primary); border: 2px solid var(--lago-primary); padding: 10px 22px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .btn-lago-outline:hover { background: var(--lago-primary); color: white; }
+        .layout-cobro { display: grid; grid-template-columns: 1fr 380px; gap: 20px; }
+        @media (max-width: 1100px) { .layout-cobro { grid-template-columns: 1fr; } }
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--lago-muted); }
+        .empty-state i { font-size: 3rem; opacity: 0.3; }
+        .empty-state p { margin-top: 10px; }
+        .atajos-flotante { position: fixed; bottom: 15px; left: 15px; background: rgba(0,0,0,0.85); color: white; padding: 10px 15px; border-radius: 8px; font-size: 0.7rem; z-index: 999; display: flex; gap: 15px; }
+        .atajos-flotante kbd { background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px; margin-right: 4px; }
+        @media (max-width: 768px) { .header-bar { flex-wrap: wrap; padding: 10px 15px; } .search-container { order: 10; width: 100%; max-width: none; margin-top: 10px; } .header-totales { display: none; } .filtros-bar { flex-direction: column; align-items: stretch; } }
+        .modal-lago .modal-content { border-radius: 12px; border: none; }
+        .modal-lago .modal-header { background: linear-gradient(135deg, var(--lago-primary) 0%, var(--lago-secondary) 100%); color: white; border-radius: 12px 12px 0 0; }
+        .modal-lago .btn-close { filter: brightness(0) invert(1); }
+    </style>
+</head>
+<body>
+    <header class="header-bar">
+        <a href="dashboard.html" class="header-logo"><i class="bi bi-arrow-left-circle"></i><span>Tesorería</span></a>
+        <div class="search-container">
+            <div class="search-box">
+                <i class="bi bi-search"></i>
+                <input type="text" class="search-input" id="searchInput" placeholder="Buscar cliente: nombre, CUIT, teléfono, ID..." autocomplete="off">
+                <button class="search-clear" id="searchClear" title="Limpiar (Esc)"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="search-results" id="searchResults"></div>
+        </div>
+        <div class="header-estado" id="headerEstado"><div class="estado-indicador cerrada" id="estadoIndicador"></div><span id="estadoTexto">Cargando...</span></div>
+        <div class="header-totales" id="headerTotales">
+            <div class="header-total-item"><div class="etiqueta">Efectivo ARS</div><div class="valor" id="headerEfectivoARS">$0</div></div>
+            <div class="header-total-item"><div class="etiqueta">Efectivo USD</div><div class="valor" id="headerEfectivoUSD">US$0</div></div>
+        </div>
+        <div class="header-actions">
+            <button class="btn-header" onclick="abrirModalAbrirCaja()" id="btnAbrirCaja" style="display:none;"><i class="bi bi-unlock"></i> Abrir Caja</button>
+            <button class="btn-header" onclick="cerrarSesion()"><i class="bi bi-box-arrow-right"></i></button>
+        </div>
+    </header>
+
+    <nav class="nav-tabs-custom" id="navTabs">
+        <button class="nav-link active" data-tab="cobrar"><i class="bi bi-cash-coin"></i> Cobrar</button>
+        <button class="nav-link" data-tab="movimientos"><i class="bi bi-arrow-left-right"></i> Movimientos</button>
+        <button class="nav-link" data-tab="historial"><i class="bi bi-clock-history"></i> Historial Recibos</button>
+        <button class="nav-link" data-tab="arqueo"><i class="bi bi-calculator"></i> Arqueo / Cierre</button>
+        <button class="nav-link" data-tab="cierres"><i class="bi bi-journal-check"></i> Historial Cierres</button>
+    </nav>
+
+    <main class="main-content">
+        <!-- TAB COBRAR -->
+        <div class="tab-content" id="tab-cobrar">
+            <div class="layout-cobro">
+                <div>
+                    <div class="cliente-panel" id="clientePanel">
+                        <div class="cliente-panel-header">
+                            <div class="cliente-panel-info">
+                                <div class="cliente-avatar" id="clienteAvatar">?</div>
+                                <div class="cliente-datos">
+                                    <h5 id="clienteNombre">-</h5>
+                                    <p><i class="bi bi-credit-card"></i> <span id="clienteCuit">-</span> · <i class="bi bi-telephone"></i> <span id="clienteTelefono">-</span></p>
+                                    <p><i class="bi bi-geo-alt"></i> <span id="clienteDomicilio">-</span></p>
+                                </div>
+                            </div>
+                            <div style="display:flex;align-items:center;">
+                                <div class="cliente-saldo-box"><div class="label">Saldo pendiente</div><div class="monto" id="clienteSaldo">$0</div></div>
+                                <button class="btn-cambiar-cliente" onclick="deseleccionarCliente()" title="Cambiar cliente"><i class="bi bi-x-lg"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="lago-card" id="sinClienteCard">
+                        <div class="lago-card-body">
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="sinCliente" onchange="toggleSinCliente()">
+                                <label class="form-check-label" for="sinCliente"><strong>Cobro sin cliente</strong> (a cuenta / varios)</label>
+                            </div>
+                            <div id="seccionBuscarCliente"><p class="text-muted mb-0"><i class="bi bi-info-circle"></i> Buscá un cliente en la barra superior o marcá "sin cliente"</p></div>
+                        </div>
+                    </div>
+                    <div class="lago-card">
+                        <div class="lago-card-header"><span><i class="bi bi-card-text"></i> Concepto del cobro</span></div>
+                        <div class="lago-card-body"><input type="text" class="form-control" id="conceptoCobro" placeholder="Ej: Pago factura, Seña, A cuenta..."></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="lago-card">
+                        <div class="lago-card-header"><span><i class="bi bi-cash-stack"></i> Importe a cobrar</span></div>
+                        <div class="lago-card-body">
+                            <div class="mb-3"><label class="form-label fw-bold">Monto total</label><input type="number" class="form-control form-control-lg text-center fw-bold" id="montoACobrar" placeholder="0.00" step="0.01" min="0" style="font-size:1.5rem;"></div>
+                            <label class="form-label fw-bold">Forma de pago</label>
+                            <div class="formas-pago-grid" id="formasPagoGrid"></div>
+                            <div id="sinFormasPago" class="text-center text-muted py-3"><i class="bi bi-wallet2"></i> Seleccioná una forma de pago</div>
+                            <div class="pagos-agregados" id="pagosAgregados" style="display:none;"><label class="form-label fw-bold">Pagos agregados</label><div id="listaPagos"></div></div>
+                            <div class="total-grande"><div class="etiqueta">TOTAL A COBRAR</div><div class="monto" id="displayTotalCobrar">$0.00</div></div>
+                            <div class="d-flex justify-content-between mt-3 small"><span>Subtotal: <strong id="displaySubtotal">$0</strong></span><span>Recargos: <strong id="displayRecargos">$0</strong></span></div>
+                            <div class="d-flex justify-content-between mt-2 small"><span>Ingresado: <strong id="displayIngresado">$0</strong></span><span>Diferencia: <strong id="displayDiferencia" class="text-danger">$0</strong></span></div>
+                            <button class="btn-lago w-100 mt-4" id="btnCobrar" onclick="procesarCobro()" disabled><i class="bi bi-check-circle"></i> Confirmar Cobro (F2)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB MOVIMIENTOS -->
+        <div class="tab-content" id="tab-movimientos" style="display:none;">
+            <div class="lago-card">
+                <div class="filtros-bar">
+                    <div class="filtro-grupo"><label>Desde:</label><input type="date" class="filtro-input" id="movFechaDesde"></div>
+                    <div class="filtro-grupo"><label>Hasta:</label><input type="date" class="filtro-input" id="movFechaHasta"></div>
+                    <div class="fecha-presets" id="movPresets">
+                        <button class="fecha-preset active" data-preset="hoy">Hoy</button>
+                        <button class="fecha-preset" data-preset="ayer">Ayer</button>
+                        <button class="fecha-preset" data-preset="semana">Semana</button>
+                        <button class="fecha-preset" data-preset="mes">Mes</button>
+                    </div>
+                    <div class="filtro-divider"></div>
+                    <div class="filtro-grupo"><label>Tipo:</label><select class="filtro-input" id="movTipo"><option value="">Todos</option><option value="ingreso">Ingresos</option><option value="egreso">Egresos</option></select></div>
+                    <div class="filtro-grupo"><label>Moneda:</label><select class="filtro-input" id="movMoneda"><option value="">Todas</option><option value="1">ARS</option><option value="2">USD</option></select></div>
+                    <div style="flex:1;"></div>
+                    <button class="btn-lago-outline btn-sm" onclick="cargarMovimientosCaja()"><i class="bi bi-search"></i> Buscar</button>
+                    <button class="btn-accion-secondary" onclick="exportarMovimientos()"><i class="bi bi-download"></i> Excel</button>
+                </div>
+                <div class="acciones-bar" id="movAccionesBar">
+                    <span class="contador"><span id="movSeleccionados">0</span> seleccionados</span>
+                    <button class="btn-accion-secondary" onclick="imprimirMovSeleccionados()"><i class="bi bi-printer"></i> Imprimir</button>
+                    <div style="flex:1;"></div>
+                    <button class="btn-accion-secondary" onclick="deseleccionarTodosMov()"><i class="bi bi-x"></i> Cancelar</button>
+                </div>
+                <div class="lago-card-header"><span><i class="bi bi-list-ul"></i> Movimientos del Turno</span>
+                    <div><button class="btn btn-success btn-sm me-2" onclick="agregarMovimientoManual('ingreso')"><i class="bi bi-plus-circle"></i> Ingreso</button><button class="btn btn-danger btn-sm" onclick="agregarMovimientoManual('egreso')"><i class="bi bi-dash-circle"></i> Egreso</button></div>
+                </div>
+                <div class="lago-card-body p-0">
+                    <div style="max-height:500px;overflow-y:auto;">
+                        <table class="tabla-lago"><thead><tr>
+                            <th class="checkbox-col"><input type="checkbox" id="movCheckAll" onchange="toggleTodosMov()"></th>
+                            <th>Hora</th><th>Tipo</th><th>Concepto</th><th class="text-end">Monto</th><th>Usuario</th><th>Acciones</th>
+                        </tr></thead><tbody id="tablaMovimientosCaja"><tr><td colspan="7" class="text-center text-muted py-5">Cargando...</td></tr></tbody></table>
+                    </div>
+                </div>
+                <div class="lago-card-body border-top">
+                    <div class="row">
+                        <div class="col-md-4"><div class="resumen-card success"><div class="etiqueta">Total Ingresos</div><div class="valor text-success" id="movTotalIngresos">$0</div></div></div>
+                        <div class="col-md-4"><div class="resumen-card danger"><div class="etiqueta">Total Egresos</div><div class="valor text-danger" id="movTotalEgresos">$0</div></div></div>
+                        <div class="col-md-4"><div class="resumen-card"><div class="etiqueta">Balance</div><div class="valor" id="movBalance">$0</div></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB HISTORIAL -->
+        <div class="tab-content" id="tab-historial" style="display:none;">
+            <div class="lago-card">
+                <div class="filtros-bar">
+                    <div class="filtro-grupo"><label>Desde:</label><input type="date" class="filtro-input" id="histFechaDesde"></div>
+                    <div class="filtro-grupo"><label>Hasta:</label><input type="date" class="filtro-input" id="histFechaHasta"></div>
+                    <div class="fecha-presets" id="histPresets">
+                        <button class="fecha-preset active" data-preset="hoy">Hoy</button>
+                        <button class="fecha-preset" data-preset="ayer">Ayer</button>
+                        <button class="fecha-preset" data-preset="semana">Semana</button>
+                        <button class="fecha-preset" data-preset="mes">Mes</button>
+                    </div>
+                    <div class="filtro-divider"></div>
+                    <div class="filtro-grupo"><label>Cliente:</label><input type="text" class="filtro-input" id="histClienteBuscar" placeholder="Buscar..." style="width:150px;"></div>
+                    <div style="flex:1;"></div>
+                    <button class="btn-lago-outline btn-sm" onclick="cargarHistorialRecibos()"><i class="bi bi-search"></i> Buscar</button>
+                    <button class="btn-accion-secondary" onclick="exportarHistorial()"><i class="bi bi-download"></i> Excel</button>
+                </div>
+                <div class="acciones-bar" id="histAccionesBar">
+                    <span class="contador"><span id="histSeleccionados">0</span> seleccionados</span>
+                    <button class="btn-accion-primary" onclick="imprimirRecibosSeleccionados()"><i class="bi bi-printer"></i> Imprimir</button>
+                    <button class="btn-accion-danger" onclick="anularRecibosSeleccionados()"><i class="bi bi-x-circle"></i> Anular</button>
+                    <div style="flex:1;"></div>
+                    <button class="btn-accion-secondary" onclick="deseleccionarTodosRecibos()"><i class="bi bi-x"></i> Cancelar</button>
+                </div>
+                <div class="lago-card-header"><span><i class="bi bi-receipt"></i> Historial de Recibos</span><span class="text-muted small" id="histCantidad">0 recibos</span></div>
+                <div class="lago-card-body p-0">
+                    <div style="max-height:500px;overflow-y:auto;">
+                        <table class="tabla-lago"><thead><tr>
+                            <th class="checkbox-col"><input type="checkbox" id="histCheckAll" onchange="toggleTodosRecibos()"></th>
+                            <th>Recibo</th><th>Fecha</th><th>Cliente</th><th class="text-end">Total</th><th>Aplicado</th><th>Cobrador</th><th>Estado</th><th>Acciones</th>
+                        </tr></thead><tbody id="tablaHistorial"><tr><td colspan="9" class="text-center text-muted py-5">Seleccioná un rango de fechas</td></tr></tbody></table>
+                    </div>
+                </div>
+                <div class="lago-card-body border-top">
+                    <div class="row">
+                        <div class="col-md-6"><div class="resumen-card success"><div class="etiqueta">Total Cobrado</div><div class="valor text-success" id="histTotalCobrado">$0</div></div></div>
+                        <div class="col-md-6"><div class="resumen-card"><div class="etiqueta">Total Aplicado</div><div class="valor" id="histTotalAplicado">$0</div></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB ARQUEO -->
+        <div class="tab-content" id="tab-arqueo" style="display:none;">
+            <div class="lago-card">
+                <div class="lago-card-header"><span><i class="bi bi-calculator"></i> Arqueo de Caja por Forma de Pago</span><span class="text-muted small" id="arqueoTurnoInfo"></span></div>
+                <div class="lago-card-body p-0" id="arqueoContenido">
+                    <div class="text-center py-5 text-muted"><i class="bi bi-lock fs-1 d-block mb-2"></i>Abrí la caja para realizar el arqueo</div>
+                </div>
+            </div>
+            <div class="lago-card" id="arqueoCierreCard" style="display:none;">
+                <div class="lago-card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-3 text-center">
+                            <div id="arqueoEstado" class="fs-3 fw-bold mb-2">-</div>
+                            <div id="arqueoDifTotal" class="fs-4 fw-bold">$0</div>
+                            <small class="text-muted">Diferencia total</small>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">Observaciones del cierre</label>
+                            <textarea class="form-control" id="arqueoObservaciones" rows="2" placeholder="Notas sobre diferencias..."></textarea>
+                            <div class="form-check mt-2" id="transferirCheckGroup" style="display:none;">
+                                <input class="form-check-input" type="checkbox" id="chkTransferirPrincipal" checked>
+                                <label class="form-check-label" for="chkTransferirPrincipal"><strong>Transferir a Caja Principal</strong></label>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button class="btn btn-danger btn-lg w-100" onclick="confirmarCierreCaja()" id="btnCerrarCaja" disabled><i class="bi bi-lock me-2"></i>Cerrar Caja</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <!-- TAB HISTORIAL CIERRES -->
+        <div class="tab-content" id="tab-cierres" style="display:none;">
+            <div class="lago-card">
+                <div class="filtros-bar">
+                    <div class="filtro-grupo"><label>Desde:</label><input type="date" class="filtro-input" id="cierresFechaDesde"></div>
+                    <div class="filtro-grupo"><label>Hasta:</label><input type="date" class="filtro-input" id="cierresFechaHasta"></div>
+                    <div class="fecha-presets" id="cierresPresets">
+                        <button class="fecha-preset" data-preset="hoy" onclick="aplicarPresetCierres('hoy')">Hoy</button>
+                        <button class="fecha-preset" data-preset="semana" onclick="aplicarPresetCierres('semana')">Semana</button>
+                        <button class="fecha-preset active" data-preset="mes" onclick="aplicarPresetCierres('mes')">Mes</button>
+                    </div>
+                    <div class="filtro-divider"></div>
+                    <div class="filtro-grupo"><label>Estado:</label><select class="filtro-input" id="cierresEstado"><option value="">Todos</option><option value="cerrado">Cerrados</option><option value="abierto">Abiertos</option></select></div>
+                    <div style="flex:1;"></div>
+                    <button class="btn-lago-outline btn-sm" onclick="cargarHistorialCierres()"><i class="bi bi-search"></i> Buscar</button>
+                </div>
+                <div class="lago-card-header"><span><i class="bi bi-journal-check"></i> Historial de Cierres de Caja</span><span class="text-muted small" id="cierresCantidad">0 turnos</span></div>
+                <div class="lago-card-body p-0">
+                    <div style="max-height:500px;overflow-y:auto;">
+                        <table class="tabla-lago"><thead><tr>
+                            <th>#</th><th>Caja</th><th>Apertura</th><th>Cierre</th><th>Cajero</th>
+                            <th class="text-end">Inicial</th><th class="text-end">Ingresos</th><th class="text-end">Egresos</th>
+                            <th class="text-end">Arqueo</th><th class="text-end">Diferencia</th><th>Estado</th><th>Acciones</th>
+                        </tr></thead><tbody id="tablaCierres"><tr><td colspan="12" class="text-center text-muted py-5">Seleccioná un rango de fechas y buscá</td></tr></tbody></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <div class="atajos-flotante"><span><kbd>F2</kbd> Confirmar</span><span><kbd>F3</kbd> Buscar</span><span><kbd>F4</kbd> Limpiar</span><span><kbd>Esc</kbd> Cancelar</span></div>
+
+    <!-- MODALES -->
+    <div class="modal fade modal-lago" id="modalAbrirCaja" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-unlock me-2"></i>Abrir Caja</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <div class="mb-3"><label class="form-label fw-bold">Caja</label><select class="form-select form-select-lg" id="selectCajaAbrir"><option>Cargando...</option></select></div>
+            <div class="mb-3"><label class="form-label fw-bold">Monto Inicial ARS ($)</label><input type="number" class="form-control form-control-lg" id="montoInicialARS" value="0" min="0" step="0.01"></div>
+            <div class="mb-3"><label class="form-label fw-bold">Monto Inicial USD (US$)</label><input type="number" class="form-control form-control-lg" id="montoInicialUSD" value="0" min="0" step="0.01"></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-success" onclick="abrirCaja()"><i class="bi bi-unlock me-2"></i>Abrir Caja</button></div>
+    </div></div></div>
+
+    <div class="modal fade modal-lago" id="modalDetallePago" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="modalDetalleTitulo">Detalle de Pago</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <div class="mb-3"><label class="form-label fw-bold">Monto</label><input type="number" class="form-control" id="detalleMontoInput" step="0.01" min="0"></div>
+            <div class="mb-3"><label class="form-label fw-bold">Moneda</label><select class="form-select" id="detalleMonedaInput"><option value="1">ARS - Pesos</option><option value="2">USD - Dólares</option></select></div>
+            <div class="mb-3" id="detalleTarjetaGroup" style="display:none;"><label class="form-label fw-bold">Tarjeta</label><select class="form-select" id="detalleTarjetaInput"></select></div>
+            <div class="mb-3" id="detalleCuotasGroup" style="display:none;"><label class="form-label fw-bold">Cuotas</label><select class="form-select" id="detalleCuotasInput"><option value="1">1 cuota</option><option value="3">3 cuotas</option><option value="6">6 cuotas</option><option value="12">12 cuotas</option></select></div>
+            <div class="mb-3" id="detalleBancoGroup" style="display:none;"><label class="form-label fw-bold">Banco</label><select class="form-select" id="detalleBancoInput"></select></div>
+            <div class="mb-3" id="detalleReferenciaGroup" style="display:none;"><label class="form-label fw-bold">Referencia / Nro. Operación</label><input type="text" class="form-control" id="detalleReferenciaInput" placeholder="Número de comprobante"></div>
+            <div id="detalleRecargoInfo"></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn-lago" onclick="agregarPagoDetalle()"><i class="bi bi-plus-circle"></i> Agregar</button></div>
+    </div></div></div>
+
+    <div class="modal fade modal-lago" id="modalMovimiento" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="modalMovimientoTitulo">Movimiento Manual</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <input type="hidden" id="movimientoTipo">
+            <div class="mb-3"><label class="form-label fw-bold">Monto</label><input type="number" class="form-control form-control-lg" id="movimientoMonto" step="0.01" min="0"></div>
+            <div class="mb-3"><label class="form-label fw-bold">Moneda</label><select class="form-select" id="movimientoMoneda"><option value="1">ARS - Pesos</option><option value="2">USD - Dólares</option></select></div>
+            <div class="mb-3"><label class="form-label fw-bold">Concepto</label><input type="text" class="form-control" id="movimientoConcepto" placeholder="Descripción del movimiento"></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn-lago" onclick="guardarMovimientoManual()"><i class="bi bi-check"></i> Registrar</button></div>
+    </div></div></div>
+
+    
+    <!-- MODAL DETALLE TURNO -->
+    <div class="modal fade modal-lago" id="modalDetalleTurno" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-journal-check me-2"></i>Detalle de Cierre</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body" id="modalDetalleTurnoBody"><div class="text-center py-4">Cargando...</div></div>
+    </div></div></div>
+
+    <!-- MODAL DETALLE GENÉRICO -->
+    <div class="modal fade modal-lago" id="modalDetalleGenerico" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="modalDetalleGenericoTitulo">Detalle</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body" id="modalDetalleGenericoBody"><div class="text-center py-4">Cargando...</div></div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button><button type="button" class="btn btn-outline-primary" id="btnImprimirDetalle" style="display:none;" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button></div>
+    </div></div></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/tesoreria.js"></script>
+    <script src="js/connection-indicator.js"></script>
+</body>
+</html>

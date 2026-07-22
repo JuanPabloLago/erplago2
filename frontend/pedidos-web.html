@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script src="js/config.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedidos Web - ERP LAGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+            --color-primary: #667eea;
+            --color-primary-dark: #764ba2;
+        }
+        body { background: #f4f6fb; font-size: 14px; }
+        .navbar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .navbar-brand, .navbar-nav .nav-link { color: #fff !important; }
+        .navbar-nav .nav-link.active { font-weight: 600; text-decoration: underline; }
+
+        .metric-card {
+            background: #fff; border-radius: 10px; padding: 14px 18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.06);
+            border-left: 4px solid var(--color-primary);
+        }
+        .metric-card .label { font-size: 11px; color: #6c757d; text-transform: uppercase; letter-spacing: .5px; }
+        .metric-card .value { font-size: 26px; font-weight: 700; color: #2c3e50; line-height: 1.1; }
+        .metric-card.warn  { border-left-color: #ffc107; }
+        .metric-card.ok    { border-left-color: #28a745; }
+        .metric-card.info  { border-left-color: #17a2b8; }
+
+        .nav-tabs .nav-link {
+            color: #6c757d; border: none; border-bottom: 3px solid transparent;
+            padding: 10px 18px; font-weight: 500;
+        }
+        .nav-tabs .nav-link.active {
+            color: var(--color-primary); border-bottom-color: var(--color-primary);
+            background: transparent;
+        }
+
+        .table-densa { font-size: 13px; }
+        .table-densa thead th {
+            background: #f8f9fa; font-weight: 600; font-size: 11px;
+            text-transform: uppercase; letter-spacing: .5px; color: #6c757d;
+            border-bottom: 2px solid #dee2e6; padding: 8px 10px;
+        }
+        .table-densa tbody td { padding: 8px 10px; vertical-align: middle; }
+        .table-densa tbody tr { cursor: pointer; transition: background .15s; }
+        .table-densa tbody tr:hover { background: #eef1ff; }
+        .table-densa tbody tr.selected { background: #dde3ff; }
+
+        .badge-estado { font-size: 11px; padding: 4px 8px; border-radius: 10px; font-weight: 600; }
+        .badge-pendiente { background: #fff3cd; color: #856404; }
+        .badge-aprobado  { background: #d4edda; color: #155724; }
+        .badge-rechazado { background: #f8d7da; color: #721c24; }
+
+        .horas-espera { font-size: 11px; color: #6c757d; }
+        .horas-espera.urgente { color: #dc3545; font-weight: 600; }
+
+        /* Drawer lateral derecho */
+        .drawer-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,.4);
+            z-index: 1040; display: none;
+        }
+        .drawer-overlay.show { display: block; }
+        .drawer {
+            position: fixed; top: 0; right: -560px; width: 560px; height: 100vh;
+            background: #fff; box-shadow: -4px 0 16px rgba(0,0,0,.15);
+            transition: right .25s ease; z-index: 1050; overflow-y: auto;
+        }
+        .drawer.show { right: 0; }
+        .drawer-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff; padding: 14px 20px; position: sticky; top: 0; z-index: 2;
+        }
+        .drawer-body { padding: 18px 20px; }
+
+        .item-row {
+            display: grid; grid-template-columns: 1fr 70px 90px 90px 30px;
+            gap: 8px; align-items: center;
+            padding: 8px; border-bottom: 1px solid #eef0f5; font-size: 13px;
+        }
+        .item-row .nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .item-row input { height: 28px; font-size: 13px; padding: 2px 6px; text-align: right; }
+
+        .shortcut-bar {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: #2c3e50; color: #fff; font-size: 11px;
+            padding: 6px 16px; display: flex; gap: 16px; justify-content: center;
+            box-shadow: 0 -2px 8px rgba(0,0,0,.15); z-index: 100;
+        }
+        .shortcut-bar kbd {
+            background: #34495e; color: #fff; padding: 1px 6px;
+            border-radius: 3px; font-size: 10px; margin-right: 4px;
+        }
+
+        .empty { text-align: center; padding: 40px; color: #95a5a6; font-size: 14px; }
+        .spinner-mini { width: 14px; height: 14px; border-width: 2px; }
+    </style>
+</head>
+<body>
+
+<!-- ═══ NAVBAR ═══ -->
+<nav class="navbar navbar-expand-lg">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold" href="dashboard.html">
+            <i class="bi bi-shop"></i> ERP LAGO
+        </a>
+        <ul class="navbar-nav me-auto">
+            <li class="nav-item"><a class="nav-link" href="dashboard.html">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="venta-rapida.html">Venta Rapida</a></li>
+            <li class="nav-item"><a class="nav-link active" href="pedidos-web.html">Pedidos Web</a></li>
+            <li class="nav-item"><a class="nav-link" href="pedidos.html">Pedidos</a></li>
+        </ul>
+        <span class="navbar-text text-white me-3" id="userInfo"></span>
+        <button class="btn btn-outline-light btn-sm" onclick="logout()">
+            <i class="bi bi-box-arrow-right"></i> Salir
+        </button>
+    </div>
+</nav>
+
+<div class="container-fluid mt-3" style="padding-bottom: 50px;">
+
+    <!-- ═══ METRICAS ═══ -->
+    <div class="row g-2 mb-3">
+        <div class="col-md-3"><div class="metric-card warn">
+            <div class="label">Pendientes Revision</div>
+            <div class="value" id="m_pendientes">—</div>
+        </div></div>
+        <div class="col-md-3"><div class="metric-card info">
+            <div class="label">Carritos Abandonados</div>
+            <div class="value" id="m_abandonados">—</div>
+        </div></div>
+        <div class="col-md-3"><div class="metric-card">
+            <div class="label">Clientes Web</div>
+            <div class="value" id="m_clientes">—</div>
+        </div></div>
+        <div class="col-md-3"><div class="metric-card ok">
+            <div class="label">Total Pendiente $</div>
+            <div class="value" id="m_total">—</div>
+        </div></div>
+    </div>
+
+    <!-- ═══ TABS ═══ -->
+    <ul class="nav nav-tabs" id="tabsPedidosWeb">
+        <li class="nav-item">
+            <button class="nav-link active" data-tab="pendientes">
+                <i class="bi bi-clock-history"></i> Pendientes <span class="badge bg-warning text-dark ms-1" id="badge_pendientes">0</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-tab="abandonados">
+                <i class="bi bi-cart-x"></i> Carritos Abandonados <span class="badge bg-info ms-1" id="badge_abandonados">0</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-tab="clientes">
+                <i class="bi bi-people"></i> Clientes Web <span class="badge bg-secondary ms-1" id="badge_clientes">0</span>
+            </button>
+        </li>
+    </ul>
+
+    <!-- ═══ CONTENIDO TABS ═══ -->
+    <div class="bg-white rounded-bottom shadow-sm p-3">
+
+        <!-- TAB: PENDIENTES -->
+        <div id="tab_pendientes">
+            <div class="d-flex gap-2 align-items-center mb-2 flex-wrap">
+                <select id="filtroEstadoPedidosWeb" class="form-select form-select-sm" style="max-width:240px"
+                        onchange="cargarPendientes()">
+                    <option value="pendientes" selected>Pendientes (estado 20)</option>
+                    <option value="urgentes_24h">⏰ Urgentes (+24h sin atender)</option>
+                    <option value="aprobados">✓ Aprobados</option>
+                    <option value="rechazados">✗ Rechazados / Cancelados</option>
+                    <option value="todos">Todos los web</option>
+                </select>
+                <input type="text" id="filtroPendientes" class="form-control form-control-sm"
+                       placeholder="🔍 cliente, nro pedido, tel..." style="max-width: 280px;">
+                <button class="btn btn-sm btn-outline-primary" onclick="cargarPendientes()">
+                    <i class="bi bi-arrow-clockwise"></i> Refrescar
+                </button>
+                <span class="text-muted small ms-auto" id="contadorPendientes"></span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-densa table-hover mb-0">
+                    <thead><tr>
+                        <th>Nº</th><th>Cliente</th><th>Contacto</th>
+                        <th class="text-end">Items</th><th class="text-end">Total</th>
+                        <th>Entrega</th><th>Espera</th><th class="text-center">Acciones</th>
+                    </tr></thead>
+                    <tbody id="tbody_pendientes"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB: CARRITOS ABANDONADOS -->
+        <div id="tab_abandonados" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <input type="text" id="filtroAbandonados" class="form-control form-control-sm" 
+                       placeholder="🔍 Buscar cliente..." style="max-width: 380px;">
+                <button class="btn btn-sm btn-outline-primary" onclick="cargarAbandonados()">
+                    <i class="bi bi-arrow-clockwise"></i> Refrescar
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-densa table-hover mb-0">
+                    <thead><tr>
+                        <th>Cliente</th><th>Contacto</th>
+                        <th class="text-end">Items</th><th class="text-end">Total Est.</th>
+                        <th>Ultima act.</th><th class="text-center">Acciones</th>
+                    </tr></thead>
+                    <tbody id="tbody_abandonados"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB: CLIENTES WEB -->
+        <div id="tab_clientes" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <input type="text" id="filtroClientes" class="form-control form-control-sm" 
+                       placeholder="🔍 Buscar cliente..." style="max-width: 380px;">
+                <button class="btn btn-sm btn-outline-primary" onclick="cargarClientes()">
+                    <i class="bi bi-arrow-clockwise"></i> Refrescar
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-densa table-hover mb-0">
+                    <thead><tr>
+                        <th>Razon Social</th><th>Usuario Web</th><th>Email</th><th>Telefono</th>
+                        <th>Origen</th><th>Estado</th><th>Alta</th><th>Ultimo login</th>
+                        <th class="text-center">Acciones</th>
+                    </tr></thead>
+                    <tbody id="tbody_clientes"><tr><td colspan="9" class="empty">Cargando...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ DRAWER DETALLE ═══ -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="cerrarDrawer()"></div>
+<aside class="drawer" id="drawer">
+    <div class="drawer-header d-flex justify-content-between align-items-center">
+        <div>
+            <div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:1px">Pedido Web</div>
+            <h5 class="mb-0" id="d_titulo">—</h5>
+        </div>
+        <button class="btn btn-sm btn-outline-light" onclick="cerrarDrawer()">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+    <div class="drawer-body" id="drawerBody">Cargando...</div>
+</aside>
+
+<!-- ═══ SHORTCUT BAR ═══ -->
+<div class="shortcut-bar">
+    <span><kbd>F2</kbd>Aprobar</span>
+    <span><kbd>F3</kbd>Buscar</span>
+    <span><kbd>R</kbd>Rechazar (en drawer)</span>
+    <span><kbd>Esc</kbd>Cerrar drawer</span>
+    <span><kbd>↑↓</kbd>Navegar tabla</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/pedidos-web.js"></script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+ id_cliente |           razon_social           | id_pedido | nro_pedido |     estado     | fecha_pedido | a_compensar 
+------------+----------------------------------+-----------+------------+----------------+--------------+-------------
+       2688 | ADOLFINA DELCARMEN ORTIZ         |     13331 |      11005 | Cancelado      | 2026-06-26   |    14000.00
+       4523 | AGUIRRE GUILLERMO RAMON          |     12900 |      10622 | Cancelado      | 2026-06-24   |    91600.00
+       5991 | AIDELA NOEMI DUARTE              |      8546 |       6911 | Cancelado      | 2026-05-16   |    81900.00
+       5926 | ANDREA PAZ                       |     12072 |       9887 | Cancelado      | 2026-06-16   |    89400.00
+       5971 | ANDRES BENITEZ                   |      6223 |       5153 | Cancelado      | 2026-04-28   |   674400.80
+       1577 | ANDRES PEREIRA                   |     12374 |      10154 | Cancelado      | 2026-06-18   |   122760.00
+       3554 | BASUALDO ABEL SANTIAGO           |     14160 |      11702 | Cancelado      | 2026-07-03   |   113760.00
+       2048 | CANDELA RAMIREZ                  |      7573 |       6178 | Cancelado      | 2026-05-11   |    35200.01
+       5958 | CAÑETE KAREN                     |     11341 |       9246 | Cancelado      | 2026-06-09   |    35000.00
+        134 | CORRALON C.G                     |      5936 |       4943 | Cancelado      | 2026-04-27   |   575999.69
+         19 | CORRALON C.G                     |      7521 |       6143 | Cancelado      | 2026-05-09   |    95999.95
+       4025 | CORRALON LA PIEDRA               |      5743 |       4789 | Cancelado      | 2026-04-25   |  1151999.00
+       4025 | CORRALON LA PIEDRA               |      5736 |       4783 | Cancelado      | 2026-04-25   |  1151999.00
+       4025 | CORRALON LA PIEDRA               |      6739 |       5553 | Cancelado      | 2026-05-04   |   403000.24
+       4025 | CORRALON LA PIEDRA               |      7005 |       5752 | Cancelado      | 2026-05-05   |   422499.94
+       4025 | CORRALON LA PIEDRA               |      7189 |       5884 | Cancelado      | 2026-05-07   |   100799.58
+       4025 | CORRALON LA PIEDRA               |     10129 |       8209 | Anulado por NC | 2026-05-30   |   288000.00
+       4025 | CORRALON LA PIEDRA               |     12392 |      10172 | Cancelado      | 2026-06-19   |   600000.00
+        931 | DANIEL                           |      6152 |       5099 | Cancelado      | 2026-04-28   |    47399.98
+        992 | DANIEL                           |     12559 |      10626 | Cancelado      | 2026-06-20   |   214000.00
+        874 | DASILVA EPIFANIO                 |     11729 |       9584 | Cancelado      | 2026-06-12   |    40000.00
+       4289 | DAVID VILLEGAS                   |     13716 |      11337 | Cancelado      | 2026-06-30   |   200000.00
+        968 | ELIANA FIGUEROA                  |     13050 |      10760 | Cancelado      | 2026-06-24   |    18800.00
+       5315 | ESCOBAR JULIO CESAR              |      7025 |       5769 | Cancelado      | 2026-05-05   |    44000.02
+       4893 | FLORENTINO AICA                  |     12351 |      10136 | Cancelado      | 2026-06-18   |    49000.00
+        384 | GASTON                           |     13058 |      10767 | Cancelado      | 2026-06-24   |    43500.00
+        476 | GONZALES DELIA                   |     13692 |      11305 | Cancelado      | 2026-06-30   |   201500.00
+       5970 | GONZALES ELIZABETH               |      6221 |       5149 | Cancelado      | 2026-04-28   |     5900.00
+        159 | JAVIER GUSTAVO MOLINA            |     10833 |       8821 | Cancelado      | 2026-06-05   |   215600.00
+       2064 | JESUS QUIROGA                    |     11353 |       9258 | Cancelado      | 2026-06-10   |    84000.00
+        237 | JOSE GONZALEZ                    |     10103 |       8187 | Anulado por NC | 2026-05-30   |    20300.00
+       4643 | JUANA DIAZ                       |      6190 |       5126 | Cancelado      | 2026-04-28   |    33899.96
+       2733 | JUAN FLORES                      |     14214 |      11750 | Cancelado      | 2026-07-03   |   346500.00
+       2733 | JUAN FLORES                      |     14210 |      11748 | Cancelado      | 2026-07-03   |   325000.00
+       6049 | JUANITO HUALLPA                  |     13348 |      11021 | Cancelado      | 2026-06-26   |   338650.00
+       3623 | JULIA LUCERO                     |     12791 |      10532 | Cancelado      | 2026-06-23   |    58400.00
+       4785 | JULIO SOTO                       |     10339 |       8396 | Cancelado      | 2026-06-01   |   109600.00
+       5980 | LA MANTOVANA SERVICIOS GENERALES |      6871 |       5649 | Anulado por NC | 2026-05-04   |   320480.18
+       5993 | LEANDRO GORDILLO                 |      8952 |       7233 | Cancelado      | 2026-05-20   |   164400.00
+       3930 | LEILY LESCANO                    |     11832 |       9669 | Cancelado      | 2026-06-13   |   140000.00
+       1840 | MARTINEZ JOSE                    |      5778 |       4818 | Cancelado      | 2026-04-25   |    78400.00
+       5314 | MARTIN JULIO                     |     12407 |      10181 | Cancelado      | 2026-06-19   |    63800.00
+       5314 | MARTIN JULIO                     |     12771 |      10516 | Cancelado      | 2026-06-23   |    63800.00
+        825 | MENDOZA CAROLINA BELEN           |     13776 |      11376 | Cancelado      | 2026-06-30   |   163200.00
+       2752 | MIRIAN                           |      9822 |       7945 | Cancelado      | 2026-05-28   |   349340.00
+       2752 | MIRIAN                           |     14002 |      11563 | Cancelado      | 2026-07-02   |   206000.00
+        862 | MONICA                           |     11521 |       9403 | Cancelado      | 2026-06-11   |    18600.00
+       3203 | NATALIA                          |     11174 |       9105 | Cancelado      | 2026-06-08   |   105600.00
+       3203 | NATALIA                          |     13043 |      10753 | Cancelado      | 2026-06-24   |    77200.00
+       1716 | OSCAR OVEJERO                    |      8974 |       7251 | Cancelado      | 2026-05-20   |    20999.99
+       5438 | ROSA CONDORI                     |     10259 |       8327 | Cancelado      | 2026-06-01   |   121200.00
+       5513 | ROSANA                           |     10557 |       8586 | Cancelado      | 2026-06-03   |       40.00
+       3248 | SERAFIN ORTIZ                    |      7742 |       6304 | Cancelado      | 2026-05-12   |   204700.02
+(53 rows)
+

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{{tipo_nota_label}} {{letra}} {{nota.numero_completo}}</title>
+    <style>
+        @page { size: A4; margin: 15mm; }
+        body { font-family: Arial, sans-serif; font-size: 11px; color: #333; margin: 0; padding: 15px; }
+        .header { display: flex; justify-content: space-between; border: 2px solid #000; margin-bottom: 10px; }
+        .header-left, .header-right { width: 45%; padding: 10px; }
+        .header-center { width: 10%; text-align: center; position: relative; }
+        .letra-tipo {
+            background: #fff; border: 2px solid #000; font-size: 28px; font-weight: bold;
+            width: 45px; height: 45px; line-height: 45px; text-align: center;
+            margin: 0 auto; position: relative; top: -15px;
+        }
+        .letra-codigo { font-size: 9px; text-align: center; margin-top: -10px; }
+        .empresa-nombre { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
+        .factura-numero { font-size: 14px; font-weight: bold; }
+        .factura-tipo { font-size: 12px; }
+        .seccion { border: 1px solid #ccc; padding: 8px; margin-bottom: 8px; }
+        .referencia { background: #f0f6ff; border-left: 3px solid #2563eb; padding: 6px 10px; margin-bottom: 8px; font-size: 11px; }
+        .referencia strong { color: #1e40af; }
+        .motivo { background: #fffbea; border-left: 3px solid #f59e0b; padding: 6px 10px; margin-bottom: 8px; font-size: 11px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th { background: #f0f0f0; border: 1px solid #ccc; padding: 5px; font-size: 10px; text-align: center; }
+        td { border: 1px solid #ccc; padding: 4px; font-size: 10px; }
+        .totales { text-align: right; margin-top: 10px; }
+        .total-final { font-size: 18px; font-weight: bold; border-top: 2px solid #000; padding-top: 5px; }
+        .footer-cae { border-top: 2px solid #000; padding-top: 8px; margin-top: 15px; display: flex; justify-content: space-between; page-break-inside: avoid; }
+        .qr-container { text-align: center; }
+        .qr-container img { width: 120px; height: 120px; }
+        .no-fiscal-warning { background: #fee2e2; border: 1px solid #ef4444; color: #991b1b; padding: 6px 10px; margin-bottom: 10px; font-size: 11px; text-align: center; }
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display: none !important; } }
+    </style>
+</head>
+<body>
+
+    <!-- ENCABEZADO AFIP TRIPARTITO -->
+    <div class="header">
+        <div class="header-left">
+            <div class="empresa-nombre">{{empresa.razon_social}}</div>
+            <div>CUIT: {{empresa.cuit_formato}}</div>
+            <div>{{empresa.domicilio_fiscal}}</div>
+            <div>Condición frente al IVA: {{empresa.condicion_iva}}</div>
+            {{#if empresa.ingresos_brutos}}<div>IIBB: {{empresa.ingresos_brutos}}</div>{{/if}}
+            {{#if empresa.fecha_inicio_actividades_fmt}}<div>Inicio Act.: {{empresa.fecha_inicio_actividades_fmt}}</div>{{/if}}
+        </div>
+        <div class="header-center">
+            <div class="letra-tipo">{{letra}}</div>
+            <div class="letra-codigo">Cód. {{nota.codigo_tipo_padded}}</div>
+        </div>
+        <div class="header-right" style="text-align:right;">
+            <div class="factura-tipo">{{tipo_nota_label}}</div>
+            <div class="factura-numero">{{nota.numero_completo}}</div>
+            <div>Fecha: {{nota.fecha_emision_fmt}}</div>
+            <div>Condición de Venta: {{nota.condicion_venta_label}}</div>
+        </div>
+    </div>
+
+    {{#unless nota.cae}}
+    <div class="no-fiscal-warning">⚠ Comprobante sin CAE — no válido como documento fiscal</div>
+    {{/unless}}
+
+    <!-- DATOS CLIENTE -->
+    <div class="seccion">
+        <div><strong>Señor(es):</strong> {{cliente.razon_social}}</div>
+        <div><strong>CUIT:</strong> {{cliente.cuit_cuil}} &nbsp;&nbsp; <strong>Cond. IVA:</strong> {{cliente.condicion_iva}}</div>
+        <div><strong>Domicilio:</strong> {{cliente.domicilio}}</div>
+    </div>
+
+    <!-- COMPROBANTE ORIGEN (específico NC) -->
+    {{#if factura_origen}}
+    <div class="referencia">
+        <strong>Comprobante origen:</strong> {{factura_origen.tipo_label}} {{factura_origen.numero_completo}}{{#if factura_origen.fecha_emision_fmt}} · {{factura_origen.fecha_emision_fmt}}{{/if}}
+    </div>
+    {{/if}}
+
+    <!-- MOTIVO (específico NC) -->
+    <div class="motivo"><strong>Motivo:</strong> {{nota.motivo}}</div>
+
+    <!-- ITEMS — discriminación IVA según letra -->
+    <table>
+        <thead>
+            <tr>
+                <th style="text-align:left;">Descripción</th>
+                <th>Cant.</th>
+                <th>Precio Unit.</th>
+                {{#if discrimina_iva}}<th>IVA %</th><th>Subtotal</th><th>IVA</th>{{/if}}
+                <th>Importe</th>
+            </tr>
+        </thead>
+        <tbody>
+        {{#each items}}
+            <tr>
+                <td>{{descripcion}}</td>
+                <td style="text-align:center;">{{cantidad_fmt}}</td>
+                <td style="text-align:right;">{{precio_unitario_fmt}}</td>
+                {{#if @root.discrimina_iva}}
+                <td style="text-align:center;">{{iva_porcentaje_fmt}}%</td>
+                <td style="text-align:right;">{{subtotal_fmt}}</td>
+                <td style="text-align:right;">{{iva_calculado_fmt}}</td>
+                {{/if}}
+                <td style="text-align:right;">{{total_fmt}}</td>
+            </tr>
+        {{/each}}
+        </tbody>
+    </table>
+
+    <!-- TOTALES — discriminado o IVA contenido según letra -->
+    <div class="totales">
+        {{#if discrimina_iva}}
+            <div>Subtotal: {{nota.subtotal_fmt}}</div>
+            <div>IVA 21%: {{nota.iva_contenido_fmt}}</div>
+        {{else}}
+            <div style="font-size:9px;color:#666;">* IVA incluido en los importes</div>
+            <div style="font-size:9px;color:#333;margin-top:2px;">IVA Contenido: {{nota.iva_contenido_fmt}} — Régimen de Transparencia Fiscal al Consumidor (Ley 27.743)</div>
+        {{/if}}
+        <div class="total-final">TOTAL: {{nota.total_fmt}}</div>
+    </div>
+
+    <!-- CAE + QR (atómico, no se separa entre páginas) -->
+    {{#if nota.cae}}
+    <div class="footer-cae">
+        <div>
+            <div><strong>CAE:</strong> {{nota.cae}}</div>
+            <div><strong>Vto CAE:</strong> {{nota.vencimiento_cae_fmt}}</div>
+        </div>
+        <div class="qr-container">
+            {{#if qr_data_uri}}<img src="{{qr_data_uri}}" alt="QR AFIP">{{else}}<div style="width:120px;height:120px;border:1px solid #ccc;text-align:center;font-size:8px;color:#999;padding-top:50px;">QR no disponible</div>{{/if}}
+            <div style="font-size:8px;">Comprobante autorizado por AFIP</div>
+        </div>
+    </div>
+    {{/if}}
+
+    <script>window.onload = function() { setTimeout(function() { window.print(); }, 250); };</script>
+</body>
+</html>

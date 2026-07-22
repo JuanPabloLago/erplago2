@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="js/config.js"></script>
+    <title>Venta Rápida - ERP LAGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/lago-variables.css">
+    <link rel="stylesheet" href="css/erp-lago-styles.css">
+    <link rel="stylesheet" href="css/buscador-clientes.css">
+    <link rel="stylesheet" href="css/venta-rapida.css">
+</head>
+<body>
+    <script src="js/connection-indicator.js"></script>
+    <nav class="vr-navbar">
+        <a href="dashboard.html"><i class="bi bi-arrow-left-circle"></i> Volver</a>
+        <span class="vr-navbar-title"><i class="bi bi-cart3"></i> VENTA RÁPIDA</span>
+        <span class="vr-navbar-user"><i class="bi bi-person-circle"></i> <span id="usuarioNombre"></span></span>
+    </nav>
+    <div class="vr-search">
+        <div class="vr-search-field" style="flex:2;">
+            <span class="vr-search-label"><i class="bi bi-upc-scan"></i> Código / Buscar</span>
+            <input type="text" id="codigoProducto" placeholder="ESCANEAR O BUSCAR..." autocomplete="off" autofocus>
+            <div id="sugerenciasProductos"></div>
+        </div>
+        <div class="vr-search-lista" style="flex:1.2;">
+            <select id="listaPrecios"><option>Cargando...</option></select>
+        </div>
+        <div class="vr-search-cliente" style="flex:2;">
+            <input type="text" id="clienteNombre" value="Consumidor Final" readonly>
+            <button id="btnBuscarCliente" onclick="buscarCliente()" title="F3"><i class="bi bi-search"></i></button>
+        </div>
+        <input type="hidden" id="idCliente">
+    </div>
+    <div id="infoClienteExtra" class="vr-cliente-info" style="display:none;">
+        <span id="clienteDireccion"><i class="bi bi-geo-alt"></i> <span></span></span>
+        &nbsp;·&nbsp;
+        <span id="clienteTelefono"><i class="bi bi-telephone"></i> <span></span></span>
+    </div>
+    <div class="vr-layout">
+        <div class="vr-table-panel">
+            <div class="vr-table-header">
+                <span><i class="bi bi-cart-check"></i> Items del pedido</span>
+                <span class="badge" id="cantidadItems">0</span>
+            </div>
+            <div id="tablaScroll">
+                <table class="vr-tabla tabla-compacta">
+                    <thead><tr>
+                        <th style="width:3%;text-align:center;">#</th>
+                        <th style="width:8%;">Código</th>
+                        <th style="width:25%;">Producto</th>
+                        <th style="width:10%;text-align:center;">Cant.</th>
+                        <th style="width:12%;text-align:right;">P.Unit</th>
+                        <th style="width:8%;text-align:center;">Dto%</th>
+                        <th style="width:14%;text-align:right;">Subtotal</th>
+                        <th style="width:5%;text-align:center;">×</th>
+                    </tr></thead>
+                    <tbody id="itemsVentaBody">
+                        <tr id="sinItems"><td colspan="8" class="text-center py-4" style="color:var(--lago-text-muted);"><i class="bi bi-inbox" style="font-size:28px;"></i><br><small>Escaneá código o buscá para agregar</small></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="vr-sidebar resumen-contenedor">
+            <div class="vr-resumen card-resumen">
+                <div class="vr-resumen-titulo">Resumen</div>
+                <div class="vr-tipo-factura"><span style="font-weight:600;">Tipo factura</span><span id="tipoFacturaIndicador" class="badge" style="background:var(--lago-text-muted);color:#fff;font-size:11px;">B/C</span></div>
+                <div class="vr-resumen-linea"><span class="vr-resumen-label">Subtotal</span><span class="vr-resumen-valor" id="resumenSubtotal">$0.00</span></div>
+                <div class="vr-resumen-dto"><label><i class="bi bi-percent"></i> Dto.Gral</label><input type="number" id="descuentoGeneralPorcentaje" min="0" max="100" step="0.01" value="0" onchange="calcularTotal()"><input type="hidden" id="descuentoGeneralMonto" value="0"></div>
+                <div class="vr-resumen-linea" id="resumenRecargoLinea" style="display:none;"><span class="vr-resumen-label" style="color:var(--lago-warning);"><i class="bi bi-plus-circle"></i> Recargo</span><span class="vr-resumen-valor" style="color:var(--lago-warning);" id="recargoCuotasLabel">0%</span><input type="hidden" id="recargoCuotasPorcentaje" value="0"></div>
+                <div class="vr-resumen-linea" id="resumenRecargoMontoLinea" style="display:none;"><span class="vr-resumen-label" style="color:var(--lago-warning);">Recargo cuotas</span><span class="vr-resumen-valor" style="color:var(--lago-warning);" id="resumenRecargoMonto">+$0.00</span></div>
+                <div class="vr-resumen-linea" id="resumenDescuentosLinea" style="display:none;"><span class="vr-resumen-label">Descuentos</span><span class="vr-resumen-valor" style="color:var(--lago-danger);" id="resumenDescuentos">-$0.00</span></div>
+                <div class="vr-resumen-linea"><span class="vr-resumen-label">Neto</span><span class="vr-resumen-valor" id="resumenNeto">$0.00</span></div>
+                <div class="vr-resumen-linea vr-resumen-iva"><span class="vr-resumen-label">IVA Incluido:</span><span class="vr-resumen-valor" id="resumenIVA">$0.00</span></div>
+                <div class="vr-resumen-total" id="totalVentaFinal">$0.00</div>
+            </div>
+            <button class="vr-btn-guardar" id="btnGuardar" onclick="guardarVenta()" title="F2"><i class="bi bi-check-circle-fill"></i> GUARDAR <kbd>F2</kbd></button>
+            <div class="vr-acciones">
+                <button class="btn btn-outline-warning w-100" id="btnLimpiar" onclick="limpiarVenta()"><i class="bi bi-x-circle"></i> Cancelar <kbd>Esc</kbd></button>
+                <div class="d-flex gap-2"><button class="btn btn-outline-info flex-fill" id="btnVistaPrevia" onclick="vistaPrevia()"><i class="bi bi-eye"></i> Cotización</button><button class="btn btn-outline-secondary flex-fill" id="btnSuspender" onclick="suspenderVenta()"><i class="bi bi-pause-circle"></i> Suspender</button></div>
+                <button class="btn btn-info w-100" onclick="mostrarSuspendidos()"><i class="bi bi-clipboard-check"></i> Recuperar</button>
+            </div>
+            <div><div class="input-group input-group-sm"><span class="input-group-text" style="font-size:11px;padding:2px 6px;"><i class="bi bi-chat-left-text"></i></span><input type="text" id="observaciones" class="form-control vr-obs-input" placeholder="Observaciones / Notas..."></div></div>
+            <div class="vr-pagos">
+                <div class="vr-pagos-titulo"><i class="bi bi-cash-stack"></i> Pago (1clic=Total · 2clic=Parcial)</div>
+                <div class="vr-pagos-grid">
+                    <button class="btn btn-outline-success forma-pago-btn" data-forma="efectivo"><i class="bi bi-cash-coin"></i> Efect. <kbd>F1</kbd></button>
+                    <button class="btn btn-outline-secondary forma-pago-btn" data-forma="mercadopago"><i class="bi bi-wallet2"></i> MP <kbd>F9</kbd></button>
+                    <button class="btn btn-outline-primary forma-pago-btn" data-forma="debito"><i class="bi bi-credit-card"></i> Déb.</button>
+                    <button class="btn btn-outline-warning forma-pago-btn" data-forma="credito"><i class="bi bi-credit-card-2-front"></i> Créd.</button>
+                    <button class="btn btn-outline-info forma-pago-btn" data-forma="transferencia"><i class="bi bi-bank"></i> Transf.</button>
+                    <button class="btn btn-outline-dark forma-pago-btn" data-forma="mercadopago_qr"><i class="bi bi-qr-code"></i> QR</button>
+                </div>
+                <div id="inputPagoParcial" style="display:none;" class="vr-pago-parcial"><div class="input-group input-group-sm"><span class="input-group-text">$ <span id="formaParcialNombre" style="font-size:10px;margin-left:4px;"></span></span><input type="number" id="montoParcial" class="form-control" step="0.01" placeholder="0.00"><button class="btn btn-success btn-sm" onclick="confirmarPagoParcial()"><i class="bi bi-check"></i></button><button class="btn btn-secondary btn-sm" onclick="cancelarPagoParcial()"><i class="bi bi-x"></i></button></div><small style="font-size:10px;color:var(--lago-text-muted);">Saldo: $<span id="saldoRestanteInfo">0.00</span></small></div>
+                <div id="resumenPagos" class="vr-pago-resumen" style="display:none;"><strong>Total:</strong> $<span id="totalAPagar">0.00</span> · <strong>Pagado:</strong> $<span id="totalPagado">0.00</span> · <strong>Rest:</strong> $<span id="saldoRestante">0.00</span></div>
+                <div id="alertaSaldoPendiente" class="alert alert-warning p-1 mt-1" style="display:none;font-size:11px;"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Pendiente:</strong> $<span id="montoPendiente">0.00</span> (CC)</div>
+            </div>
+            <div class="vr-entrega"><label><i class="bi bi-truck"></i> Entrega:</label><div class="btn-group flex-fill" role="group"><input type="radio" class="btn-check" name="tipoEntrega" id="btnRetira" value="retiro" checked><label class="btn btn-outline-success btn-sm" for="btnRetira" style="font-size:12px;">RETIRA</label><input type="radio" class="btn-check" name="tipoEntrega" id="btnEntrega" value="entrega"><label class="btn btn-outline-warning btn-sm" for="btnEntrega" style="font-size:12px;">ENTREGA</label></div></div>
+        </div>
+    </div>
+    <div class="modal fade" id="alertaModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="alertaModalTitulo">Aviso</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body" id="alertaModalMensaje"></div><div class="modal-footer"><button type="button" class="btn btn-primary" data-bs-dismiss="modal">Aceptar</button></div></div></div></div>
+    <div class="modal fade" id="confirmarModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="confirmarModalTitulo">Confirmar</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body" id="confirmarModalMensaje" style="white-space:pre-wrap;"></div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="confirmarModalBtnNo">Cancelar</button><button type="button" class="btn btn-success" id="confirmarModalBtnSi">Confirmar</button></div></div></div></div>
+    <div class="modal fade" id="modalBuscarCliente" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header modal-header-lago"><h5 class="modal-title"><i class="bi bi-people"></i> Buscar cliente</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="text" class="form-control mb-3" id="busquedaClienteInput" placeholder="Nombre, CUIT, teléfono..." autocomplete="off"><div id="resultadosBusquedaClientes" style="max-height:400px;overflow-y:auto;"></div><button class="btn btn-success btn-sm mt-3" onclick="mostrarFormNuevoCliente()"><i class="bi bi-plus-circle"></i> Crear nuevo</button></div></div></div></div>
+    <div class="modal fade" id="modalNuevoCliente" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header modal-header-lago"><h5 class="modal-title"><i class="bi bi-person-plus"></i> Nuevo cliente</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="formNuevoCliente"><div class="mb-2"><label class="form-label small">CUIT/DNI</label><input type="text" class="form-control form-control-sm" id="nuevoCuit"></div><div class="mb-2"><label class="form-label small">Razón Social *</label><input type="text" class="form-control form-control-sm" id="nuevoNombre" required></div><div class="mb-2"><label class="form-label small">Dirección</label><input type="text" class="form-control form-control-sm" id="nuevaDireccion"></div><div class="mb-2"><label class="form-label small">Teléfono</label><input type="text" class="form-control form-control-sm" id="nuevoTelefono"></div><div class="mb-2"><label class="form-label small">Email</label><input type="email" class="form-control form-control-sm" id="nuevoEmail"></div><div class="mb-2"><label class="form-label small">Condición IVA</label><select class="form-select form-select-sm" id="nuevoCondicionIva"><option value="4" selected>Consumidor Final</option><option value="1">Responsable Inscripto</option><option value="2">Monotributo</option><option value="3">Exento</option></select></div></form></div><div class="modal-footer"><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-success btn-sm" onclick="guardarNuevoCliente()"><i class="bi bi-save"></i> Guardar</button></div></div></div></div>
+    <div class="modal fade" id="modalEditarCliente" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header modal-header-lago"><h5 class="modal-title"><i class="bi bi-pencil"></i> Editar cliente</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="editClienteId"><div class="mb-2"><label class="form-label small">CUIT/DNI</label><input type="text" class="form-control form-control-sm" id="editClienteCuit"></div><div class="mb-2"><label class="form-label small">Razón Social *</label><input type="text" class="form-control form-control-sm" id="editClienteNombre" required></div><div class="mb-2"><label class="form-label small">Nombre Fantasía</label><input type="text" class="form-control form-control-sm" id="editClienteFantasia"></div><div class="mb-2"><label class="form-label small">Dirección</label><input type="text" class="form-control form-control-sm" id="editClienteDireccion"></div><div class="mb-2"><label class="form-label small">Localidad</label><input type="text" class="form-control form-control-sm" id="editClienteLocalidad"></div><div class="mb-2"><label class="form-label small">Teléfono</label><input type="text" class="form-control form-control-sm" id="editClienteTelefono"></div><div class="mb-2"><label class="form-label small">Email</label><input type="email" class="form-control form-control-sm" id="editClienteEmail"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-success btn-sm" onclick="guardarEdicionCliente()"><i class="bi bi-save"></i> Guardar</button></div></div></div></div>
+    <div class="modal fade" id="modalActualizarDireccion" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header" style="background:var(--lago-warning);"><h5 class="modal-title"><i class="bi bi-truck"></i> Dirección de entrega</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><p class="mb-3"><strong id="nombreClienteDireccion"></strong></p><div class="mb-3"><label class="form-label">Dirección *</label><input type="text" class="form-control" id="direccionEntrega" placeholder="Calle, número..." required></div><div class="mb-3"><label class="form-label">Localidad</label><input type="text" class="form-control" id="localidadEntrega" placeholder="Ciudad"></div><div class="form-check"><input class="form-check-input" type="checkbox" id="guardarDireccionCliente" checked><label class="form-check-label" for="guardarDireccionCliente">Actualizar perfil</label></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="cancelarEntrega()"><i class="bi bi-arrow-left"></i> RETIRA</button><button type="button" class="btn btn-warning" onclick="confirmarDireccionEntrega()"><i class="bi bi-check-circle"></i> Confirmar</button></div></div></div></div>
+    <div class="modal fade" id="modalVentaGuardada" tabindex="-1" data-bs-backdrop="static"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header" style="background:var(--lago-success);color:#fff;"><h5 class="modal-title"><i class="bi bi-check-circle-fill"></i> Venta guardada</h5></div><div class="modal-body text-center py-4"><div style="font-size:48px;color:var(--lago-success);"><i class="bi bi-bag-check-fill"></i></div><h4>Pedido #<span id="numeroPedidoGuardado">0</span></h4><p style="color:var(--lago-text-muted);" id="infoEntregaGuardado">Cliente retira</p><h2 style="color:var(--lago-success);font-weight:800;font-family:var(--lago-font-mono);">$<span id="totalPedidoGuardado">0.00</span></h2></div><div class="modal-footer flex-column gap-2"><div class="d-flex gap-2 w-100"><button type="button" class="btn btn-primary flex-fill" onclick="imprimirComprobante()"><i class="bi bi-printer"></i> Imprimir</button><button type="button" class="btn btn-success flex-fill" onclick="enviarPorWhatsApp()"><i class="bi bi-whatsapp"></i> WhatsApp</button></div><button type="button" class="btn btn-outline-secondary w-100" onclick="verComprobante()"><i class="bi bi-eye"></i> Ver comprobante</button><button type="button" class="btn btn-lg w-100" onclick="cerrarYNuevaVenta()" style="background:var(--lago-primary);color:#fff;font-weight:700;"><i class="bi bi-plus-circle"></i> Nueva venta</button></div></div></div></div>
+    <div class="modal fade" id="modalTerminalCuotas" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header modal-header-lago py-2"><h6 class="modal-title mb-0" id="terminalModalTitulo">Seleccionar terminal</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="terminalPaso1"><div id="listaTerminales"></div></div><div id="terminalPaso2" style="display:none;"><div class="d-flex justify-content-between align-items-center mb-3"><div><small style="color:var(--lago-text-muted);">Terminal:</small> <strong id="terminalSeleccionada"></strong></div><div><small style="color:var(--lago-text-muted);">Monto:</small> <strong id="montoBaseCuotas" style="color:var(--lago-success);"></strong></div></div><div id="listaCuotas"></div><button class="btn btn-sm btn-outline-secondary mt-2" onclick="volverPaso1Terminal()"><i class="bi bi-arrow-left"></i> Cambiar terminal</button></div></div></div></div></div>
+    <div class="modal fade" id="modalSuspendidos" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header" style="background:var(--lago-info);color:#fff;"><h5 class="modal-title"><i class="bi bi-clipboard-check"></i> Ventas suspendidas</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body" id="listaSuspendidos"><div class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Cargando...</div></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button></div></div></div></div>
+    <div id="imgProductoBox" style="display:none;"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/config-panel.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/venta-rapida-script.js"></script>
+</body>
+</html>

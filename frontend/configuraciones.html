@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <script src="js/config.js"></script>
+    <script src="js/config.js?v=20260423072149"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Configuraciones - ERP Lago</title>
@@ -50,6 +50,152 @@
             <p class="lead">Panel de administración avanzado</p>
         </div>
 
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- DATOS DE EMPRESA -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="main-card mb-4">
+            <div class="card-header bg-dark text-white py-3">
+                <h4 class="mb-0">
+                    <i class="bi bi-building"></i> Datos de la Empresa
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Razon Social *</label>
+                        <input type="text" class="form-control" id="emp_razon_social" placeholder="Ej: LAGO JUAN PABLO">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Nombre Fantasia</label>
+                        <input type="text" class="form-control" id="emp_nombre_fantasia" placeholder="Ej: LAGO">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">CUIT *</label>
+                        <input type="text" class="form-control" id="emp_cuit" placeholder="20-29628492-1" maxlength="13">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Condicion IVA</label>
+                        <select class="form-select" id="emp_condicion_iva"></select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Inicio Actividades</label>
+                        <input type="date" class="form-control" id="emp_fecha_inicio">
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label fw-bold">Domicilio Fiscal</label>
+                        <input type="text" class="form-control" id="emp_domicilio" placeholder="Av. Argentina 1622 esq. Roger - Glew">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Telefono</label>
+                        <input type="text" class="form-control" id="emp_telefono" placeholder="011-4xxx-xxxx">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Email</label>
+                        <input type="email" class="form-control" id="emp_email" placeholder="admin@lago.com.ar">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Nro. Ingresos Brutos</label>
+                        <input type="text" class="form-control" id="emp_ingresos_brutos" placeholder="Ej: 20296284921 (obligatorio en facturas)">
+                    </div>
+                </div>
+                <div id="emp_status" class="d-none"></div>
+                <div class="text-end mt-3">
+                    <button class="btn btn-dark" id="btn_guardar_empresa" onclick="configEmpresaAFIP.guardarEmpresa()">
+                        <i class="bi bi-floppy"></i> Guardar Cambios
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- CONFIGURACION AFIP -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="main-card mb-4">
+            <div class="card-header bg-info text-white py-3">
+                <h4 class="mb-0">
+                    <i class="bi bi-shield-lock"></i> AFIP - Facturacion Electronica
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <!-- Modo Online/Offline -->
+                <div class="row align-items-center mb-4 p-3 border rounded bg-light">
+                    <div class="col-md-8">
+                        <h5 class="fw-bold mb-1">Modo de Operacion</h5>
+                        <span id="afip_offline_label" class="text-muted">Cargando...</span>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="form-check form-switch d-inline-block">
+                            <input class="form-check-input" type="checkbox" id="afip_offline">
+                            <label class="form-check-label ms-2 fw-bold" for="afip_offline">Modo Offline</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">CUIT Facturacion</label>
+                        <input type="text" class="form-control" id="afip_cuit" placeholder="20296284921" maxlength="11">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Entorno</label>
+                        <select class="form-select" id="afip_env">
+                            <option value="prod">PRODUCCION</option>
+                            <option value="homo">Homologacion (testing)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Puntos de Venta</label>
+                        <div id="afip_pv_list" class="border rounded p-2" style="max-height:120px;overflow-y:auto">
+                            <span class="text-muted">Cargando...</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Punto de Venta por Defecto</label>
+                        <input type="number" class="form-control" id="afip_pv_default" min="1" max="99999" placeholder="Ej: 6">
+                        <small class="text-muted">Se usa si el usuario no tiene deposito asignado</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Ruta Certificado (.crt)</label>
+                        <input type="text" class="form-control font-monospace" id="afip_cert_path" placeholder="/root/mi_erp/afip/certificados/lago.crt">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Ruta Clave Privada (.key)</label>
+                        <input type="text" class="form-control font-monospace" id="afip_key_path" placeholder="/root/mi_erp/afip/certificados/lago_private.key">
+                    </div>
+                </div>
+
+                <!-- Topes Consumidor Final -->
+                <h5 class="fw-bold mt-4 mb-3"><i class="bi bi-cash-stack text-warning"></i> Topes Consumidor Final</h5>
+                <div class="alert alert-warning border-start border-4 border-warning mb-3">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    Estos valores los fija AFIP por Resolucion General. Actualizarlos cuando AFIP publique nuevos montos.
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Tope Efectivo ($)</label>
+                        <input type="number" class="form-control" id="afip_tope_efectivo" step="1" min="0">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Tope Otros Medios ($)</label>
+                        <input type="number" class="form-control" id="afip_tope_otros" step="1" min="0">
+                    </div>
+                </div>
+
+                <div id="afip_status" class="d-none"></div>
+                <div class="d-flex justify-content-between mt-3">
+                    <button class="btn btn-outline-primary" id="btn_test_afip" onclick="configEmpresaAFIP.testAFIP()">
+                        <i class="bi bi-lightning-charge"></i> Probar Conexion
+                    </button>
+                    <button class="btn btn-info text-white" id="btn_guardar_afip" onclick="configEmpresaAFIP.guardarAFIP()">
+                        <i class="bi bi-floppy"></i> Guardar AFIP
+                    </button>
+                </div>
+
+                <!-- Resultado test -->
+                <div id="afip_test_result" class="d-none mt-3"></div>
+            </div>
+        </div>
+
         <!-- Configuraciones de Inventario -->
         <div class="main-card mb-4">
             <div class="card-header bg-primary text-white py-3">
@@ -94,10 +240,2126 @@
                         <li>Si está <strong>activado</strong>: Podrás vender incluso sin stock físico</li>
                     </ul>
                 </div>
+
+                <hr class="my-4">
+
+                <div class="row align-items-center mb-4">
+                    <div class="col-md-8">
+                        <h5 class="fw-bold mb-2">
+                            <i class="bi bi-globe text-primary"></i> Ocultar productos sin stock en la Web
+                        </h5>
+                        <p class="text-muted mb-0">
+                            Si está activado, los productos sin stock no aparecerán en el catálogo público de lago.ar.
+                            Los cambios se aplican la próxima vez que se sincronice el catálogo.
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="form-check form-switch d-inline-block">
+                            <input class="form-check-input" type="checkbox"
+                                   id="stockWebSwitch"
+                                   disabled>
+                            <label class="form-check-label ms-2 fw-bold" id="stockWebLabel">
+                                <span class="spinner-border spinner-border-sm pulse" role="status"></span>
+                                Cargando...
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <div class="row align-items-center mb-4">
+                    <div class="col-md-8">
+                        <h5 class="fw-bold mb-2">
+                            <i class="bi bi-currency-dollar text-info"></i> Permitir Modificar Precios en Venta
+                        </h5>
+                        <p class="text-muted mb-0">
+                            Si está activado, los vendedores podrán cambiar el precio unitario de los productos
+                            durante la venta rápida. Útil para descuentos especiales o precios negociados.
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="form-check form-switch d-inline-block">
+                            <input class="form-check-input" type="checkbox"
+                                   id="precioVentaSwitch"
+                                   disabled>
+                            <label class="form-check-label ms-2 fw-bold" id="precioLabel">
+                                <span class="spinner-border spinner-border-sm pulse" role="status"></span>
+                                Cargando...
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning border-start border-4 border-warning">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <strong>Atención:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>Si está <strong>desactivado</strong>: Los precios se toman de la lista asignada y no se pueden cambiar</li>
+                        <li>Si está <strong>activado</strong>: El vendedor puede editar el precio directamente en la tabla de venta</li>
+                        <li>Los cambios de precio quedan registrados en el pedido</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
+        <!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECCIÓN: Recargos y Descuentos por Forma de Pago                      -->
+<!-- INSERTAR en configuraciones.html ANTES de "Próximas Configuraciones"  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+        <!-- Recargos y Descuentos por Forma de Pago -->
+        <div class="main-card mb-4">
+            <div class="card-header bg-warning text-dark py-3">
+                <h4 class="mb-0">
+                    <i class="bi bi-percent"></i> Recargos y Descuentos por Forma de Pago
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted mb-3">
+                    Configurá porcentajes de <strong class="text-danger">recargo (+)</strong> o 
+                    <strong class="text-success">descuento (-)</strong> para cada forma de pago.
+                    Los recargos generan Nota de Débito automática. Los descuentos se aplican directamente en la factura.
+                </p>
+
+                <!-- Alerta de resultado -->
+                <div id="recargosAlert" class="d-none"></div>
+
+                <!-- Tabla de configuración -->
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-3" id="tablaRecargos">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:25%">Forma de Pago</th>
+                                <th style="width:15%" class="text-center">Porcentaje %</th>
+                                <th style="width:25%">Descripción</th>
+                                <th style="width:12%" class="text-center">Genera ND</th>
+                                <th style="width:12%" class="text-center">Activo</th>
+                                <th style="width:11%" class="text-center">Tipo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recargosBody">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-3">
+                                    <span class="spinner-border spinner-border-sm"></span> Cargando...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Botón guardar -->
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i>
+                        Recargo (+): genera ND separada &nbsp;|&nbsp; 
+                        Descuento (-): reduce total en factura
+                    </small>
+                    <button class="btn btn-primary btn-lg" id="btnGuardarRecargos" onclick="recargosModule.guardar()" disabled>
+                        <i class="bi bi-floppy" id="btnGuardarRecargosIcon"></i>
+                        <span id="btnGuardarRecargosText"> Guardar Cambios</span>
+                    </button>
+                </div>
+
+                <!-- Info -->
+                <div class="alert alert-info border-start border-4 border-info mt-3 mb-0">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <strong>Información importante:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Recargo positivo</strong> (ej: MercadoPago +4.5%): genera una Nota de Débito automática al cobrar. No afecta la factura original.</li>
+                        <li><strong>Descuento negativo</strong> (ej: Efectivo -10%): se aplica directamente en la factura, reduce la base imponible y el IVA.</li>
+                        <li>Los cambios aplican a <strong>operaciones futuras</strong>, no retroactivamente.</li>
+                        <li>Todo queda registrado en la tabla de auditoría para reportes.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- PRODUCTOS - IMPORT/EXPORT EXCEL                                  -->
+        <!-- Configura como exporta e importa productos desde/hacia Excel    -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     MENÚ NAVEGACIÓN RÁPIDA — Configuraciones (Sesión 2026-05-09)
+     Tabla de contenidos clickeable. Sticky al scroll.
+     Idempotencia: id="navConfiguraciones" — agregar este ID al chequeo si se re-corre.
+     ═══════════════════════════════════════════════════════════════════ -->
+<div class="container my-3" id="navConfiguraciones">
+  <div class="card shadow-sm" style="border-left: 4px solid #1d6b3a; background: #f8faf8;">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <span class="me-2 small fw-bold" style="color:#1d6b3a;">
+          <i class="bi bi-list-nested"></i> Ir a:
+        </span>
+        <a href="#cardProductosImportExport" class="btn btn-sm btn-outline-secondary"
+           title="Cómo se importan y exportan productos en Excel">
+          <i class="bi bi-file-earmark-spreadsheet"></i> Productos Excel
+        </a>
+        <a href="#seccionTerminales" class="btn btn-sm btn-outline-secondary"
+           title="Posnet, comisiones y planes de cuotas">
+          <i class="bi bi-credit-card-2-front"></i> Terminales
+        </a>
+        <a href="#cardLagoDeploy" class="btn btn-sm btn-outline-secondary"
+           title="Tienda online lago.ar — login, carrito, aprobaciones">
+          <i class="bi bi-globe"></i> Tienda lago.ar
+        </a>
+        <a href="#cardCatalogoVisual" class="btn btn-sm btn-success fw-bold"
+           title="Cómo se ven los cards en el catálogo público">
+          <i class="bi bi-grid-3x3-gap"></i> Catálogo visual
+        </a>
+        <a href="#seccionCompras" class="btn btn-sm btn-outline-secondary"
+           title="Defaults de comprobantes de compra y import Excel">
+          <i class="bi bi-cart-plus"></i> Compras
+        </a>
+        <a href="#seccionDespachos" class="btn btn-sm btn-outline-secondary"
+           title="Reglas de cancelación y limpieza de viajes">
+          <i class="bi bi-truck"></i> Despachos
+        </a>
+        <a href="#seccionSeguridadDispositivos" class="btn btn-sm btn-outline-secondary"
+           title="Límite de dispositivos por rol">
+          <i class="bi bi-shield-lock"></i> Dispositivos
+        </a>
+        <a href="#cardLagoDeploy" class="btn btn-sm btn-outline-secondary d-none d-md-inline-block"
+           title="Backups y restauración de BD">
+          <i class="bi bi-shield-check"></i> Backups
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Fin menú navegación -->
+        <div class="main-card mb-4" id="cardProductosImportExport">
+            <div class="card-header py-3" style="background:#6f42c1;color:white;">
+                <h4 class="mb-0">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> Productos — Importacion / Exportacion Excel
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted mb-4">
+                    Configurá cómo se comporta por defecto la exportación e importación masiva de productos desde Excel.
+                    Estos valores se pueden cambiar puntualmente desde el modal en el módulo de productos.
+                </p>
+
+                <div id="prodIEAlert" class="d-none"></div>
+
+                <!-- EXPORTACION -->
+                <h5 class="fw-bold mb-3"><i class="bi bi-download text-success"></i> Exportación</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Modo de precio por defecto</label>
+                        <select class="form-select" id="prodIE_modo_precio">
+                            <option value="FINAL_CON_IVA">Precio FINAL con IVA (lo que ve el cliente)</option>
+                            <option value="NETO">Precio NETO sin IVA</option>
+                            <option value="PREGUNTAR">Preguntar cada vez</option>
+                        </select>
+                        <small class="text-muted">Cómo aparecen los precios en las columnas del Excel exportado.</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Perfil de columnas por defecto</label>
+                        <select class="form-select" id="prodIE_perfil">
+                            <option value="RAPIDO">RAPIDO — solo SKU + precios + costo</option>
+                            <option value="BASICO">BASICO — datos esenciales (lo actual)</option>
+                            <option value="COMPLETO">COMPLETO — todas las columnas posibles</option>
+                        </select>
+                        <small class="text-muted">Qué columnas incluye el Excel al exportar.</small>
+                    </div>
+                </div>
+
+                <!-- IMPORTACION -->
+                <h5 class="fw-bold mb-3"><i class="bi bi-upload text-primary"></i> Importación — Auto-creación de entidades</h5>
+                <div class="alert alert-warning border-start border-4 border-warning mb-3">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <strong>Cuidado con los tipeos:</strong> si activás auto-creación, un error de ortografía
+                    en el Excel ("Sika " con espacio) generará una entidad duplicada. Recomendado dejar
+                    desactivado salvo cuando importás un proveedor nuevo de golpe.
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="prodIE_auto_categorias">
+                            <label class="form-check-label fw-bold" for="prodIE_auto_categorias">
+                                Crear categorías nuevas
+                            </label>
+                            <div><small class="text-muted">Si la categoría del Excel no existe, la crea.</small></div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="prodIE_auto_marcas">
+                            <label class="form-check-label fw-bold" for="prodIE_auto_marcas">
+                                Crear marcas nuevas
+                            </label>
+                            <div><small class="text-muted">Si la marca del Excel no existe, la crea.</small></div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="prodIE_auto_padres">
+                            <label class="form-check-label fw-bold" for="prodIE_auto_padres">
+                                Crear productos padre
+                            </label>
+                            <div><small class="text-muted">Para variantes con SKU_Padre nuevo.</small></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-end mt-3">
+                    <button class="btn btn-lg text-white" id="btnGuardarProdIE"
+                            style="background:#6f42c1;"
+                            onclick="prodImportExportConfig.guardar()">
+                        <i class="bi bi-floppy"></i> Guardar configuración
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        // ════════════════════════════════════════════════════════════════
+        // MÓDULO: Configuración Import/Export Productos
+        // Persiste 5 claves en configuraciones_empresa via PUT /configuraciones/todas
+        // ════════════════════════════════════════════════════════════════
+        const prodImportExportConfig = (() => {
+            const API = (window.CONFIG?.API_BASE_URL || '') + '/configuraciones';
+            const headers = () => ({
+                'Authorization': 'Bearer ' + localStorage.getItem('authToken'),
+                'Content-Type': 'application/json'
+            });
+
+            // Mapeo único: clave BD ↔ id input ↔ tipo
+            const CAMPOS = [
+                { clave: 'productos.export_excel.modo_precio_default', id: 'prodIE_modo_precio',  tipo: 'select' },
+                { clave: 'productos.export_excel.perfil_default',      id: 'prodIE_perfil',       tipo: 'select' },
+                { clave: 'import_excel.auto_crear_categorias',         id: 'prodIE_auto_categorias', tipo: 'switch' },
+                { clave: 'import_excel.auto_crear_marcas',             id: 'prodIE_auto_marcas',     tipo: 'switch' },
+                { clave: 'import_excel.auto_crear_padres',             id: 'prodIE_auto_padres',     tipo: 'switch' }
+            ];
+
+            function mostrarAlerta(tipo, msg) {
+                const div = document.getElementById('prodIEAlert');
+                div.className = 'alert alert-' + tipo + ' alert-dismissible fade show';
+                div.innerHTML = msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+                setTimeout(() => div.classList.add('d-none'), 4000);
+            }
+
+            async function cargar() {
+                try {
+                    const res = await fetch(API + '/todas', { headers: headers() });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const rows = await res.json();
+                    const map = Object.fromEntries(rows.map(r => [r.clave, r.valor]));
+
+                    for (const c of CAMPOS) {
+                        const el = document.getElementById(c.id);
+                        if (!el) continue;
+                        const valor = map[c.clave];
+                        if (valor === undefined) continue;
+                        if (c.tipo === 'switch') {
+                            el.checked = (valor === 'true');
+                        } else {
+                            el.value = valor;
+                        }
+                    }
+                } catch (err) {
+                    console.error('[prodIE] cargar:', err);
+                    mostrarAlerta('danger', 'Error al cargar configuración: ' + err.message);
+                }
+            }
+
+            async function guardar() {
+                const btn = document.getElementById('btnGuardarProdIE');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
+
+                try {
+                    let ok = 0, fail = 0;
+                    for (const c of CAMPOS) {
+                        const el = document.getElementById(c.id);
+                        if (!el) { fail++; continue; }
+                        const valor = (c.tipo === 'switch') ? String(el.checked) : el.value;
+
+                        const res = await fetch(API + '/todas', {
+                            method: 'PUT',
+                            headers: headers(),
+                            body: JSON.stringify({ clave: c.clave, valor })
+                        });
+                        if (res.ok) ok++; else fail++;
+                    }
+
+                    if (fail === 0) {
+                        mostrarAlerta('success', '<i class="bi bi-check-circle-fill"></i> ' + ok + ' configuraciones guardadas correctamente');
+                    } else {
+                        mostrarAlerta('warning', 'Guardadas: ' + ok + ' — Fallaron: ' + fail);
+                    }
+                } catch (err) {
+                    console.error('[prodIE] guardar:', err);
+                    mostrarAlerta('danger', 'Error al guardar: ' + err.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-floppy"></i> Guardar configuración';
+                }
+            }
+
+            // Auto-cargar al abrir la página
+            document.addEventListener('DOMContentLoaded', cargar);
+
+            return { cargar, guardar };
+        })();
+        </script>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- MÓDULO RECARGOS JS -->
+<script>
+
+// ========== MÓDULO DE RECARGOS/DESCUENTOS POR FORMA DE PAGO ==========
+const recargosModule = (() => {
+    const API_BASE = (window.CONFIG?.API_BASE_URL || '') + '/recargos-forma-pago';
+    const TOKEN = localStorage.getItem('authToken');
+    const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+
+    let datosOriginales = []; // Para detectar cambios
+
+    // ---- CARGAR ----
+    async function cargar() {
+        try {
+            const res = await fetch(API_BASE, { headers });
+            const data = await res.json();
+
+            if (!data.success) throw new Error(data.error || 'Error al cargar');
+
+            datosOriginales = JSON.parse(JSON.stringify(data.data));
+            renderTabla(data.data);
+            document.getElementById('btnGuardarRecargos').disabled = false;
+        } catch (err) {
+            document.getElementById('recargosBody').innerHTML =
+                `<tr><td colspan="6" class="text-center text-danger">${err.message}</td></tr>`;
+        }
+    }
+
+    // ---- RENDER TABLA ----
+    function renderTabla(rows) {
+        const tbody = document.getElementById('recargosBody');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay formas de pago configuradas</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rows.map(r => {
+            const pct = parseFloat(r.porcentaje) || 0;
+            const tipoClass = pct > 0 ? 'text-danger' : pct < 0 ? 'text-success' : 'text-muted';
+            const tipoTexto = pct > 0 ? 'Recargo' : pct < 0 ? 'Descuento' : '—';
+            const tipoIcon = pct > 0 ? 'arrow-up-circle-fill' : pct < 0 ? 'arrow-down-circle-fill' : 'dash-circle';
+            const activoChecked = r.activo ? 'checked' : '';
+            const ndChecked = r.genera_nota_debito ? 'checked' : '';
+            // ND solo tiene sentido para recargos positivos
+            const ndDisabled = pct <= 0 ? 'disabled' : '';
+
+            return `
+            <tr data-fp="${r.id_forma_pago}" data-id="${r.id_recargo || ''}">
+                <td>
+                    <strong>${r.nombre_forma_pago}</strong>
+                    <br><small class="text-muted">${r.codigo || ''} ${r.tipo ? '(' + r.tipo + ')' : ''}</small>
+                </td>
+                <td class="text-center">
+                    <input type="number" class="form-control form-control-sm text-center input-porcentaje" 
+                           value="${pct}" step="0.5" min="-100" max="100"
+                           style="max-width:100px; margin:0 auto;"
+                           onchange="recargosModule.onPorcentajeChange(this)"
+                           onkeydown="if(event.key==='Enter'){event.preventDefault(); this.closest('tr').nextElementSibling?.querySelector('.input-porcentaje')?.focus();}"
+                           >
+                </td>
+                <td>
+                    <input type="text" class="form-control form-control-sm input-descripcion"
+                           value="${r.descripcion || ''}" maxlength="100"
+                           placeholder="Ej: Comisión MercadoPago"
+                           onkeydown="if(event.key==='Enter'){event.preventDefault(); this.closest('tr').nextElementSibling?.querySelector('.input-descripcion')?.focus();}">
+                </td>
+                <td class="text-center">
+                    <div class="form-check form-switch d-flex justify-content-center mb-0">
+                        <input class="form-check-input check-nd" type="checkbox" ${ndChecked} ${ndDisabled}
+                               title="Genera Nota de Débito al cobrar">
+                    </div>
+                </td>
+                <td class="text-center">
+                    <div class="form-check form-switch d-flex justify-content-center mb-0">
+                        <input class="form-check-input check-activo" type="checkbox" ${activoChecked}
+                               title="Activar/desactivar este ajuste">
+                    </div>
+                </td>
+                <td class="text-center">
+                    <span class="${tipoClass} fw-bold">
+                        <i class="bi bi-${tipoIcon}"></i> ${tipoTexto}
+                    </span>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ---- CAMBIO DE PORCENTAJE: actualizar tipo y ND ----
+    function onPorcentajeChange(input) {
+        const tr = input.closest('tr');
+        const pct = parseFloat(input.value) || 0;
+        const tdTipo = tr.querySelector('td:last-child');
+        const checkND = tr.querySelector('.check-nd');
+
+        // Actualizar indicador de tipo
+        if (pct > 0) {
+            tdTipo.innerHTML = '<span class="text-danger fw-bold"><i class="bi bi-arrow-up-circle-fill"></i> Recargo</span>';
+            checkND.disabled = false;
+            checkND.checked = true; // Recargos generan ND por defecto
+        } else if (pct < 0) {
+            tdTipo.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-arrow-down-circle-fill"></i> Descuento</span>';
+            checkND.disabled = true;
+            checkND.checked = false; // Descuentos NO generan ND
+        } else {
+            tdTipo.innerHTML = '<span class="text-muted fw-bold"><i class="bi bi-dash-circle"></i> —</span>';
+            checkND.disabled = true;
+            checkND.checked = false;
+        }
+    }
+
+    // ---- GUARDAR ----
+    async function guardar() {
+        const btn = document.getElementById('btnGuardarRecargos');
+        const icon = document.getElementById('btnGuardarRecargosIcon');
+        const txt = document.getElementById('btnGuardarRecargosText');
+
+        // Recopilar datos de la tabla
+        const filas = document.querySelectorAll('#recargosBody tr[data-fp]');
+        const recargos = [];
+
+        for (const fila of filas) {
+            const pct = parseFloat(fila.querySelector('.input-porcentaje').value) || 0;
+
+            recargos.push({
+                id_forma_pago: parseInt(fila.dataset.fp),
+                porcentaje: pct,
+                descripcion: fila.querySelector('.input-descripcion').value.trim(),
+                genera_nota_debito: fila.querySelector('.check-nd').checked,
+                activo: fila.querySelector('.check-activo').checked
+            });
+        }
+
+        // Validar
+        const invalidos = recargos.filter(r => r.porcentaje < -100 || r.porcentaje > 100);
+        if (invalidos.length) {
+            mostrarAlerta('danger', 'Hay porcentajes fuera de rango (-100 a 100)');
+            return;
+        }
+
+        // Enviar
+        btn.disabled = true;
+        icon.className = 'spinner-border spinner-border-sm';
+        txt.textContent = ' Guardando...';
+
+        try {
+            const res = await fetch(API_BASE + '/bulk', {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({ recargos })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || 'Error al guardar');
+            }
+
+            mostrarAlerta('success',
+                `<i class="bi bi-check-circle-fill"></i> <strong>${data.message}</strong>. ` +
+                'Los cambios se aplican a las próximas operaciones.');
+
+            // Recargar para sincronizar
+            await cargar();
+
+        } catch (err) {
+            mostrarAlerta('danger', `<i class="bi bi-x-circle-fill"></i> ${err.message}`);
+        } finally {
+            btn.disabled = false;
+            icon.className = 'bi bi-floppy';
+            txt.textContent = ' Guardar Cambios';
+        }
+    }
+
+    // ---- HELPERS ----
+    function mostrarAlerta(tipo, html) {
+        const el = document.getElementById('recargosAlert');
+        el.className = `alert alert-${tipo} alert-dismissible fade show`;
+        el.innerHTML = html + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+        setTimeout(() => { try { el.classList.add('d-none'); } catch(e){} }, 8000);
+    }
+
+    // Init
+    document.addEventListener('DOMContentLoaded', cargar);
+
+    return { cargar, guardar, onPorcentajeChange };
+})();
+</script>
+
+<!-- SECCIÓN: Terminales de Pago y Cuotas                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="main-card mb-4" id="seccionTerminales">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center" style="background:#1a5f7a;color:white;">
+        <h4 class="mb-0"><i class="bi bi-credit-card-2-front"></i> Terminales de Pago y Cuotas</h4>
+        <button class="btn btn-light btn-sm" onclick="terminalesConfig.abrirModalTerminal()"><i class="bi bi-plus-circle"></i> Nueva Terminal</button>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">Configurá las terminales (posnet) de cobro, sus comisiones y planes de cuotas. Cada terminal se vincula a un banco destino y opcionalmente a una sucursal.</p>
+        <div id="listaTerminalesConfig"></div>
+    </div>
+</div>
+
+<!-- Modal Terminal -->
+<div class="modal fade" id="modalTerminalConfig" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2" style="background:#1a5f7a;color:white;">
+                <h5 class="modal-title" id="modalTerminalConfigTitulo">Nueva Terminal</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="termConfigId">
+                <div class="mb-2">
+                    <label class="form-label fw-bold mb-1">Nombre</label>
+                    <input type="text" class="form-control form-control-sm" id="termConfigNombre" placeholder="Ej: Posnet MercadoPago">
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label fw-bold mb-1">Procesador</label>
+                        <input type="text" class="form-control form-control-sm" id="termConfigProcesador" placeholder="MercadoPago, Prisma...">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-bold mb-1">Tipo</label>
+                        <select class="form-select form-select-sm" id="termConfigTipo">
+                            <option value="ambos">Crédito y Débito</option>
+                            <option value="credito">Solo Crédito</option>
+                            <option value="debito">Solo Débito</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label fw-bold mb-1">Banco destino</label>
+                        <select class="form-select form-select-sm" id="termConfigBanco"><option value="">Sin asignar</option></select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-bold mb-1">Sucursal/Depósito</label>
+                        <select class="form-select form-select-sm" id="termConfigDeposito"><option value="">Todas</option></select>
+                    </div>
+                </div>
+                <hr class="my-2">
+                <h6 class="fw-bold mb-2"><i class="bi bi-percent"></i> Comisiones y Retenciones</h6>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label mb-1" style="font-size:12px;">Comisión Débito %</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" id="termConfigComDeb" value="0">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label mb-1" style="font-size:12px;">Comisión Crédito %</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" id="termConfigComCred" value="0">
+                    </div>
+                </div>
+                <div class="row g-2">
+                    <div class="col-4">
+                        <label class="form-label mb-1" style="font-size:12px;">Ret. IVA %</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" id="termConfigRetIva" value="0">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label mb-1" style="font-size:12px;">Ret. IIBB %</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" id="termConfigRetIibb" value="0">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label mb-1" style="font-size:12px;">Ret. Ganancias %</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" id="termConfigRetGan" value="0">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-success btn-sm" onclick="terminalesConfig.guardarTerminal()"><i class="bi bi-check-lg"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Planes Cuotas -->
+<div class="modal fade" id="modalPlanesConfig" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2" style="background:#1a5f7a;color:white;">
+                <h5 class="modal-title"><i class="bi bi-list-ol"></i> Planes de Cuotas — <span id="planesTerminalNombre"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="planesTerminalId">
+                <div id="listaPlanesConfig"></div>
+                <hr class="my-2">
+                <h6 class="fw-bold mb-2">Agregar plan</h6>
+                <div class="row g-2 align-items-end">
+                    <div class="col-3"><label class="form-label mb-1" style="font-size:12px;">Cuotas</label><input type="number" class="form-control form-control-sm" id="nuevoPlanCuotas" min="1" value="3"></div>
+                    <div class="col-3"><label class="form-label mb-1" style="font-size:12px;">Coeficiente</label><input type="number" step="0.01" class="form-control form-control-sm" id="nuevoPlanCoef" min="1" value="1.15"></div>
+                    <div class="col-3"><label class="form-label mb-1" style="font-size:12px;">Nombre</label><input type="text" class="form-control form-control-sm" id="nuevoPlanNombre" placeholder="Ej: 3 cuotas"></div>
+                    <div class="col-3"><button class="btn btn-success btn-sm w-100" onclick="terminalesConfig.agregarPlan()"><i class="bi bi-plus"></i> Agregar</button></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+var terminalesConfig = (function() {
+    var API = (window.CONFIG && window.CONFIG.API_BASE_URL) || '/api';
+    function hdr(json) {
+        var h = { 'Authorization': 'Bearer ' + localStorage.getItem('authToken') };
+        if (json) h['Content-Type'] = 'application/json';
+        return h;
+    }
+
+    // ── LISTAR TERMINALES ──
+    async function cargar() {
+        try {
+            var resp = await fetch(API + '/terminales', { headers: hdr() });
+            var data = await resp.json();
+            var el = document.getElementById('listaTerminalesConfig');
+            if (!data.length) { el.innerHTML = '<div class="text-muted text-center py-3">No hay terminales configuradas. Creá una con el botón de arriba.</div>'; return; }
+            el.innerHTML = data.map(function(t) {
+                var actBadge = t.activo ? '<span class="badge bg-success ms-1">Activa</span>' : '<span class="badge bg-secondary ms-1">Inactiva</span>';
+                var tipoBadge = {ambos:'Cred+Deb',credito:'Crédito',debito:'Débito'}[t.tipo] || t.tipo;
+                return '<div class="border rounded p-3 mb-2' + (!t.activo ? ' opacity-50' : '') + '">'
+                    + '<div class="d-flex justify-content-between align-items-start">'
+                    + '<div>'
+                    + '<strong>' + t.nombre + '</strong>' + actBadge + ' <span class="badge bg-info">' + tipoBadge + '</span>'
+                    + '<br><small class="text-muted">' + (t.procesador||'-') + ' | Banco: ' + (t.banco_nombre||'Sin asignar') + ' | Sucursal: ' + (t.deposito_nombre||'Todas') + ' | Planes: ' + (t.planes_activos||0) + '</small>'
+                    + '<br><small class="text-muted">Com.Deb: ' + t.comision_debito_pct + '% | Com.Cred: ' + t.comision_credito_pct + '% | Ret.IVA: ' + t.retencion_iva_pct + '% | Ret.IIBB: ' + t.retencion_iibb_pct + '%</small>'
+                    + '</div>'
+                    + '<div class="btn-group btn-group-sm">'
+                    + '<button class="btn btn-outline-primary" onclick="terminalesConfig.abrirPlanes(' + t.id_terminal + ',\'' + t.nombre.replace(/'/g,"\\'") + '\')"><i class="bi bi-list-ol"></i> Cuotas</button>'
+                    + '<button class="btn btn-outline-secondary" onclick="terminalesConfig.editarTerminal(' + t.id_terminal + ')"><i class="bi bi-pencil"></i></button>'
+                    + (t.activo ? '<button class="btn btn-outline-danger" onclick="terminalesConfig.desactivar(' + t.id_terminal + ')"><i class="bi bi-x-circle"></i></button>' : '')
+                    + '</div></div></div>';
+            }).join('');
+        } catch (err) { console.error('Error cargando terminales:', err); }
+    }
+
+    // ── FORM DATA ──
+    async function cargarFormData() {
+        var resp = await fetch(API + '/terminales/form-data', { headers: hdr() });
+        var data = await resp.json();
+        document.getElementById('termConfigBanco').innerHTML = '<option value="">Sin asignar</option>' + data.bancos.map(function(b) { return '<option value="' + b.id_banco + '">' + b.nombre + '</option>'; }).join('');
+        document.getElementById('termConfigDeposito').innerHTML = '<option value="">Todas las sucursales</option>' + data.depositos.map(function(d) { return '<option value="' + d.id_deposito + '">' + d.nombre + '</option>'; }).join('');
+    }
+
+    // ── ABRIR MODAL NUEVA ──
+    function abrirModalTerminal() {
+        document.getElementById('termConfigId').value = '';
+        document.getElementById('termConfigNombre').value = '';
+        document.getElementById('termConfigProcesador').value = '';
+        document.getElementById('termConfigTipo').value = 'ambos';
+        document.getElementById('termConfigComDeb').value = '0';
+        document.getElementById('termConfigComCred').value = '0';
+        document.getElementById('termConfigRetIva').value = '0';
+        document.getElementById('termConfigRetIibb').value = '0';
+        document.getElementById('termConfigRetGan').value = '0';
+        document.getElementById('modalTerminalConfigTitulo').textContent = 'Nueva Terminal';
+        cargarFormData();
+        new bootstrap.Modal(document.getElementById('modalTerminalConfig')).show();
+    }
+
+    // ── EDITAR TERMINAL ──
+    async function editarTerminal(id) {
+        var resp = await fetch(API + '/terminales/' + id, { headers: hdr() });
+        var t = await resp.json();
+        document.getElementById('termConfigId').value = t.id_terminal;
+        document.getElementById('termConfigNombre').value = t.nombre;
+        document.getElementById('termConfigProcesador').value = t.procesador || '';
+        document.getElementById('termConfigTipo').value = t.tipo;
+        document.getElementById('termConfigComDeb').value = t.comision_debito_pct;
+        document.getElementById('termConfigComCred').value = t.comision_credito_pct;
+        document.getElementById('termConfigRetIva').value = t.retencion_iva_pct;
+        document.getElementById('termConfigRetIibb').value = t.retencion_iibb_pct;
+        document.getElementById('termConfigRetGan').value = t.retencion_ganancias_pct;
+        document.getElementById('modalTerminalConfigTitulo').textContent = 'Editar: ' + t.nombre;
+        await cargarFormData();
+        document.getElementById('termConfigBanco').value = t.id_banco_destino || '';
+        document.getElementById('termConfigDeposito').value = t.id_deposito || '';
+        new bootstrap.Modal(document.getElementById('modalTerminalConfig')).show();
+    }
+
+    // ── GUARDAR TERMINAL ──
+    async function guardarTerminal() {
+        var id = document.getElementById('termConfigId').value;
+        var body = {
+            nombre: document.getElementById('termConfigNombre').value,
+            procesador: document.getElementById('termConfigProcesador').value,
+            tipo: document.getElementById('termConfigTipo').value,
+            id_banco_destino: document.getElementById('termConfigBanco').value || null,
+            id_deposito: document.getElementById('termConfigDeposito').value || null,
+            comision_debito_pct: parseFloat(document.getElementById('termConfigComDeb').value) || 0,
+            comision_credito_pct: parseFloat(document.getElementById('termConfigComCred').value) || 0,
+            retencion_iva_pct: parseFloat(document.getElementById('termConfigRetIva').value) || 0,
+            retencion_iibb_pct: parseFloat(document.getElementById('termConfigRetIibb').value) || 0,
+            retencion_ganancias_pct: parseFloat(document.getElementById('termConfigRetGan').value) || 0
+        };
+        if (!body.nombre) { alert('Ingresá un nombre'); return; }
+        try {
+            var url = id ? API + '/terminales/' + id : API + '/terminales';
+            var method = id ? 'PUT' : 'POST';
+            var resp = await fetch(url, { method: method, headers: hdr(true), body: JSON.stringify(body) });
+            if (!resp.ok) { var err = await resp.json(); throw new Error(err.error); }
+            bootstrap.Modal.getInstance(document.getElementById('modalTerminalConfig')).hide();
+            cargar();
+        } catch (err) { alert('Error: ' + err.message); }
+    }
+
+    // ── DESACTIVAR ──
+    async function desactivar(id) {
+        if (!confirm('¿Desactivar esta terminal y sus planes?')) return;
+        await fetch(API + '/terminales/' + id + '/desactivar', { method: 'PUT', headers: hdr() });
+        cargar();
+    }
+
+    // ── PLANES DE CUOTAS ──
+    async function abrirPlanes(idTerminal, nombre) {
+        document.getElementById('planesTerminalId').value = idTerminal;
+        document.getElementById('planesTerminalNombre').textContent = nombre;
+        await cargarPlanes(idTerminal);
+        new bootstrap.Modal(document.getElementById('modalPlanesConfig')).show();
+    }
+
+    async function cargarPlanes(idTerminal) {
+        var resp = await fetch(API + '/terminales/' + idTerminal + '/planes', { headers: hdr() });
+        var planes = await resp.json();
+        var el = document.getElementById('listaPlanesConfig');
+        if (!planes.length) { el.innerHTML = '<div class="text-muted text-center py-2">Sin planes. Agregá uno abajo.</div>'; return; }
+        el.innerHTML = '<table class="table table-sm table-hover mb-0"><thead><tr><th>Cuotas</th><th>Coeficiente</th><th>Interés %</th><th>Nombre</th><th>Acciones</th></tr></thead><tbody>'
+            + planes.map(function(p) {
+                return '<tr><td><strong>' + p.cuotas + '</strong></td>'
+                    + '<td><input type="number" step="0.01" min="1" class="form-control form-control-sm" style="width:90px" value="' + p.coeficiente + '" id="coef_' + p.id_plan + '"></td>'
+                    + '<td>' + p.interes_porcentaje + '%</td>'
+                    + '<td>' + (p.nombre||'') + '</td>'
+                    + '<td><button class="btn btn-sm btn-outline-success me-1" onclick="terminalesConfig.actualizarPlan(' + p.id_plan + ')"><i class="bi bi-check"></i></button>'
+                    + '<button class="btn btn-sm btn-outline-danger" onclick="terminalesConfig.desactivarPlan(' + p.id_plan + ')"><i class="bi bi-trash"></i></button></td></tr>';
+            }).join('') + '</tbody></table>';
+    }
+
+    async function agregarPlan() {
+        var idTerminal = document.getElementById('planesTerminalId').value;
+        var body = {
+            cuotas: parseInt(document.getElementById('nuevoPlanCuotas').value),
+            coeficiente: parseFloat(document.getElementById('nuevoPlanCoef').value),
+            nombre: document.getElementById('nuevoPlanNombre').value || null
+        };
+        if (!body.cuotas || body.cuotas < 1) { alert('Cuotas inválidas'); return; }
+        if (!body.coeficiente || body.coeficiente < 1) { alert('Coeficiente debe ser >= 1'); return; }
+        try {
+            var resp = await fetch(API + '/terminales/' + idTerminal + '/planes', { method: 'POST', headers: hdr(true), body: JSON.stringify(body) });
+            if (!resp.ok) { var err = await resp.json(); throw new Error(err.error); }
+            document.getElementById('nuevoPlanCuotas').value = '3';
+            document.getElementById('nuevoPlanCoef').value = '1.15';
+            document.getElementById('nuevoPlanNombre').value = '';
+            cargarPlanes(idTerminal);
+            cargar();
+        } catch (err) { alert('Error: ' + err.message); }
+    }
+
+    async function actualizarPlan(idPlan) {
+        var coefEl = document.getElementById('coef_' + idPlan);
+        if (!coefEl) return;
+        try {
+            var resp = await fetch(API + '/terminales/planes/' + idPlan, { method: 'PUT', headers: hdr(true), body: JSON.stringify({ coeficiente: parseFloat(coefEl.value) }) });
+            if (!resp.ok) { var err = await resp.json(); throw new Error(err.error); }
+            var idTerminal = document.getElementById('planesTerminalId').value;
+            cargarPlanes(idTerminal);
+        } catch (err) { alert('Error: ' + err.message); }
+    }
+
+    async function desactivarPlan(idPlan) {
+        if (!confirm('¿Eliminar este plan?')) return;
+        await fetch(API + '/terminales/planes/' + idPlan + '/desactivar', { method: 'PUT', headers: hdr() });
+        var idTerminal = document.getElementById('planesTerminalId').value;
+        cargarPlanes(idTerminal);
+        cargar();
+    }
+
+    // Init
+    document.addEventListener('DOMContentLoaded', cargar);
+
+    return { cargar: cargar, abrirModalTerminal: abrirModalTerminal, editarTerminal: editarTerminal, guardarTerminal: guardarTerminal, desactivar: desactivar, abrirPlanes: abrirPlanes, agregarPlan: agregarPlan, actualizarPlan: actualizarPlan, desactivarPlan: desactivarPlan };
+})();
+</script>
+
+
+    <script src="js/auth.js?v=20260423072149"></script>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     CARD: CATALOGO WEB LAGO.AR (Fase 4 - deploy + configuraciones del catalogo)
+     ════════════════════════════════════════════════════════════════════════ -->
+<div class="container my-4" id="cardLagoDeploy">
+  <div class="card shadow-sm">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center" style="background:#1d6b3a;color:white;">
+      <h5 class="mb-0"><i class="bi bi-globe"></i> Catalogo web lago.ar</h5>
+      <span class="badge bg-light text-dark d-none" id="lagoUltimoDeployBadge">-</span>
+    </div>
+    <div class="card-body p-4">
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-8">
+          <p class="text-muted mb-2">Configuración del catálogo web publicado en lago.ar.</p>
+          <div id="lagoDeployMsg" class="d-none"></div>
+        </div>
+        <div class="col-md-4 text-end">
+          <button class="btn btn-success btn-lg d-none" id="btnLagoDeploy">
+            <i class="bi bi-cloud-upload"></i> Publicar catalogo web
+          </button>
+        </div>
+      </div>
+
+      <h6 class="text-muted text-uppercase small mt-4 mb-3">Configuracion del catalogo</h6>
+      <div class="row g-3" id="lagoConfigGrid">
+        <div class="col-md-4">
+          <label class="form-label small">Vista por defecto</label>
+          <select class="form-select form-select-sm" data-config-key="catalogo_web.vista_default">
+            <option value="lista">Lista compacta</option>
+            <option value="cards">Cards con imagen</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small">Productos por pagina</label>
+          <input type="number" class="form-control form-control-sm" data-config-key="catalogo_web.productos_por_pagina" min="12" max="200">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small">Categorias top en sidebar</label>
+          <input type="number" class="form-control form-control-sm" data-config-key="catalogo_web.sidebar_categorias_top" min="3" max="30">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small">Precio minimo valido ($)</label>
+          <input type="number" class="form-control form-control-sm" data-config-key="catalogo_web.precio_min_valido" min="0">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small">Precio maximo valido ($)</label>
+          <input type="number" class="form-control form-control-sm" data-config-key="catalogo_web.precio_max_valido" min="0">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small">Estilo card sin imagen</label>
+          <select class="form-select form-select-sm" data-config-key="catalogo_web.card_sin_imagen_estilo">
+            <option value="tipografica">Tipografica (recomendado)</option>
+            <option value="placeholder">Placeholder gris</option>
+            <option value="oculta">Ocultar</option>
+          </select>
+        </div>
+        <div class="col-md-12">
+          <label class="form-label small">Marcas a excluir del filtro (CSV)</label>
+          <input type="text" class="form-control form-control-sm" data-config-key="catalogo_web.marcas_excluir" placeholder="NACIONAL,IMPORTADO,SIN MARCA">
+          <div class="form-text">Marcas genericas que no aparecen en el sidebar de filtros. No oculta productos.</div>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end mt-3">
+        <button class="btn btn-outline-success btn-sm" id="btnLagoGuardarConfig">
+          <i class="bi bi-save"></i> Guardar cambios de configuracion
+        </button>
+      </div>
+
+
+      <hr class="my-4">
+
+      <!-- ═══════════ TIENDA ONLINE: login, carrito, aprobaciones ═══════════ -->
+            <h6 class="text-muted text-uppercase small mb-3"><i class="bi bi-file-earmark-text"></i> Nota de pedido &mdash; campos visibles</h6>
+      <div class="card mb-4"><div class="card-body">
+        <p class="text-muted small mb-3">Cada campo del comprobante impreso se puede mostrar u ocultar. Por defecto todos est&aacute;n visibles. (Documento no fiscal.)</p>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <div class="fw-bold small text-uppercase text-muted mb-2">Emisor</div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_razon_social_empresa"><label class="form-check-label" for="np_mostrar_razon_social_empresa">Raz&oacute;n social</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_slogan_empresa"><label class="form-check-label" for="np_mostrar_slogan_empresa">Slogan / nombre fantas&iacute;a</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_domicilio_empresa"><label class="form-check-label" for="np_mostrar_domicilio_empresa">Domicilio</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_cuit_empresa"><label class="form-check-label" for="np_mostrar_cuit_empresa">CUIT</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_cond_iva_empresa"><label class="form-check-label" for="np_mostrar_cond_iva_empresa">Condici&oacute;n IVA</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_iibb_empresa"><label class="form-check-label" for="np_mostrar_iibb_empresa">IIBB</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_telefono_empresa"><label class="form-check-label" for="np_mostrar_telefono_empresa">Tel&eacute;fono</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_email_empresa"><label class="form-check-label" for="np_mostrar_email_empresa">Email</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_letra_empresa"><label class="form-check-label" for="np_mostrar_letra_empresa">Letra / c&oacute;digo (X)</label></div>
+          </div>
+          <div class="col-md-4">
+            <div class="fw-bold small text-uppercase text-muted mb-2">Documento</div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_numero"><label class="form-check-label" for="np_mostrar_numero">N&uacute;mero</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_fecha"><label class="form-check-label" for="np_mostrar_fecha">Fecha</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_nro_comprobante"><label class="form-check-label" for="np_mostrar_nro_comprobante">Nro. comprobante interno</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_estado"><label class="form-check-label" for="np_mostrar_estado">Estado</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_leyenda_nofiscal"><label class="form-check-label" for="np_mostrar_leyenda_nofiscal">Leyenda "no v&aacute;lido como factura"</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_pie_legal"><label class="form-check-label" for="np_mostrar_pie_legal">Pie legal</label></div>
+          </div>
+          <div class="col-md-4">
+            <div class="fw-bold small text-uppercase text-muted mb-2">Cliente y cuerpo</div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_cuit_cliente"><label class="form-check-label" for="np_mostrar_cuit_cliente">CUIT/DNI del cliente</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_cond_iva_cliente"><label class="form-check-label" for="np_mostrar_cond_iva_cliente">Condici&oacute;n IVA del cliente</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_domicilio_cliente"><label class="form-check-label" for="np_mostrar_domicilio_cliente">Domicilio del cliente</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_telefono_cliente"><label class="form-check-label" for="np_mostrar_telefono_cliente">Tel&eacute;fono del cliente</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_domicilio_entrega"><label class="form-check-label" for="np_mostrar_domicilio_entrega">Domicilio de entrega</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_codigo_producto"><label class="form-check-label" for="np_mostrar_codigo_producto">C&oacute;digo de producto</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="np_mostrar_observaciones"><label class="form-check-label" for="np_mostrar_observaciones">Observaciones</label></div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm mt-3" id="btnGuardarNotaPedido"><i class="bi bi-floppy"></i> Guardar nota de pedido</button>
+        <span id="npMsg" class="ms-2 small"></span>
+      </div></div>
+      <script>
+      (function(){
+        const CAMPOS = [
+          'razon_social_empresa','slogan_empresa','domicilio_empresa','cuit_empresa','cond_iva_empresa','iibb_empresa','telefono_empresa','email_empresa','letra_empresa',
+          'numero','fecha','nro_comprobante','estado','leyenda_nofiscal','pie_legal',
+          'cuit_cliente','cond_iva_cliente','domicilio_cliente','telefono_cliente','domicilio_entrega','codigo_producto','observaciones'
+        ].map(function(s){ return { id:"np_mostrar_"+s, clave:"documentos.nota_pedido.mostrar_"+s }; });
+        const NPAPI = (window.CONFIG && window.CONFIG.API_BASE_URL ? window.CONFIG.API_BASE_URL : '') + '/configuraciones';
+        const NPHDR = function(){ return { 'Content-Type':'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') }; };
+        async function cargar(){
+          try {
+            const r = await fetch(NPAPI + '/todas', { headers: NPHDR(), credentials:'include' });
+            if(!r.ok) return;
+            const j = await r.json();
+            const arr = Array.isArray(j) ? j : (j.configuraciones || j.data || []);
+            const map = {}; arr.forEach(function(c){ if(c && c.clave) map[c.clave]=c.valor; });
+            CAMPOS.forEach(function(c){
+              const el = document.getElementById(c.id); if(!el) return;
+              const v = map[c.clave];
+              el.checked = (v === undefined) ? true : (v === true || v === 'true');
+            });
+          } catch(e){ console.warn('np cargar:', e.message); }
+        }
+        async function guardar(){
+          const btn = document.getElementById('btnGuardarNotaPedido');
+          const msg = document.getElementById('npMsg');
+          const prev = btn.innerHTML; btn.disabled = true; btn.innerHTML = 'Guardando...';
+          let ok=0, fail=0;
+          for (let i=0;i<CAMPOS.length;i++){
+            const c = CAMPOS[i]; const el = document.getElementById(c.id); if(!el){ fail++; continue; }
+            try {
+              const res = await fetch(NPAPI + '/todas', { method:'PUT', headers: NPHDR(), credentials:'include', body: JSON.stringify({ clave: c.clave, valor: String(el.checked) }) });
+              if(res.ok) ok++; else fail++;
+            } catch(e){ fail++; }
+          }
+          msg.innerHTML = (fail===0)
+            ? '<span class="text-success">&#10003; '+ok+' guardados</span>'
+            : '<span class="text-danger">Guardados '+ok+' &mdash; fallaron '+fail+'</span>';
+          btn.disabled = false; btn.innerHTML = prev;
+        }
+        document.addEventListener('DOMContentLoaded', function(){
+          const b = document.getElementById('btnGuardarNotaPedido'); if(b) b.addEventListener('click', guardar);
+          cargar();
+        });
+      })();
+      </script>
+
+      <h6 class="text-muted text-uppercase small mb-3"><i class="bi bi-shop"></i> Tienda online (clientes web)</h6>
+
+      <div class="accordion accordion-flush" id="accWeb">
+
+        <!-- 1. ACCESO Y LOGIN -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#webAcceso">
+              <i class="bi bi-person-check me-2"></i> Acceso y login
+            </button>
+          </h2>
+          <div id="webAcceso" class="accordion-collapse collapse show" data-bs-parent="#accWeb">
+            <div class="accordion-body">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" data-config-key="web.permitir_auto_registro" data-config-type="bool" id="cfg_web_auto_reg">
+                    <label class="form-check-label" for="cfg_web_auto_reg">Permitir registro publico</label>
+                  </div>
+                  <div class="form-text">El visitante puede crear cuenta solo. Si esta apagado, solo vos das de alta los clientes web.</div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" data-config-key="web.auto_registro_requiere_aprobacion" data-config-type="bool" id="cfg_web_aprob_reg">
+                    <label class="form-check-label" for="cfg_web_aprob_reg">Aprobacion manual del registro</label>
+                  </div>
+                  <div class="form-text">Los nuevos quedan inactivos hasta que vos los aprobes desde Pedidos Web.</div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" data-config-key="web.login_obligatorio" data-config-type="bool" id="cfg_web_login_obl">
+                    <label class="form-check-label" for="cfg_web_login_obl">Login obligatorio</label>
+                  </div>
+                  <div class="form-text">Si esta encendido, el visitante NO puede ver el catalogo sin loguearse.</div>
+                </div>
+
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" data-config-key="web.precio_visible_sin_login" data-config-type="bool" id="cfg_web_precio_visible">
+                    <label class="form-check-label" for="cfg_web_precio_visible">Mostrar precios sin login</label>
+                  </div>
+                  <div class="form-text">Cliente sin loguear ve la lista publica. Logueado ve la lista que le asignaste.</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small">Lista de precio publica</label>
+                  <input type="number" class="form-control form-control-sm" data-config-key="web.id_lista_precio_publica" min="1">
+                  <div class="form-text">ID de la lista que ven los visitantes anonimos.</div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" data-config-key="web.email_verificacion_obligatoria" data-config-type="bool" id="cfg_web_email_verif">
+                    <label class="form-check-label" for="cfg_web_email_verif">Verificacion de email obligatoria</label>
+                  </div>
+                  <div class="form-text">Requiere clic en link de verificacion antes de poder loguearse.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. STOCK Y PRODUCTOS -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#webStock">
+              <i class="bi bi-box-seam me-2"></i> Stock y productos en la web
+            </button>
+          </h2>
+          <div id="webStock" class="accordion-collapse collapse" data-bs-parent="#accWeb">
+            <div class="accordion-body">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" data-config-key="web.solo_productos_con_stock" data-config-type="bool" id="cfg_web_solo_stock">
+                    <label class="form-check-label" for="cfg_web_solo_stock">Mostrar SOLO productos con stock</label>
+                  </div>
+                  <div class="form-text">Si esta encendido, los productos sin stock no aparecen en el catalogo.</div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" data-config-key="web.mostrar_stock_disponible" data-config-type="bool" id="cfg_web_mostrar_stock">
+                    <label class="form-check-label" for="cfg_web_mostrar_stock">Mostrar cantidad de stock</label>
+                  </div>
+                  <div class="form-text">Si esta apagado, solo se muestra "Disponible / Sin stock", sin numero exacto.</div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" data-config-key="web.permitir_vender_sin_stock" data-config-type="bool" id="cfg_web_vender_sin_stock">
+                    <label class="form-check-label" for="cfg_web_vender_sin_stock">Permitir checkout sin stock</label>
+                  </div>
+                  <div class="form-text">Acepta pedidos aunque no haya stock al momento (pedido bajo demanda).</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. CARRITO Y CHECKOUT -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#webCarrito">
+              <i class="bi bi-cart3 me-2"></i> Carrito y checkout
+            </button>
+          </h2>
+          <div id="webCarrito" class="accordion-collapse collapse" data-bs-parent="#accWeb">
+            <div class="accordion-body">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label small">Pedido minimo ($)</label>
+                  <input type="number" class="form-control form-control-sm" data-config-key="web.pedido_minimo" min="0" step="100">
+                  <div class="form-text">0 = sin minimo. Si se pone &gt;0, el cliente no puede confirmar pedidos por debajo.</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small">Carrito expira (dias)</label>
+                  <input type="number" class="form-control form-control-sm" data-config-key="web.carrito_dias_expiracion" min="1" max="365">
+                  <div class="form-text">Despues de cuantos dias se borra un carrito sin actividad.</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small">Marcar abandonado tras (horas)</label>
+                  <input type="number" class="form-control form-control-sm" data-config-key="web.carrito_horas_para_abandonado" min="1" max="720">
+                  <div class="form-text">Pasa a "abandonado" si no hubo movimiento. Aparece en panel de Pedidos Web.</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small">Tipo de entrega por defecto</label>
+                  <select class="form-select form-select-sm" data-config-key="web.tipo_entrega_default">
+                    <option value="retiro">Retiro en local</option>
+                    <option value="envio">Envio a domicilio</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" data-config-key="web.checkout_pide_domicilio" data-config-type="bool" id="cfg_web_pide_dom">
+                    <label class="form-check-label" for="cfg_web_pide_dom">Pedir domicilio en checkout</label>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" data-config-key="web.checkout_pide_observaciones" data-config-type="bool" id="cfg_web_pide_obs">
+                    <label class="form-check-label" for="cfg_web_pide_obs">Pedir observaciones en checkout</label>
+                  </div>
+                </div>
+                <div class="col-md-12">
+                  <label class="form-label small">Mensaje de WhatsApp para carritos abandonados</label>
+                  <input type="text" class="form-control form-control-sm" data-config-key="web.whatsapp_recordatorio_template" placeholder="Hola! Dejaste productos en tu carrito de LAGO. Recuperalo: {url}">
+                  <div class="form-text">Texto del recordatorio. Usa <code>{url}</code> para insertar el link al carrito.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. APROBACIONES -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#webAprob">
+              <i class="bi bi-check2-circle me-2"></i> Aprobaciones de pedidos
+            </button>
+          </h2>
+          <div id="webAprob" class="accordion-collapse collapse" data-bs-parent="#accWeb">
+            <div class="accordion-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" data-config-key="web.requiere_aprobacion_pedido" data-config-type="bool" id="cfg_web_req_aprob">
+                    <label class="form-check-label" for="cfg_web_req_aprob">Requerir aprobacion manual de pedidos</label>
+                  </div>
+                  <div class="form-text">Encendido = los pedidos web entran en estado "Pendiente Revision" (20). Apagado = saltan directo a Pendiente (1).</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small">Cliente puede modificar pedido hasta el estado</label>
+                  <input type="number" class="form-control form-control-sm" data-config-key="web.permitir_modificar_pedido_hasta_estado" min="-2" max="20">
+                  <div class="form-text">ID maximo de estado en el que el cliente puede editar items. Default 20 (mientras esta en revision).</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. SEGURIDAD Y SESION -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#webSeg">
+              <i class="bi bi-shield-lock me-2"></i> Seguridad y sesion
+            </button>
+          </h2>
+          <div id="webSeg" class="accordion-collapse collapse" data-bs-parent="#accWeb">
+            <div class="accordion-body">
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <label class="form-label small">Validez sesion (dias)</label>
+                  <input type="number" class="form-control form-control-sm" data-config-key="web.jwt_dias_validez" min="1" max="365">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small">Intentos login antes de bloqueo</label>
+                  <input type="number" class="form-control form-control-sm" data-config-key="web.max_intentos_login" min="3" max="50">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small">Bloqueo IP (minutos)</label>
+                  <input type="number" class="form-control form-control-sm" data-config-key="web.bloqueo_login_minutos" min="1" max="1440">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small">Costo bcrypt (rounds)</label>
+                  <input type="number" class="form-control form-control-sm" data-config-key="web.bcrypt_rounds" min="8" max="14">
+                </div>
+
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" data-config-key="web.cookie_secure" data-config-type="bool" id="cfg_web_cookie_secure">
+                    <label class="form-check-label" for="cfg_web_cookie_secure">Cookie segura (HTTPS only)</label>
+                  </div>
+                  <div class="form-text">Encendido en produccion (HTTPS). Apagar solo para desarrollo local.</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small">Nombre cookie sesion</label>
+                  <input type="text" class="form-control form-control-sm" data-config-key="web.cookie_name" placeholder="lago_web_token">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small">ID empresa de la web</label>
+                  <input type="number" class="form-control form-control-sm" data-config-key="web.id_empresa" min="1">
+                  <div class="form-text">Cual empresa sirve la tienda online (multi-empresa).</div>
+                </div>
+              </div>
+              <div class="alert alert-warning small mt-3 mb-0">
+                <i class="bi bi-exclamation-triangle"></i> El secret JWT (<code>web.jwt_secret</code>) no se edita aca por seguridad. Solo se puede regenerar desde la base de datos. Cambiarlo invalida todas las sesiones activas.
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="d-flex justify-content-end mt-3">
+        <button class="btn btn-success btn-sm" id="btnLagoGuardarConfigWeb">
+          <i class="bi bi-save"></i> Guardar configuracion de tienda
+        </button>
+      </div>
+
+      <hr class="my-4">
+
+      <h6 class="text-muted text-uppercase small mb-3">Ultimas publicaciones</h6>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0" id="tblLagoHistorial">
+          <thead class="table-light">
+            <tr>
+              <th>Fecha</th>
+              <th>Tipo</th>
+              <th>Estado</th>
+              <th class="text-end">Productos</th>
+              <th class="text-end">Tamano</th>
+              <th class="text-end">Duracion</th>
+              <th>Usuario</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="7" class="text-center text-muted small">Cargando historial...</td></tr></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  const API = (window.CONFIG && window.CONFIG.API_BASE_URL) || '/api';
+  const headers = () => ({ 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') });
+
+  const $msg = document.getElementById('lagoDeployMsg');
+  const $btn = document.getElementById('btnLagoDeploy');
+  const $badge = document.getElementById('lagoUltimoDeployBadge');
+  const $tbody = document.querySelector('#tblLagoHistorial tbody');
+  const $btnSave = document.getElementById('btnLagoGuardarConfig');
+  const $btnSaveWeb = document.getElementById('btnLagoGuardarConfigWeb');
+  if ($btnSaveWeb) {
+    $btnSaveWeb.addEventListener('click', () => guardarConfigs('web.'));
+  }
+
+  function showMsg(tipo, txt) {
+    $msg.className = 'alert alert-' + tipo + ' py-2 small';
+    $msg.textContent = txt;
+  }
+  function fmtBytes(b) {
+    if (!b) return '-';
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(2) + ' MB';
+  }
+  function fmtFecha(f) {
+    if (!f) return '-';
+    return new Date(f).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  }
+  function tiempoRelativo(f) {
+    if (!f) return 'nunca publicado';
+    const diff = (Date.now() - new Date(f).getTime()) / 1000;
+    if (diff < 60) return 'hace segundos';
+    if (diff < 3600) return 'hace ' + Math.floor(diff/60) + ' min';
+    if (diff < 86400) return 'hace ' + Math.floor(diff/3600) + ' h';
+    return 'hace ' + Math.floor(diff/86400) + ' dias';
+  }
+
+  async function cargarConfigs() {
+    try {
+      const r = await fetch(API + '/configuraciones/todas', { headers: headers() });
+      const rows = await r.json();
+      const map = {};
+      rows.forEach(x => { map[x.clave] = x.valor; });
+      document.querySelectorAll('[data-config-key]').forEach(el => {
+        const k = el.dataset.configKey;
+        if (map[k] === undefined) return;
+        if (el.type === 'checkbox') {
+          el.checked = (map[k] === 'true' || map[k] === true || map[k] === '1');
+        } else {
+          el.value = map[k];
+        }
+      });
+    } catch (e) { console.error(e); }
+  }
+
+  async function guardarConfigs(prefix) {
+    let inputs = document.querySelectorAll('[data-config-key]');
+    if (prefix) {
+      inputs = Array.from(inputs).filter(el => el.dataset.configKey.startsWith(prefix));
+    }
+    let ok = 0, err = 0;
+    for (const el of inputs) {
+      const valor = el.type === 'checkbox' ? (el.checked ? 'true' : 'false') : el.value;
+      try {
+        const r = await fetch(API + '/configuraciones/todas', {
+          method: 'PUT', headers: headers(),
+          body: JSON.stringify({ clave: el.dataset.configKey, valor: valor })
+        });
+        if (r.ok) ok++; else err++;
+      } catch { err++; }
+    }
+    showMsg(err ? 'warning' : 'success', 'Configuraciones guardadas: ' + ok + (err ? ' (' + err + ' con error)' : ''));
+  }
+
+  async function ejecutarDeploy() {
+    if (!confirm('Publicar el catalogo en lago.ar?\nEsto genera el JSON y lo sube a Hostinger.')) return;
+    $btn.disabled = true;
+    $btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Publicando...';
+    showMsg('info', 'Generando catalogo y subiendo a Hostinger...');
+    try {
+      const r = await fetch(API + '/lago/deploy', { method: 'POST', headers: headers() });
+      const data = await r.json();
+      if (data.ok) {
+        showMsg('success', 'Publicado OK: ' + data.productos_count + ' productos, ' + fmtBytes(data.bytes_subidos) + ' en ' + data.duracion_ms + ' ms');
+        await cargarUltimoYHistorial();
+      } else {
+        showMsg('danger', 'Error: ' + (data.error || 'desconocido'));
+      }
+    } catch (e) {
+      showMsg('danger', 'Error de red: ' + e.message);
+    } finally {
+      $btn.disabled = false;
+      $btn.innerHTML = '<i class="bi bi-cloud-upload"></i> Publicar catalogo web';
+    }
+  }
+
+  async function cargarUltimoYHistorial() {
+    try {
+      const r1 = await fetch(API + '/lago/deploy/ultimo', { headers: headers() });
+      const d1 = await r1.json();
+      if (d1.ok && d1.deploy) {
+        $badge.textContent = 'Ultima publicacion: ' + tiempoRelativo(d1.deploy.fecha);
+      } else {
+        $badge.textContent = 'Nunca publicado';
+      }
+    } catch {}
+
+    try {
+      const r2 = await fetch(API + '/lago/deploy/historial?limit=10', { headers: headers() });
+      const d2 = await r2.json();
+      if (d2.ok && d2.deploys.length) {
+        $tbody.innerHTML = d2.deploys.map(d => `
+          <tr>
+            <td>${fmtFecha(d.fecha)}</td>
+            <td><span class="badge bg-secondary">${d.tipo}</span></td>
+            <td><span class="badge bg-${d.estado==='ok'?'success':d.estado==='parcial'?'warning':'danger'}">${d.estado}</span></td>
+            <td class="text-end">${(d.productos_count||0).toLocaleString('es-AR')}</td>
+            <td class="text-end">${fmtBytes(d.bytes_subidos)}</td>
+            <td class="text-end">${d.duracion_ms||0} ms</td>
+            <td>${d.username||'-'}</td>
+          </tr>`).join('');
+      } else {
+        $tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted small">Sin publicaciones aun</td></tr>';
+      }
+    } catch (e) {
+      $tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger small">Error cargando historial</td></tr>';
+    }
+  }
+
+  // [deploy FTP eliminado] $btn.addEventListener('click', ejecutarDeploy);
+  $btnSave.addEventListener('click', () => guardarConfigs()); // F5: evitar que MouseEvent se pase como prefix
+  document.addEventListener('DOMContentLoaded', () => { cargarConfigs(); });
+  if (document.readyState !== 'loading') { cargarConfigs(); }
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     CATÁLOGO WEB — VISUALIZACIÓN (Sesión 2026-05-09)
+     Controla cómo se ven los cards en lago.ar/?conjunto=*
+     Toda config en configuraciones_empresa, namespaces web.catalogo.* y web.imagen.*
+     Manual: docs/MANUAL_CONFIGURACIONES_CATALOGO_WEB.md
+     ═══════════════════════════════════════════════════════════════════ -->
+<div class="container my-4" id="cardCatalogoVisual">
+  <div class="card shadow-sm">
+    <div class="card-header py-3" style="background:#1d6b3a;color:white;">
+      <h5 class="mb-0"><i class="bi bi-grid-3x3-gap"></i> Catálogo Web — Visualización</h5>
+    </div>
+    <div class="card-body p-4">
+
+      <div class="alert alert-light border-start border-4 border-success small mb-3">
+        <i class="bi bi-info-circle text-success"></i>
+        <strong>¿Qué hace esta sección?</strong> Controla cómo se ven los productos
+        en <code>lago.ar</code> dentro de cada pestaña (Corralón, Ferretería, etc).
+        Todo se guarda en BD, no se hardcodea. <strong>Recomendado:</strong> dejá los valores
+        por defecto y cambialos solo si ves algo que no te gusta en el catálogo público.
+        Manual completo en <code>docs/MANUAL_CONFIGURACIONES_CATALOGO_WEB.md</code>.
+      </div>
+
+      <div class="accordion accordion-flush" id="accCatalogoVisual">
+
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#cvAgrup">
+              <i class="bi bi-collection me-2"></i> 1. Cómo se agrupan los productos
+            </button>
+          </h2>
+          <div id="cvAgrup" class="accordion-collapse collapse show" data-bs-parent="#accCatalogoVisual">
+            <div class="accordion-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">Modo de agrupación</label>
+                  <select class="form-select form-select-sm" data-config-key="web.catalogo.modo_agrupacion">
+                    <option value="subcategoria">Por subcategoría (recomendado)</option>
+                    <option value="categoria_plana">Lista plana sin agrupar</option>
+                  </select>
+                  <small class="form-text">
+                    <strong>Por subcategoría:</strong> los productos se agrupan en cards según
+                    su subcategoría (CALES, CASCOTES, ARENAS…). Cada card lleva header verde e
+                    imagen lateral.<br>
+                    <strong>Lista plana:</strong> todos los productos uno abajo del otro sin cards.
+                    Solo conviene en pestañas con menos de 10 productos.
+                  </small>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-check form-switch mb-1">
+                    <input class="form-check-input" type="checkbox" id="cv_padre_unico"
+                           data-config-key="web.catalogo.heuristica_padre_unico" data-config-type="bool">
+                    <label class="form-check-label fw-bold small" for="cv_padre_unico">
+                      Si el grupo tiene un solo padre, usar el nombre del padre
+                    </label>
+                  </div>
+                  <small class="form-text">
+                    Cuando una subcategoría contiene una <em>única familia</em> (ej. ARENAS solo
+                    contiene la familia ARENA con sus 5 presentaciones), el card se titula
+                    <strong>ARENA</strong> en vez de <strong>ARENAS</strong>. Más natural.<br>
+                    Apagado: siempre usa el nombre de la subcategoría.
+                  </small>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-check form-switch mb-1">
+                    <input class="form-check-input" type="checkbox" id="cv_forzar_hoja"
+                           data-config-key="web.catalogo.forzar_subcategoria_hoja" data-config-type="bool">
+                    <label class="form-check-label fw-bold small" for="cv_forzar_hoja">
+                      Forzar subcategoría hoja
+                    </label>
+                  </div>
+                  <small class="form-text">
+                    Si la categoría que elegís en el alta de un producto tiene hijas, te obliga
+                    a elegir una. Evita productos huérfanos en la categoría madre.<br>
+                    Apagado: deja productos en la raíz aunque tenga hijas (no recomendado).
+                  </small>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-check form-switch mb-1">
+                    <input class="form-check-input" type="checkbox" id="cv_disclaimer"
+                           data-config-key="web.catalogo.mostrar_disclaimer_login" data-config-type="bool">
+                    <label class="form-check-label fw-bold small" for="cv_disclaimer">
+                      Mostrar cartel "Iniciá sesión para ver tu precio"
+                    </label>
+                  </div>
+                  <small class="form-text">
+                    Encendido: a clientes anónimos les aparece un chip arriba del catálogo
+                    invitándolos a loguearse para ver precio mayorista.<br>
+                    Apagado: solo se muestra el precio público sin disclaimer.
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#cvImg">
+              <i class="bi bi-image me-2"></i> 2. Imágenes y tamaño del card
+            </button>
+          </h2>
+          <div id="cvImg" class="accordion-collapse collapse" data-bs-parent="#accCatalogoVisual">
+            <div class="accordion-body">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label fw-bold small">Tamaño slot — desktop (px)</label>
+                  <input type="number" class="form-control form-control-sm"
+                         data-config-key="web.catalogo.imagen_slot_px" min="60" max="240">
+                  <small class="form-text">
+                    Ancho del cuadrado de imagen del card en pantallas grandes. Default 130.
+                    Subir a 160 = imágenes más prominentes; bajar a 100 = prioriza densidad.
+                  </small>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label fw-bold small">Tamaño slot — mobile (px)</label>
+                  <input type="number" class="form-control form-control-sm"
+                         data-config-key="web.catalogo.imagen_slot_px_mobile" min="50" max="180">
+                  <small class="form-text">
+                    Alto del banner de imagen en celulares (menos de 720px de ancho). En mobile la
+                    imagen va arriba del card como banner. Default 90.
+                  </small>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label fw-bold small">Modo de ajuste</label>
+                  <select class="form-select form-select-sm" data-config-key="web.catalogo.imagen_object_fit">
+                    <option value="contain">Mantener proporciones (contain)</option>
+                    <option value="cover">Llenar recortando (cover)</option>
+                  </select>
+                  <small class="form-text">
+                    <strong>Mantener proporciones:</strong> imagen entera. Recomendado corralón
+                    (caños, perfiles, chapas largas no se cortan).<br>
+                    <strong>Llenar recortando:</strong> llena el slot pero pierde bordes.
+                    Mejor para bolsas, cajas.
+                  </small>
+                </div>
+                <div class="col-md-12">
+                  <label class="form-label fw-bold small">Herencia de imagen padre / hijo</label>
+                  <select class="form-select form-select-sm" data-config-key="web.imagen.herencia_familia">
+                    <option value="bidireccional">Bidireccional (recomendado)</option>
+                    <option value="padre_hereda_hijo">Padre hereda de hijo</option>
+                    <option value="hijo_hereda_padre">Hijo hereda de padre</option>
+                    <option value="ninguno">Ninguno</option>
+                  </select>
+                  <small class="form-text">
+                    Cómo se completa la imagen cuando un producto familiar no tiene foto cargada.
+                    <strong>Bidireccional:</strong> si el padre no tiene foto, toma la del primer
+                    hijo; si un hijo no tiene, toma la del padre. Cubre todos los casos.
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#cvSinImg">
+              <i class="bi bi-image-alt me-2"></i> 3. Cuando un grupo no tiene imagen
+            </button>
+          </h2>
+          <div id="cvSinImg" class="accordion-collapse collapse" data-bs-parent="#accCatalogoVisual">
+            <div class="accordion-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">Modo placeholder</label>
+                  <select class="form-select form-select-sm" data-config-key="web.imagen.placeholder_modo">
+                    <option value="blanco">Slot blanco vacío</option>
+                    <option value="iniciales">Iniciales del nombre (recomendado)</option>
+                    <option value="icono">Ícono fijo (Bootstrap Icons)</option>
+                    <option value="url">Imagen genérica desde URL</option>
+                  </select>
+                  <small class="form-text">
+                    <strong>Iniciales:</strong> caja con la primera letra de la subcategoría
+                    (ej. "C" gris para CASCOTES). Lee como decisión, no como bug.<br>
+                    <strong>Ícono:</strong> el ícono Bootstrap Icons que pongas abajo, en gris.<br>
+                    <strong>URL:</strong> imagen genérica (configurada en
+                    <code>web.imagen.placeholder_url</code> abajo).
+                  </small>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label fw-bold small">Ícono (si modo=icono)</label>
+                  <input type="text" class="form-control form-control-sm"
+                         data-config-key="web.imagen.placeholder_icono" placeholder="box-seam">
+                  <small class="form-text">
+                    Nombre Bootstrap Icons sin prefijo <code>bi-</code>.
+                    Ej: <code>box-seam</code>, <code>tools</code>, <code>brick</code>.
+                    Lista: icons.getbootstrap.com.
+                  </small>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label fw-bold small">URL (si modo=url)</label>
+                  <input type="text" class="form-control form-control-sm"
+                         data-config-key="web.imagen.placeholder_url" placeholder="https://...">
+                  <small class="form-text">
+                    URL de imagen genérica. El host debe estar en
+                    <code>web.imagen.hosts_permitidos</code>.
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mt-3">
+        <small class="text-muted">
+          <i class="bi bi-clock-history"></i>
+          Los cambios se aplican <strong>al refrescar lago.ar</strong>. No requiere reiniciar.
+        </small>
+        <button class="btn btn-success" id="btnGuardarCV">
+          <i class="bi bi-save"></i> Guardar configuración
+        </button>
+      </div>
+      <div id="cvStatus" class="mt-2 small text-end"></div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var API = (window.CONFIG && window.CONFIG.API_BASE_URL) || '/api';
+  function hdr() {
+    var t = localStorage.getItem('authToken') || localStorage.getItem('token') || '';
+    return { 'Content-Type':'application/json', 'Authorization': t ? 'Bearer '+t : '' };
+  }
+  function pb(v){return v===true||v==='true'||v==='1'||v===1;}
+  function status(tipo, msg) {
+    var el = document.getElementById('cvStatus'); if (!el) return;
+    var c = tipo==='err'?'text-danger':(tipo==='warn'?'text-warning':'text-success');
+    el.className = 'mt-2 small text-end '+c; el.textContent = msg;
+    if (tipo==='ok') setTimeout(function(){el.textContent='';}, 4000);
+  }
+  async function cargar() {
+    try {
+      var r = await fetch(API+'/configuraciones/todas',{headers:hdr()});
+      if (!r.ok) return;
+      var rows = await r.json(); var map = {};
+      (Array.isArray(rows)?rows:[]).forEach(function(x){map[x.clave]=x.valor;});
+      document.querySelectorAll('#cardCatalogoVisual [data-config-key]').forEach(function(el){
+        var k=el.dataset.configKey; if (map[k]===undefined) return;
+        if (el.type==='checkbox') el.checked=pb(map[k]); else el.value=map[k];
+      });
+    } catch(e) { console.error('[cv]', e); }
+  }
+  async function guardar() {
+    var btn=document.getElementById('btnGuardarCV');
+    btn.disabled=true; btn.innerHTML='<span class="spinner-border spinner-border-sm"></span> Guardando...';
+    var inputs=document.querySelectorAll('#cardCatalogoVisual [data-config-key]');
+    var ok=0,err=0;
+    for (var i=0;i<inputs.length;i++){
+      var el=inputs[i];
+      var v=el.type==='checkbox'?(el.checked?'true':'false'):String(el.value||'').trim();
+      try{
+        var r=await fetch(API+'/configuraciones/todas',{method:'PUT',headers:hdr(),
+              body:JSON.stringify({clave:el.dataset.configKey,valor:v})});
+        if (r.ok) ok++; else err++;
+      } catch(e){err++;}
+    }
+    btn.disabled=false; btn.innerHTML='<i class="bi bi-save"></i> Guardar configuración';
+    status(err?'warn':'ok','Guardadas: '+ok+(err?' ('+err+' fallaron)':''));
+  }
+  document.getElementById('btnGuardarCV').addEventListener('click', guardar);
+  if (document.readyState!=='loading') cargar();
+  else document.addEventListener('DOMContentLoaded', cargar);
+})();
+</script>
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SECCIÓN: Gestión de Depósitos                                         -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="main-card mb-4">
+    <div class="card-header bg-success text-white py-3 d-flex justify-content-between align-items-center">
+        <h4 class="mb-0">
+            <i class="bi bi-building"></i> Gestión de Depósitos
+        </h4>
+        <button class="btn btn-light btn-sm" onclick="depositosModule.abrirModal()">
+            <i class="bi bi-plus-circle"></i> Nuevo Depósito
+        </button>
+    </div>
+    <div class="card-body p-4">
+        <p class="text-muted mb-3">
+            Administrá los depósitos de tu empresa. Cada usuario opera desde un depósito asignado.
+            El stock se controla <strong>por depósito</strong>: ventas, compras y ajustes mueven mercadería del depósito del usuario.
+        </p>
+        <div id="depositosAlert" class="d-none"></div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="tablaDepositos">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:10%">Código</th>
+                        <th style="width:22%">Nombre</th>
+                        <th style="width:18%">Responsable</th>
+                        <th style="width:13%" class="text-center">Usuarios</th>
+                        <th style="width:10%" class="text-center">Principal</th>
+                        <th style="width:10%" class="text-center">Estado</th>
+                        <th style="width:17%" class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="depositosBody">
+                    <tr><td colspan="7" class="text-center text-muted py-3">
+                        <span class="spinner-border spinner-border-sm"></span> Cargando...
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="alert alert-info border-start border-4 border-info mt-3 mb-0">
+            <i class="bi bi-info-circle-fill"></i> <strong>Importante:</strong>
+            <ul class="mb-0 mt-2">
+                <li>Debe haber <strong>siempre</strong> un depósito principal por empresa</li>
+                <li>No se puede eliminar un depósito con stock o usuarios asignados</li>
+                <li>Asigná el depósito a cada usuario desde <a href="admin-usuarios.html">Gestión de Usuarios</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear/Editar Depósito -->
+<div class="modal fade" id="modalDeposito" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalDepositoTitulo">Nuevo Depósito</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="depEditId">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Código <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="depCodigo" maxlength="20"
+                           placeholder="Ej: CENTRAL, GALPÓN-1, ARENA" style="text-transform:uppercase">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Nombre <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="depNombre" maxlength="100"
+                           placeholder="Ej: Depósito Central">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Dirección</label>
+                    <input type="text" class="form-control" id="depDireccion" placeholder="Dirección física">
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Teléfono</label>
+                        <input type="text" class="form-control" id="depTelefono" placeholder="Teléfono">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Responsable</label>
+                        <input type="text" class="form-control" id="depResponsable" placeholder="Nombre del encargado">
+                    </div>
+                </div>
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="depEsPrincipal">
+                    <label class="form-check-label" for="depEsPrincipal">
+                        <i class="bi bi-star-fill text-warning"></i> Depósito principal
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="depositosModule.guardar()">
+                    <i class="bi bi-floppy"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- MÓDULO DEPÓSITOS JS -->
+<script>
+const depositosModule = (() => {
+    const API = (window.CONFIG?.API_BASE_URL || '') + '/depositos';
+    const TOKEN = localStorage.getItem('authToken');
+    const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+
+    async function cargar() {
+        try {
+            const res = await fetch(API, { headers });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error);
+            renderTabla(data.data);
+        } catch (err) {
+            document.getElementById('depositosBody').innerHTML =
+                `<tr><td colspan="7" class="text-center text-danger">${err.message}</td></tr>`;
+        }
+    }
+
+    function renderTabla(depositos) {
+        const tbody = document.getElementById('depositosBody');
+        if (!depositos.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No hay depósitos configurados</td></tr>';
+            return;
+        }
+        tbody.innerHTML = depositos.map(d => `
+            <tr class="${!d.activo ? 'table-secondary' : ''}">
+                <td><code class="fw-bold">${d.codigo}</code></td>
+                <td>${d.nombre}</td>
+                <td>${d.responsable || '<span class="text-muted">—</span>'}</td>
+                <td class="text-center">
+                    <span class="badge bg-primary rounded-pill">${d.usuarios_asignados}</span>
+                </td>
+                <td class="text-center">
+                    ${d.es_principal
+                        ? '<i class="bi bi-star-fill text-warning fs-5"></i>'
+                        : `<button class="btn btn-outline-warning btn-sm" onclick="depositosModule.marcarPrincipal(${d.id_deposito})" title="Marcar como principal"><i class="bi bi-star"></i></button>`}
+                </td>
+                <td class="text-center">
+                    ${d.activo
+                        ? '<span class="badge bg-success">Activo</span>'
+                        : '<span class="badge bg-secondary">Inactivo</span>'}
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-outline-primary btn-sm me-1" onclick='depositosModule.abrirModal(${JSON.stringify(d)})' title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    ${!d.es_principal ? `
+                        <button class="btn btn-outline-danger btn-sm" onclick="depositosModule.eliminar(${d.id_deposito}, '${d.nombre}')" title="Eliminar">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    ` : ''}
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function abrirModal(deposito = null) {
+        document.getElementById('depEditId').value = deposito ? deposito.id_deposito : '';
+        document.getElementById('depCodigo').value = deposito ? deposito.codigo : '';
+        document.getElementById('depNombre').value = deposito ? deposito.nombre : '';
+        document.getElementById('depDireccion').value = deposito ? (deposito.direccion || '') : '';
+        document.getElementById('depTelefono').value = deposito ? (deposito.telefono || '') : '';
+        document.getElementById('depResponsable').value = deposito ? (deposito.responsable || '') : '';
+        document.getElementById('depEsPrincipal').checked = deposito ? deposito.es_principal : false;
+        document.getElementById('modalDepositoTitulo').textContent = deposito ? 'Editar Depósito' : 'Nuevo Depósito';
+        document.getElementById('depCodigo').disabled = !!deposito;
+        new bootstrap.Modal(document.getElementById('modalDeposito')).show();
+        setTimeout(() => document.getElementById(deposito ? 'depNombre' : 'depCodigo').focus(), 300);
+    }
+
+    async function guardar() {
+        const id = document.getElementById('depEditId').value;
+        const body = {
+            codigo: document.getElementById('depCodigo').value.trim(),
+            nombre: document.getElementById('depNombre').value.trim(),
+            direccion: document.getElementById('depDireccion').value.trim() || null,
+            telefono: document.getElementById('depTelefono').value.trim() || null,
+            responsable: document.getElementById('depResponsable').value.trim() || null,
+            es_principal: document.getElementById('depEsPrincipal').checked
+        };
+        if (!body.codigo || !body.nombre) {
+            alert('Código y nombre son obligatorios');
+            return;
+        }
+        try {
+            const url = id ? `${API}/${id}` : API;
+            const method = id ? 'PUT' : 'POST';
+            const res = await fetch(url, { method, headers, body: JSON.stringify(body) });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error);
+            bootstrap.Modal.getInstance(document.getElementById('modalDeposito')).hide();
+            mostrarAlert('success', `<i class="bi bi-check-circle"></i> ${data.message}`);
+            await cargar();
+        } catch (err) {
+            alert(err.message);
+        }
+    }
+
+    async function eliminar(id, nombre) {
+        if (!confirm(`¿Eliminar depósito "${nombre}"?\n\nSi tiene historial se desactivará en vez de eliminarse.`)) return;
+        try {
+            const res = await fetch(`${API}/${id}`, { method: 'DELETE', headers });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error);
+            mostrarAlert('success', `<i class="bi bi-check-circle"></i> ${data.message}`);
+            await cargar();
+        } catch (err) {
+            mostrarAlert('danger', `<i class="bi bi-x-circle"></i> ${err.message}`);
+        }
+    }
+
+    async function marcarPrincipal(id) {
+        if (!confirm('¿Marcar este depósito como principal?')) return;
+        try {
+            const res = await fetch(`${API}/${id}/principal`, { method: 'PUT', headers });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error);
+            mostrarAlert('success', `<i class="bi bi-star-fill text-warning"></i> ${data.message}`);
+            await cargar();
+        } catch (err) {
+            mostrarAlert('danger', `<i class="bi bi-x-circle"></i> ${err.message}`);
+        }
+    }
+
+    function mostrarAlert(tipo, html) {
+        const el = document.getElementById('depositosAlert');
+        el.className = `alert alert-${tipo}`;
+        el.innerHTML = html;
+        setTimeout(() => { el.className = 'd-none'; el.innerHTML = ''; }, 5000);
+    }
+
+    document.addEventListener('DOMContentLoaded', cargar);
+    return { cargar, abrirModal, guardar, eliminar, marcarPrincipal };
+})();
+</script>
+
+
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- CONFIGURACIONES PERSONALIZADAS (clave-valor editables)        -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="main-card mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center" style="background:#2d6a4f;color:white;">
+                <h4 class="mb-0"><i class="bi bi-sliders"></i> Configuraciones Personalizadas</h4>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted mb-3">Textos, parámetros y opciones configurables del sistema. Editá el valor y hacé clic en Guardar.</p>
+                <div id="customConfigAlert" class="d-none"></div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-3">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:30%">Clave</th>
+                                <th style="width:50%">Valor</th>
+                                <th style="width:20%" class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customConfigBody">
+                            <tr><td colspan="3" class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm"></span> Cargando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+<script>
+(function() {
+    var API_CC = '/api/configuraciones';
+    var TOKEN_CC = localStorage.getItem('authToken');
+    var HDR_CC = { 'Authorization': 'Bearer ' + TOKEN_CC, 'Content-Type': 'application/json' };
+    var CLAVES_OCULTAS = ['afip_cuit','afip_cert_path','afip_key_path','afip_env','afip_offline','afip_tope_cf_efectivo','afip_tope_cf_otros','afip_punto_venta_default','punto_venta_factura','favicon_url','moneda_defecto','requiere_validacion_dispositivo'];
+
+    async function cargarCustomConfigs() {
+        try {
+            var res = await fetch(API_CC + '/todas', { headers: HDR_CC });
+            var data = await res.json();
+            var configs = (data.configuraciones || data || []).filter(function(c) {
+                return CLAVES_OCULTAS.indexOf(c.clave) === -1;
+            });
+            renderCustomConfigs(configs);
+        } catch (err) {
+            document.getElementById('customConfigBody').innerHTML = '<tr><td colspan="3" class="text-danger text-center">' + err.message + '</td></tr>';
+        }
+    }
+
+    function renderCustomConfigs(configs) {
+        var tbody = document.getElementById('customConfigBody');
+        if (!configs.length) { tbody.innerHTML = '<tr><td colspan="3" class="text-muted text-center">No hay configuraciones personalizadas</td></tr>'; return; }
+        tbody.innerHTML = configs.map(function(c) {
+            var esLargo = c.valor && c.valor.length > 80;
+            var inputHtml = esLargo
+                ? '<textarea class="form-control form-control-sm cc-valor" data-clave="' + c.clave + '" rows="3">' + (c.valor || '') + '</textarea>'
+                : '<input type="text" class="form-control form-control-sm cc-valor" data-clave="' + c.clave + '" value="' + (c.valor || '').replace(/"/g, '&quot;') + '">';
+            var desc = c.descripcion ? '<br><small class="text-muted">' + c.descripcion + '</small>' : '';
+            return '<tr>'
+                + '<td><code>' + c.clave + '</code>' + desc + '</td>'
+                + '<td>' + inputHtml + '</td>'
+                + '<td class="text-center"><button class="btn btn-sm btn-outline-success" onclick="guardarCustomConfig(this, \x27' + c.clave + '\x27)"><i class="bi bi-check-lg"></i> Guardar</button></td>'
+                + '</tr>';
+        }).join('');
+    }
+
+    window.guardarCustomConfig = async function(btn, clave) {
+        var input = document.querySelector('.cc-valor[data-clave="' + clave + '"]');
+        if (!input) return;
+        var valor = input.value || input.textContent || '';
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        try {
+            var res = await fetch(API_CC + '/todas', {
+                method: 'PUT',
+                headers: HDR_CC,
+                body: JSON.stringify({ clave: clave, valor: valor })
+            });
+            if (!res.ok) {
+                var err = await res.json();
+                throw new Error(err.error || 'Error al guardar');
+            }
+            btn.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i> OK';
+            setTimeout(function() { btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar'; btn.disabled = false; }, 2000);
+        } catch (err) {
+            alert('Error: ' + err.message);
+            btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar';
+            btn.disabled = false;
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', cargarCustomConfigs);
+})();
+</script>
+
         <!-- Próximas Configuraciones -->
+
+        <!-- Configuraciones de Backup v2 -->
+        <div class="main-card mb-4">
+            <div class="card-header bg-success text-white py-3">
+                <h4 class="mb-0">
+                    <i class="bi bi-shield-check"></i> Copias de Seguridad
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <!-- Header con botón crear -->
+                <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
+                    <div>
+                        <h5 class="fw-bold mb-1">
+                            <i class="bi bi-database-fill-gear text-success"></i> Backup Completo
+                        </h5>
+                        <p class="text-muted mb-0 small">
+                            BD (formato custom comprimido) + código fuente. Se guardan en <code>/root/backups/</code>
+                        </p>
+                    </div>
+                    <button class="btn btn-success btn-lg" id="btnCrearBackup" onclick="backupModule.crear()">
+                        <i class="bi bi-download" id="btnCrearIcon"></i>
+                        <span id="btnCrearText">Crear Backup</span>
+                    </button>
+                </div>
+
+                <!-- Resultado -->
+                <div id="backupMsg" class="d-none"></div>
+
+                <!-- Stats -->
+                <div id="backupStats" class="d-flex gap-2 mb-3 flex-wrap"></div>
+
+                <!-- Lista de backups -->
+                <h6 class="fw-bold mb-2"><i class="bi bi-archive"></i> Backups Existentes</h6>
+                <div id="backupList" class="list-group mb-3">
+                    <div class="text-center text-muted py-3">
+                        <span class="spinner-border spinner-border-sm"></span> Cargando...
+                    </div>
+                </div>
+
+                <div class="alert alert-info border-start border-4 border-info mb-0">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <strong>Información:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>Se recomienda hacer backup <strong>antes de cambios importantes</strong></li>
+                        <li>Los backups se <strong>verifican automáticamente</strong> al crearse</li>
+                        <li>Rotación automática: se mantienen los últimos <strong id="maxBackupsInfo">10</strong> backups</li>
+                        <li>Al restaurar, se crea un backup de seguridad automático del estado actual</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Restaurar -->
+        <div class="modal fade" id="modalRestaurar" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning text-dark">
+                        <h5 class="modal-title">
+                            <i class="bi bi-arrow-counterclockwise"></i> Restaurar Backup
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="fw-bold mb-3" id="modalRestaurarNombre"></p>
+
+                        <div class="list-group mb-3" id="restoreOptions">
+                            <label class="list-group-item list-group-item-action d-flex gap-3 align-items-start" onclick="backupModule.seleccionarModo('bd')">
+                                <input type="radio" name="restoreMode" value="bd" class="form-check-input mt-1" checked>
+                                <div>
+                                    <strong><i class="bi bi-database"></i> Solo Base de Datos</strong>
+                                    <p class="text-muted small mb-0">Restaura únicamente la BD. El código queda como está.</p>
+                                </div>
+                            </label>
+                            <label class="list-group-item list-group-item-action d-flex gap-3 align-items-start" onclick="backupModule.seleccionarModo('codigo')">
+                                <input type="radio" name="restoreMode" value="codigo" class="form-check-input mt-1">
+                                <div>
+                                    <strong><i class="bi bi-folder-check"></i> Solo Código</strong>
+                                    <p class="text-muted small mb-0">Restaura archivos del proyecto. La BD queda intacta.</p>
+                                </div>
+                            </label>
+                            <label class="list-group-item list-group-item-action d-flex gap-3 align-items-start" onclick="backupModule.seleccionarModo('completo')">
+                                <input type="radio" name="restoreMode" value="completo" class="form-check-input mt-1">
+                                <div>
+                                    <strong><i class="bi bi-arrow-repeat"></i> Completo (BD + Código)</strong>
+                                    <p class="text-muted small mb-0">Restaura todo al estado del backup.</p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="alert alert-warning small mb-0">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <strong>Antes de restaurar</strong> se crea automáticamente un backup de seguridad del estado actual. Si algo sale mal, podés volver atrás.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-warning" id="btnConfirmarRestore" onclick="backupModule.ejecutarRestore()">
+                            <i class="bi bi-arrow-counterclockwise"></i> Restaurar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="main-card">
             <div class="card-header bg-secondary text-white py-3">
                 <h4 class="mb-0">
@@ -167,6 +2429,8 @@
             const switchElement = document.getElementById('stockNegativoSwitch');
             const labelElement = document.getElementById('stockLabel');
             const alertContainer = document.getElementById('alertContainer');
+            const precioSwitch = document.getElementById('precioVentaSwitch');
+            const precioLabel = document.getElementById('precioLabel');
 
             // Función para mostrar alertas
             const showAlert = (message, type = 'success') => {
@@ -188,18 +2452,59 @@
 
             // Cargar configuración actual
             try {
-                const response = await fetch('/api/configuraciones/permitir_stock_negativo', { headers });
+                const response = await fetch('/api/auth/configuracion', { headers });
                 
                 if (!response.ok) {
                     throw new Error('Error al cargar configuración');
                 }
                 
                 const data = await response.json();
-                const isEnabled = data.valor === 'true';
+                const isEnabled = data.permitir_venta_sin_stock === true;
                 
                 switchElement.checked = isEnabled;
                 switchElement.disabled = false;
                 updateLabel(isEnabled);
+
+                // Cargar config de precios
+                const precioEnabled = data.permitir_cambiar_precio === true;
+
+                // Config web stock
+                try {
+                    const webStockResp = await fetch('/api/configuraciones/todas', { headers });
+                    const webStockData = await webStockResp.json();
+                    const configs = Array.isArray(webStockData) ? webStockData : (webStockData.configuraciones || []);
+                    const webStockConfig = configs.find(c => c.clave === 'catalogo_web.excluir_sin_stock');
+                    const webStockEnabled = webStockConfig && webStockConfig.valor === 'true';
+                    const stockWebSwitch = document.getElementById('stockWebSwitch');
+                    const stockWebLabel = document.getElementById('stockWebLabel');
+                    if (stockWebSwitch) {
+                        stockWebSwitch.checked = webStockEnabled;
+                        stockWebSwitch.disabled = false;
+                        stockWebLabel.innerHTML = webStockEnabled
+                            ? '<i class="bi bi-eye-slash-fill text-warning"></i> <span class="text-warning">OCULTOS</span>'
+                            : '<i class="bi bi-eye-fill text-success"></i> <span class="text-success">VISIBLES</span>';
+                        stockWebSwitch.addEventListener('change', async (e) => {
+                            stockWebSwitch.disabled = true;
+                            stockWebLabel.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
+                            try {
+                                await fetch('/api/configuraciones/todas', {
+                                    method: 'PUT', headers,
+                                    body: JSON.stringify({ clave: 'catalogo_web.excluir_sin_stock', valor: e.target.checked ? 'true' : 'false' })
+                                });
+                                stockWebLabel.innerHTML = e.target.checked
+                                    ? '<i class="bi bi-eye-slash-fill text-warning"></i> <span class="text-warning">OCULTOS</span>'
+                                    : '<i class="bi bi-eye-fill text-success"></i> <span class="text-success">VISIBLES</span>';
+                                showAlert('Configuracion web actualizada. Sincronice el catalogo para aplicar.', 'success');
+                            } catch(err) {
+                                stockWebSwitch.checked = !e.target.checked;
+                                showAlert('Error al guardar', 'danger');
+                            } finally { stockWebSwitch.disabled = false; }
+                        });
+                    }
+                } catch(e) { console.error('Error config web stock:', e); }
+                precioSwitch.checked = precioEnabled;
+                precioSwitch.disabled = false;
+                updatePrecioLabel(precioEnabled);
                 
             } catch (error) {
                 console.error('Error:', error);
@@ -216,17 +2521,50 @@
                 }
             }
 
+            // Precio label
+            function updatePrecioLabel(isEnabled) {
+                if (isEnabled) {
+                    precioLabel.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i> <span class="text-success">ACTIVADO</span>';
+                } else {
+                    precioLabel.innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i> <span class="text-danger">DESACTIVADO</span>';
+                }
+            }
+
             // Manejar cambio de configuración
+            // Evento para switch de precios
+            precioSwitch.addEventListener('change', async (e) => {
+                const nuevoValor = e.target.checked;
+                precioSwitch.disabled = true;
+                precioLabel.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Guardando...';
+                try {
+                    const response = await fetch('/api/auth/configuracion', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({ permitir_cambiar_precio: nuevoValor })
+                    });
+                    if (!response.ok) throw new Error('Error al guardar');
+                    updatePrecioLabel(nuevoValor);
+                    showAlert(nuevoValor ? 'Modificación de precios ACTIVADA' : 'Modificación de precios DESACTIVADA', 'success');
+                } catch (error) {
+                    console.error('Error:', error);
+                    precioSwitch.checked = !nuevoValor;
+                    showAlert('Error al guardar configuración', 'danger');
+                } finally {
+                    precioSwitch.disabled = false;
+                }
+            });
+
+            // Evento para switch de stock
             switchElement.addEventListener('change', async (e) => {
                 const nuevoValor = e.target.checked ? 'true' : 'false';
                 switchElement.disabled = true;
                 labelElement.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Guardando...';
                 
                 try {
-                    const response = await fetch('/api/configuraciones/permitir_stock_negativo', {
-                        method: 'PUT',
+                    const response = await fetch('/api/auth/configuracion', {
+                        method: 'POST',
                         headers,
-                        body: JSON.stringify({ valor: nuevoValor })
+                        body: JSON.stringify({ permitir_venta_sin_stock: nuevoValor === 'true' })
                     });
 
                     if (!response.ok) {
@@ -236,6 +2574,8 @@
 
                     const isEnabled = nuevoValor === 'true';
                     updateLabel(isEnabled);
+
+                // Cargar config de precios
                     switchElement.disabled = false;
                     
                     showAlert(
@@ -253,7 +2593,875 @@
             });
         });
     </script>
-    <script src="js/connection-indicator.js"></script>
-    <script src="js/config-panel.js"></script>
+    <script src="js/connection-indicator.js?v=20260423072149"></script>
+    <script src="js/config-panel.js?v=20260423072149"></script>    <script src="js/config-empresa-afip.js?v=20260423072149"></script>
+
+<!-- SECCION COMPRAS -->
+<div class="card mb-4" id="seccionCompras">
+  <div class="card-header bg-light d-flex justify-content-between align-items-center">
+    <h4 class="mb-0"><i class="bi bi-cart-plus"></i> Compras</h4>
+    <button type="button" class="btn btn-primary btn-sm" id="btnGuardarConfigCompras">
+      <i class="bi bi-check-lg"></i> Guardar Compras
+    </button>
+  </div>
+  <div class="card-body">
+    <div id="msgCompras" class="alert alert-info py-2 small" style="display:none"></div>
+    <div class="accordion" id="accCompras">
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#comprasDefaults">
+            <i class="bi bi-sliders me-2"></i> Defaults al crear comprobantes
+          </button>
+        </h2>
+        <div id="comprasDefaults" class="accordion-collapse collapse show" data-bs-parent="#accCompras">
+          <div class="accordion-body">
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label small">Alicuota IVA por defecto</label>
+                <select class="form-select form-select-sm" data-config-key="compras.iva_default_id_alicuota">
+                  <option value="1">IVA 0%</option>
+                  <option value="6">IVA 2.5%</option>
+                  <option value="5">IVA 5%</option>
+                  <option value="2">IVA 10.5%</option>
+                  <option value="3">IVA 21%</option>
+                  <option value="4">IVA 27%</option>
+                </select>
+                <div class="form-text">Usada cuando el Excel no trae IVA y el producto no tiene alicuota propia.</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Moneda por defecto (ID)</label>
+                <input type="number" class="form-control form-control-sm" data-config-key="compras.moneda_default_id" min="1">
+                <div class="form-text">ID de la moneda por defecto.</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Limite de historial por producto</label>
+                <input type="number" class="form-control form-control-sm" data-config-key="compras.historial_producto_limit" min="5" max="200">
+                <div class="form-text">Cantidad de compras previas a mostrar.</div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-check form-switch">
+                  <!-- Removido: la BD (comprobante_compra_tipos) decide. Refactor 2026-04. -->
+                  <label class="form-check-label" for="cfg_comp_stock">Comprobante afecta stock por defecto</label>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-check form-switch">
+                  <!-- Removido: la BD (comprobante_compra_tipos) decide. Refactor 2026-04. -->
+                  <label class="form-check-label" for="cfg_comp_cc">Genera deuda en CC proveedor</label>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" data-config-key="compras.actualizar_costo_al_guardar" data-config-type="bool" id="cfg_comp_costo">
+                  <label class="form-check-label" for="cfg_comp_costo">Actualizar costo vigente al guardar</label>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" data-config-key="compras.marcar_proveedor_preferido_default" data-config-type="bool" id="cfg_comp_pref">
+                  <label class="form-check-label" for="cfg_comp_pref">Marcar proveedor como preferido</label>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Tolerancia de descuadre ($)</label>
+                <input type="number" step="0.01" class="form-control form-control-sm" data-config-key="compras.tolerancia_descuadre_pesos">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#comprasImport">
+            <i class="bi bi-file-earmark-excel me-2"></i> Importacion de items desde Excel
+          </button>
+        </h2>
+        <div id="comprasImport" class="accordion-collapse collapse" data-bs-parent="#accCompras">
+          <div class="accordion-body">
+            <div class="alert alert-light border small mb-3">
+              <strong>Modo posicional:</strong> el Excel se lee por letra de columna, no por nombre de header.
+            </div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" data-config-key="compras.import_excel.primera_fila_header" data-config-type="bool" id="cfg_imp_header">
+                  <label class="form-check-label" for="cfg_imp_header">Primera fila es header</label>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" data-config-key="compras.import_excel.precio_incluye_iva" data-config-type="bool" id="cfg_imp_iva_inc">
+                  <label class="form-check-label" for="cfg_imp_iva_inc">Precio incluye IVA</label>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" data-config-key="compras.import_excel.fallar_si_producto_falta" data-config-type="bool" id="cfg_imp_fail">
+                  <label class="form-check-label" for="cfg_imp_fail">Fallar si un SKU no existe</label>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small">Col. SKU</label>
+                <input type="text" class="form-control form-control-sm" data-config-key="compras.import_excel.col_sku" maxlength="2" style="text-transform:uppercase">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small">Col. Descripcion</label>
+                <input type="text" class="form-control form-control-sm" data-config-key="compras.import_excel.col_descripcion" maxlength="2" style="text-transform:uppercase">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small">Col. Cantidad</label>
+                <input type="text" class="form-control form-control-sm" data-config-key="compras.import_excel.col_cantidad" maxlength="2" style="text-transform:uppercase">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small">Col. Precio</label>
+                <input type="text" class="form-control form-control-sm" data-config-key="compras.import_excel.col_precio_unit" maxlength="2" style="text-transform:uppercase">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small">Col. Descuento %</label>
+                <input type="text" class="form-control form-control-sm" data-config-key="compras.import_excel.col_descuento_porc" maxlength="2" style="text-transform:uppercase">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small">Max filas</label>
+                <input type="number" class="form-control form-control-sm" data-config-key="compras.import_excel.max_filas" min="10" max="5000">
+              </div>
+              <div class="col-md-8">
+                <label class="form-label small">Estrategia de match (orden, separado por coma)</label>
+                <input type="text" class="form-control form-control-sm" data-config-key="compras.import_excel.estrategia_match">
+                <div class="form-text">Valores: sku, producto_proveedor, codigo_barra, cod_proveedor.</div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" data-config-key="compras.import_excel.crear_mapping_pp_si_falta" data-config-type="bool" id="cfg_imp_mapping">
+                  <label class="form-check-label" for="cfg_imp_mapping">Crear mapping prov-producto si falta</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- 3. IMPRESION -->
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#comprasPrint">
+            <i class="bi bi-printer me-2"></i> Impresion
+          </button>
+        </h2>
+        <div id="comprasPrint" class="accordion-collapse collapse" data-bs-parent="#accCompras">
+          <div class="accordion-body">
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label small">Tamano de hoja</label>
+                <select class="form-select form-select-sm" data-config-key="compras.print.tamano_hoja">
+                  <option value="A4">A4</option>
+                  <option value="termica80">Termica 80mm</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" data-config-key="compras.print.mostrar_logo" data-config-type="bool" id="cfg_print_logo">
+                  <label class="form-check-label" for="cfg_print_logo">Mostrar logo de empresa</label>
+                </div>
+              </div>
+              <div class="col-md-12">
+                <label class="form-label small">Pie de pagina (texto libre)</label>
+                <input type="text" class="form-control form-control-sm" data-config-key="compras.print.pie_pagina" maxlength="200">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  'use strict';
+  var API = (window.CONFIG && window.CONFIG.API_BASE_URL) || '/api';
+  function hdr() {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || localStorage.getItem('token') || '')
+    };
+  }
+  var $msg = document.getElementById('msgCompras');
+  var $btn = document.getElementById('btnGuardarConfigCompras');
+  if (!$btn) return;
+  function showMsg(tipo, txt) {
+    $msg.style.display = '';
+    $msg.className = 'alert alert-' + tipo + ' py-2 small';
+    $msg.textContent = txt;
+    setTimeout(function() { $msg.style.display = 'none'; }, 4000);
+  }
+  async function cargar() {
+    try {
+      var r = await fetch(API + '/configuraciones/todas', { headers: hdr() });
+      if (!r.ok) return;
+      var rows = await r.json();
+      var map = {};
+      rows.forEach(function(x) { map[x.clave] = x.valor; });
+      document.querySelectorAll('#seccionCompras [data-config-key]').forEach(function(el) {
+        var k = el.dataset.configKey;
+        if (map[k] === undefined) return;
+        if (el.type === 'checkbox') {
+          el.checked = (map[k] === 'true' || map[k] === true || map[k] === '1');
+        } else {
+          el.value = map[k];
+        }
+      });
+    } catch (e) { console.error('compras-cfg', e); }
+  }
+  async function guardar() {
+    var inputs = document.querySelectorAll('#seccionCompras [data-config-key]');
+    var ok = 0, err = 0;
+    $btn.disabled = true;
+    $btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
+    for (var i = 0; i < inputs.length; i++) {
+      var el = inputs[i];
+      var valor = el.type === 'checkbox' ? (el.checked ? 'true' : 'false') : String(el.value || '');
+      try {
+        var r = await fetch(API + '/configuraciones/todas', {
+          method: 'PUT', headers: hdr(),
+          body: JSON.stringify({ clave: el.dataset.configKey, valor: valor })
+        });
+        if (r.ok) ok++; else err++;
+      } catch (e) { err++; }
+    }
+    $btn.disabled = false;
+    $btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar Compras';
+    showMsg(err ? 'warning' : 'success', 'Guardadas: ' + ok + (err ? ' (' + err + ' error)' : ''));
+  }
+  $btn.addEventListener('click', guardar);
+  if (document.readyState !== 'loading') { cargar(); }
+  else { document.addEventListener('DOMContentLoaded', cargar); }
+})();
+</script>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     SECCION DESPACHOS — Fase 2 (2026-04-23)
+     Todas las keys van contra configuraciones_empresa, sin hardcoded.
+     ═══════════════════════════════════════════════════════════════════ -->
+<div class="card mb-4" id="seccionDespachos">
+  <div class="card-header bg-light">
+    <h5 class="mb-0">
+      <i class="bi bi-truck"></i> Despachos &mdash; Reglas de cancelacion y limpieza
+    </h5>
+  </div>
+  <div class="card-body">
+    <p class="text-muted small mb-3">
+      Parametros que gobiernan la cancelacion de viajes, el quitado de remitos
+      y la limpieza de viajes vacios. Cambian comportamiento de
+      <code>gestion-despachos.html</code> sin tocar codigo.
+    </p>
+
+    <!-- Cancelar viaje -->
+    <h6 class="text-primary border-bottom pb-1 mb-3">Cancelar viaje (boton X del card)</h6>
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="cfg_desp_cancelar_habilitada"
+                 data-config-key="despachos.cancelar_viaje.habilitada" data-config-type="bool">
+          <label class="form-check-label" for="cfg_desp_cancelar_habilitada">
+            Cancelacion habilitada
+          </label>
+        </div>
+        <small class="text-muted d-block">Si se desactiva, el boton X del viaje no funcionara.</small>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Estados permitidos (CSV)</label>
+        <input type="text" class="form-control" id="cfg_desp_cancelar_estados"
+               data-config-key="despachos.cancelar_viaje.estados_permitidos" data-config-type="csv"
+               placeholder="preparando">
+        <small class="text-muted">Estados sobre los que se puede cancelar. Default: <code>preparando</code>.</small>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Roles autorizados (CSV)</label>
+        <input type="text" class="form-control" id="cfg_desp_cancelar_roles"
+               data-config-key="despachos.cancelar_viaje.roles_autorizados" data-config-type="csv"
+               placeholder="admin,administrador">
+        <small class="text-muted">Roles que pueden cancelar. Default: <code>admin,administrador</code>.</small>
+      </div>
+      <div class="col-md-4">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="cfg_desp_cancelar_snapshot"
+                 data-config-key="despachos.cancelar_viaje.snapshot_en_bitacora" data-config-type="bool">
+          <label class="form-check-label" for="cfg_desp_cancelar_snapshot">
+            Guardar snapshot JSONB en bitacora
+          </label>
+        </div>
+        <small class="text-muted d-block">Persiste estado del viaje+remitos al cancelar (audit trail).</small>
+      </div>
+      <div class="col-md-4">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="cfg_desp_cancelar_confirmacion"
+                 data-config-key="despachos.cancelar_viaje.requiere_confirmacion" data-config-type="bool">
+          <label class="form-check-label" for="cfg_desp_cancelar_confirmacion">
+            Pedir confirmacion al usuario
+          </label>
+        </div>
+        <small class="text-muted d-block">Muestra el <code>confirm()</code> del browser antes de cancelar.</small>
+      </div>
+    </div>
+
+    <!-- Quitar remito -->
+    <h6 class="text-primary border-bottom pb-1 mb-3">Quitar remito del viaje</h6>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="cfg_desp_quitar_auto"
+                 data-config-key="despachos.quitar_remito.auto_eliminar_viaje_si_vacio" data-config-type="bool">
+          <label class="form-check-label" for="cfg_desp_quitar_auto">
+            Auto-eliminar viaje si queda vacio
+          </label>
+        </div>
+        <small class="text-muted d-block">
+          Al quitar el ultimo remito, elimina el viaje automaticamente. Evita viajes zombie.
+        </small>
+      </div>
+      <div class="col-md-6">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="cfg_desp_quitar_toast"
+                 data-config-key="despachos.quitar_remito.toast_auto_eliminacion" data-config-type="bool">
+          <label class="form-check-label" for="cfg_desp_quitar_toast">
+            Mostrar toast al auto-eliminar
+          </label>
+        </div>
+        <small class="text-muted d-block">
+          Muestra <em>"Viaje #N eliminado automaticamente"</em> cuando pasa el auto-eliminar.
+        </small>
+      </div>
+    </div>
+
+    <!-- Limpiar vacios -->
+    <h6 class="text-primary border-bottom pb-1 mb-3">Limpiar vacios</h6>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="cfg_desp_limpiar_habilitada"
+                 data-config-key="despachos.limpiar_vacios.habilitada" data-config-type="bool">
+          <label class="form-check-label" for="cfg_desp_limpiar_habilitada">
+            Boton "Limpiar vacios" habilitado
+          </label>
+        </div>
+        <small class="text-muted d-block">Controla el boton batch de limpieza en Viajes del Dia.</small>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 mt-3">
+      <button class="btn btn-outline-secondary btn-sm" onclick="cargarConfigDespachos()">
+        <i class="bi bi-arrow-clockwise"></i> Recargar
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="guardarConfigDespachos()">
+        <i class="bi bi-check-lg"></i> Guardar Despachos
+      </button>
+    </div>
+    <div id="cfg_desp_status" class="mt-2 small"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// Config Despachos — carga y guardado via /configuraciones/todas
+// Patron replicado EXACTO de seccionCompras (verificado en B5.V4).
+//   GET  /configuraciones/todas -> array de {clave, valor}
+//   PUT  /configuraciones/todas -> body {clave, valor} (1 key por request)
+// ══════════════════════════════════════════════════════════════════
+(function() {
+  var API = (window.CONFIG && window.CONFIG.API_BASE_URL) || '';
+  function hdr() {
+    var token = localStorage.getItem('token');
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': token ? ('Bearer ' + token) : ''
+    };
+  }
+  function parseBool(v) {
+    return v === true || v === 'true' || v === '1' || v === 1;
+  }
+  function setStatus(tipo, msg) {
+    var el = document.getElementById('cfg_desp_status');
+    if (!el) return;
+    var cls = tipo === 'error' ? 'text-danger' : (tipo === 'warning' ? 'text-warning' : 'text-success');
+    el.textContent = msg;
+    el.className = 'mt-2 small ' + cls;
+  }
+
+  window.cargarConfigDespachos = async function() {
+    try {
+      var r = await fetch(API + '/configuraciones/todas', { headers: hdr() });
+      if (!r.ok) { setStatus('error', 'No se pudo cargar (HTTP ' + r.status + ')'); return; }
+      var rows = await r.json();
+      var map = {};
+      (Array.isArray(rows) ? rows : []).forEach(function(x) { map[x.clave] = x.valor; });
+      document.querySelectorAll('#seccionDespachos [data-config-key]').forEach(function(el) {
+        var k = el.dataset.configKey;
+        if (map[k] === undefined) return;
+        if (el.type === 'checkbox') {
+          el.checked = parseBool(map[k]);
+        } else {
+          el.value = map[k];
+        }
+      });
+      setStatus('ok', 'Cargado');
+    } catch (e) {
+      console.error('[cfg despachos] cargar:', e);
+      setStatus('error', 'Error al cargar: ' + (e.message || e));
+    }
+  };
+
+  window.guardarConfigDespachos = async function() {
+    var inputs = document.querySelectorAll('#seccionDespachos [data-config-key]');
+    var ok = 0, err = 0;
+    for (var i = 0; i < inputs.length; i++) {
+      var el = inputs[i];
+      var valor = el.type === 'checkbox'
+        ? (el.checked ? 'true' : 'false')
+        : String(el.value || '').trim();
+      try {
+        var r = await fetch(API + '/configuraciones/todas', {
+          method: 'PUT',
+          headers: hdr(),
+          body: JSON.stringify({ clave: el.dataset.configKey, valor: valor })
+        });
+        if (r.ok) ok++; else err++;
+      } catch (e) {
+        err++;
+        console.error('[cfg despachos] guardar', el.dataset.configKey, e);
+      }
+    }
+    if (err === 0) {
+      setStatus('ok', 'Guardado: ' + ok + ' keys');
+    } else {
+      setStatus('warning', 'Guardadas ' + ok + ', fallaron ' + err);
+    }
+  };
+
+  // Autoload
+  if (document.readyState !== 'loading') {
+    if (document.getElementById('seccionDespachos')) window.cargarConfigDespachos();
+  } else {
+    document.addEventListener('DOMContentLoaded', function() {
+      if (document.getElementById('seccionDespachos')) window.cargarConfigDespachos();
+    });
+  }
+})();
+</script>
+<!-- ═══════════════════════════════════════════════════════════════════
+     Fin seccion Despachos
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<!-- ════════════════════════════════════════════════════════════════════
+     SECCIÓN: Seguridad — Dispositivos
+     Clave JSON: terminal.max_dispositivos_por_rol  →  {"<rol>": <int>, ...}
+     GET/PUT /configuraciones/todas con { clave, valor } (valor = string JSON).
+     ════════════════════════════════════════════════════════════════════ -->
+<div class="main-card mb-4" id="seccionSeguridadDispositivos">
+    <div class="card-header py-3" style="background:#0d6efd;color:white;">
+        <h4 class="mb-0"><i class="bi bi-shield-lock"></i> Seguridad — Dispositivos</h4>
+    </div>
+    <div class="card-body p-4">
+        <p class="text-muted mb-4">
+            Límite de <strong>dispositivos activos por usuario</strong>, según su rol. Cuando un usuario ya
+            alcanzó su tope, el sistema no deja autorizar un dispositivo nuevo hasta dar de baja uno existente.
+            Esto evita que una misma credencial quede habilitada en muchas máquinas.
+        </p>
+        <div class="alert alert-secondary border-start border-4 border-primary mb-4">
+            <i class="bi bi-info-circle-fill"></i>
+            Dejá el valor en <strong>0</strong> (o vacío) para un rol que <strong>no</strong> tenga límite.
+            El límite cuenta solo dispositivos activos: los dados de baja no suman.
+        </div>
+        <div id="seguridadDispAlert" class="d-none"></div>
+        <h5 class="fw-bold mb-3"><i class="bi bi-people text-primary"></i> Máximo de dispositivos por rol</h5>
+        <div class="row g-3 mb-3" id="seguridadDispRoles">
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-bold" for="segDisp_admin">Administrador</label>
+                <input type="number" min="0" step="1" class="form-control" id="segDisp_admin" data-rol="admin" placeholder="0 = sin límite">
+                <small class="text-muted">Acceso total. Conviene tope alto o sin límite.</small>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-bold" for="segDisp_administrador">Administrador (alt.)</label>
+                <input type="number" min="0" step="1" class="form-control" id="segDisp_administrador" data-rol="administrador" placeholder="0 = sin límite">
+                <small class="text-muted">Rol administrativo secundario.</small>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-bold" for="segDisp_cajero">Cajero</label>
+                <input type="number" min="0" step="1" class="form-control" id="segDisp_cajero" data-rol="cajero" placeholder="0 = sin límite">
+                <small class="text-muted">Suele operar desde 1–2 terminales fijas.</small>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-bold" for="segDisp_vendedor">Vendedor</label>
+                <input type="number" min="0" step="1" class="form-control" id="segDisp_vendedor" data-rol="vendedor" placeholder="0 = sin límite">
+                <small class="text-muted">Mostrador / venta rápida.</small>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-bold" for="segDisp_despachante">Despachante</label>
+                <input type="number" min="0" step="1" class="form-control" id="segDisp_despachante" data-rol="despachante" placeholder="0 = sin límite">
+                <small class="text-muted">Gestión de entregas / remitos.</small>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-bold" for="segDisp_pedidos">Pedidos</label>
+                <input type="number" min="0" step="1" class="form-control" id="segDisp_pedidos" data-rol="pedidos" placeholder="0 = sin límite">
+                <small class="text-muted">Carga de pedidos.</small>
+            </div>
+        </div>
+        <div class="text-end mt-3">
+            <button class="btn btn-lg text-white" id="btnGuardarSegDisp" style="background:#0d6efd;">
+                <i class="bi bi-floppy"></i> Guardar límites
+            </button>
+        </div>
+    </div>
+</div>
+<script>
+// MÓDULO: Configuración Seguridad — Dispositivos
+// Clave única JSON terminal.max_dispositivos_por_rol; roles con 0/vacío se omiten (= sin límite).
+(function () {
+    'use strict';
+    var CLAVE = 'terminal.max_dispositivos_por_rol';
+    var API_SEG = (window.CONFIG && window.CONFIG.API_BASE_URL) || '/api';
+    function hdrSeg() {
+        var h = { 'Content-Type': 'application/json' };
+        var t = localStorage.getItem('authToken');
+        if (t) h['Authorization'] = 'Bearer ' + t;
+        return h;
+    }
+    function alertBox(tipo, msg) {
+        var box = document.getElementById('seguridadDispAlert');
+        if (!box) return;
+        box.className = 'alert alert-' + tipo;
+        box.textContent = msg;
+        box.classList.remove('d-none');
+        setTimeout(function () { box.classList.add('d-none'); }, 4000);
+    }
+    function inputs() {
+        return Array.prototype.slice.call(document.querySelectorAll('#seguridadDispRoles input[data-rol]'));
+    }
+    async function cargar() {
+        try {
+            var res = await fetch(API_SEG + '/configuraciones/todas', { headers: hdrSeg(), credentials: 'include' });
+            if (!res.ok) { alertBox('warning', 'No se pudieron cargar los límites (HTTP ' + res.status + ').'); return; }
+            var rows = await res.json();
+            rows = Array.isArray(rows) ? rows : [];
+            var valor = '{}';
+            for (var i = 0; i < rows.length; i++) {
+                if (rows[i].clave === CLAVE) { valor = rows[i].valor || '{}'; break; }
+            }
+            var mapa = {};
+            try { mapa = JSON.parse(valor) || {}; } catch (e) { mapa = {}; }
+            inputs().forEach(function (el) {
+                var rol = el.getAttribute('data-rol');
+                el.value = (mapa[rol] != null && mapa[rol] !== '') ? parseInt(mapa[rol], 10) : '';
+            });
+        } catch (e) {
+            console.error('cargarConfigSegDisp:', e);
+            alertBox('warning', 'No se pudieron cargar los límites actuales.');
+        }
+    }
+    async function guardar() {
+        var mapa = {};
+        var invalido = false;
+        inputs().forEach(function (el) {
+            var rol = el.getAttribute('data-rol');
+            var raw = (el.value || '').trim();
+            if (raw === '') return;
+            var n = parseInt(raw, 10);
+            if (Number.isNaN(n) || n < 0) { invalido = true; return; }
+            if (n > 0) mapa[rol] = n;
+        });
+        if (invalido) { alertBox('danger', 'Hay valores inválidos. Usá números enteros ≥ 0.'); return; }
+        try {
+            var res = await fetch(API_SEG + '/configuraciones/todas', {
+                method: 'PUT', headers: hdrSeg(), credentials: 'include',
+                body: JSON.stringify({ clave: CLAVE, valor: JSON.stringify(mapa) })
+            });
+            if (!res.ok) { alertBox('danger', 'Error al guardar (HTTP ' + res.status + ').'); return; }
+            alertBox('success', 'Límites guardados.');
+        } catch (e) {
+            console.error('guardarConfigSegDisp:', e);
+            alertBox('danger', 'Error al guardar: ' + (e.message || 'desconocido'));
+        }
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        var btn = document.getElementById('btnGuardarSegDisp');
+        if (btn) btn.addEventListener('click', guardar);
+        if (document.getElementById('seccionSeguridadDispositivos')) cargar();
+    });
+    window.cargarConfigSegDisp = cargar;
+})();
+</script>
+<!-- Fin seccion Seguridad Dispositivos -->
+
+
+
 </body>
 </html>
+
+<script>
+// ========== MÓDULO DE BACKUP v2 ==========
+const backupModule = (() => {
+    const API = '/api/backup';
+    const TOKEN = localStorage.getItem('authToken');
+    const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+
+    let backups = [];
+    let restoreTarget = null;
+    let restoreMode = 'bd';
+    let modalInstance = null;
+
+    // ---- API helper ----
+    async function api(url, opts = {}) {
+        const res = await fetch(API + url, { ...opts, headers });
+        return res.json();
+    }
+
+    // ---- CREAR ----
+    async function crear() {
+        const btn = document.getElementById('btnCrearBackup');
+        const icon = document.getElementById('btnCrearIcon');
+        const txt = document.getElementById('btnCrearText');
+        btn.disabled = true;
+        icon.className = 'spinner-border spinner-border-sm';
+        txt.textContent = ' Creando...';
+        ocultarMsg();
+
+        try {
+            const data = await api('/crear', { method: 'POST' });
+            if (data.success) {
+                mostrarMsg('success',
+                    `<i class="bi bi-check-circle-fill"></i> <strong>¡Backup creado y verificado!</strong><br>
+                     <small><strong>Nombre:</strong> ${data.nombre}<br>
+                     <strong>BD:</strong> ${data.tamanio.bd} (${data.tablas} tablas verificadas)<br>
+                     <strong>Código:</strong> ${data.tamanio.codigo}
+                     ${data.backups_eliminados?.length ? `<br><em>Rotación: se eliminaron ${data.backups_eliminados.length} backup(s) antiguo(s)</em>` : ''}</small>`
+                );
+                await listar();
+            } else {
+                mostrarMsg('danger', `<i class="bi bi-x-circle-fill"></i> Error: ${data.error || data.detalle || 'Error desconocido'}`);
+            }
+        } catch (err) {
+            mostrarMsg('danger', `<i class="bi bi-x-circle-fill"></i> Error de conexión: ${err.message}`);
+        } finally {
+            btn.disabled = false;
+            icon.className = 'bi bi-download';
+            txt.textContent = ' Crear Backup';
+        }
+    }
+
+    // ---- LISTAR ----
+    async function listar() {
+        try {
+            const data = await api('/listar');
+            backups = data.backups || [];
+            renderLista();
+            renderStats(data);
+        } catch (err) {
+            document.getElementById('backupList').innerHTML =
+                `<div class="list-group-item text-danger text-center">Error al cargar: ${err.message}</div>`;
+        }
+    }
+
+    function renderLista() {
+        const el = document.getElementById('backupList');
+        if (!backups.length) {
+            el.innerHTML = '<div class="list-group-item text-muted text-center">No hay backups. Creá el primero.</div>';
+            return;
+        }
+        el.innerHTML = backups.map(b => {
+            const esSeguridad = b.es_seguridad;
+            const fecha = formatFecha(b.fecha);
+
+            // Badges
+            let badges = '';
+            if (b.verificado) badges += ' <span class="badge bg-success">✓ Verificado</span>';
+            if (b.formato_bd === 'custom') badges += ' <span class="badge bg-info text-dark">Custom</span>';
+            if (b.version === 1 || b.formato_bd === 'sql_plano') badges += ' <span class="badge bg-warning text-dark">v1</span>';
+            if (esSeguridad) badges += ' <span class="badge bg-secondary">Pre-restore</span>';
+
+            // Meta info
+            const meta = [];
+            if (fecha) meta.push(fecha);
+            if (b.archivos?.['erplago.dump']) meta.push('BD: ' + b.archivos['erplago.dump']);
+            else if (b.archivos?.['erplago.sql']) meta.push('BD: ' + b.archivos['erplago.sql']);
+            if (b.archivos?.['codigo.tar.gz']) meta.push('Código: ' + b.archivos['codigo.tar.gz']);
+            if (b.tablas) meta.push(b.tablas + ' tablas');
+            if (b.usuario && b.usuario !== 'desconocido') meta.push('por ' + b.usuario);
+
+            return `
+            <div class="list-group-item ${esSeguridad ? 'list-group-item-warning' : ''}">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div style="min-width:200px">
+                        <div class="fw-bold">
+                            <i class="bi bi-${esSeguridad ? 'lock-fill text-warning' : 'archive-fill text-success'}"></i>
+                            ${b.nombre} ${badges}
+                        </div>
+                        <small class="text-muted">
+                            ${meta.join(' | ')}
+                            ${b.motivo ? '<br><em>' + b.motivo + '</em>' : ''}
+                        </small>
+                    </div>
+                    <div class="d-flex gap-1 flex-shrink-0">
+                        <button class="btn btn-outline-primary btn-sm" onclick="backupModule.verificar('${b.nombre}')" title="Verificar integridad">
+                            <i class="bi bi-search"></i> Verificar
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm" onclick="backupModule.abrirModalRestaurar('${b.nombre}')" title="Restaurar">
+                            <i class="bi bi-arrow-counterclockwise"></i> Restaurar
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="backupModule.eliminar('${b.nombre}')" title="Eliminar">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function renderStats(data) {
+        const el = document.getElementById('backupStats');
+        const normales = backups.filter(b => !b.es_seguridad).length;
+        const seguridad = backups.filter(b => b.es_seguridad).length;
+        const verificados = backups.filter(b => b.verificado).length;
+        const max = data.max_backups || 10;
+
+        document.getElementById('maxBackupsInfo').textContent = max;
+
+        el.innerHTML = `
+            <span class="badge bg-success-subtle text-success-emphasis rounded-pill px-3 py-2">
+                <i class="bi bi-archive"></i> ${normales} backup${normales !== 1 ? 's' : ''}
+            </span>
+            ${seguridad ? `<span class="badge bg-warning-subtle text-warning-emphasis rounded-pill px-3 py-2">
+                <i class="bi bi-lock"></i> ${seguridad} de seguridad
+            </span>` : ''}
+            <span class="badge bg-info-subtle text-info-emphasis rounded-pill px-3 py-2">
+                <i class="bi bi-check-circle"></i> ${verificados} verificado${verificados !== 1 ? 's' : ''}
+            </span>
+            <span class="badge bg-light text-dark rounded-pill px-3 py-2">
+                Máx: ${max}
+            </span>
+        `;
+    }
+
+    // ---- VERIFICAR ----
+    async function verificar(nombre) {
+        ocultarMsg();
+        mostrarMsg('info', `<span class="spinner-border spinner-border-sm"></span> Verificando <strong>${nombre}</strong>...`);
+
+        try {
+            const data = await api(`/verificar/${nombre}`);
+            if (data.success) {
+                const r = data.resultado;
+                if (r.completo) {
+                    mostrarMsg('success',
+                        `<i class="bi bi-check-circle-fill"></i> <strong>Backup "${nombre}" verificado OK</strong><br>
+                         <small><strong>BD:</strong> ${r.bd.tamanio} - ${r.bd.tablas} tablas - Formato: ${r.bd.formato}<br>
+                         <strong>Código:</strong> ${r.codigo.tamanio}</small>`
+                    );
+                } else {
+                    let det = '';
+                    if (r.bd?.valido) det += `✅ BD: OK (${r.bd.tamanio})<br>`;
+                    else det += `❌ BD: ${r.bd?.error || 'No encontrado'}<br>`;
+                    if (r.codigo?.valido) det += `✅ Código: OK (${r.codigo.tamanio})`;
+                    else det += `❌ Código: ${r.codigo?.error || 'No encontrado'}`;
+                    mostrarMsg('warning', `<i class="bi bi-exclamation-triangle-fill"></i> <strong>Backup "${nombre}" incompleto</strong><br><small>${det}</small>`);
+                }
+                await listar();
+            } else {
+                mostrarMsg('danger', `<i class="bi bi-x-circle-fill"></i> Error: ${data.error}`);
+            }
+        } catch (err) {
+            mostrarMsg('danger', `<i class="bi bi-x-circle-fill"></i> Error: ${err.message}`);
+        }
+    }
+
+    // ---- RESTAURAR ----
+    function abrirModalRestaurar(nombre) {
+        restoreTarget = nombre;
+        restoreMode = 'bd';
+        document.getElementById('modalRestaurarNombre').textContent = nombre;
+        // Reset radio
+        document.querySelector('input[name="restoreMode"][value="bd"]').checked = true;
+        if (!modalInstance) modalInstance = new bootstrap.Modal(document.getElementById('modalRestaurar'));
+        modalInstance.show();
+    }
+
+    function seleccionarModo(modo) {
+        restoreMode = modo;
+    }
+
+    async function ejecutarRestore() {
+        if (!restoreTarget) return;
+        const modos = { bd: 'Solo Base de Datos', codigo: 'Solo Código', completo: 'BD + Código' };
+
+        if (!confirm(`¿Restaurar "${restoreTarget}"?\n\nModo: ${modos[restoreMode]}\n\nSe creará un backup de seguridad automático.`)) return;
+
+        const btn = document.getElementById('btnConfirmarRestore');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Restaurando...';
+
+        try {
+            const data = await api(`/restaurar/${restoreTarget}`, {
+                method: 'POST',
+                body: JSON.stringify({ modo: restoreMode })
+            });
+
+            if (modalInstance) modalInstance.hide();
+
+            if (data.success) {
+                let det = `<strong>Modo:</strong> ${modos[restoreMode]}<br>`;
+                if (data.resultados.bd) det += `✅ BD restaurada (seguridad: ${data.resultados.bd.backup_seguridad})<br>`;
+                if (data.resultados.codigo) det += `✅ Código restaurado<br>`;
+                if (data.resultados.pm2) det += `🔄 PM2: ${data.resultados.pm2}`;
+                mostrarMsg('success', `<i class="bi bi-check-circle-fill"></i> <strong>Restauración completada</strong><br><small>${det}</small>`);
+                await listar();
+            } else {
+                mostrarMsg('danger', `<i class="bi bi-x-circle-fill"></i> Error: ${data.error} ${data.detalle || ''}`);
+            }
+        } catch (err) {
+            if (modalInstance) modalInstance.hide();
+            mostrarMsg('danger', `<i class="bi bi-x-circle-fill"></i> Error: ${err.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-counterclockwise"></i> Restaurar';
+        }
+    }
+
+    // ---- ELIMINAR ----
+    async function eliminar(nombre) {
+        if (!confirm(`¿Eliminar "${nombre}"?\n\nNo se puede deshacer.`)) return;
+        try {
+            const data = await api(`/${nombre}`, { method: 'DELETE' });
+            if (data.success) {
+                mostrarMsg('success', `<i class="bi bi-trash"></i> Backup eliminado: ${nombre}`);
+                await listar();
+            } else {
+                mostrarMsg('danger', `<i class="bi bi-x-circle-fill"></i> Error: ${data.error}`);
+            }
+        } catch (err) {
+            mostrarMsg('danger', `Error: ${err.message}`);
+        }
+    }
+
+    // ---- HELPERS ----
+    function mostrarMsg(tipo, html) {
+        const el = document.getElementById('backupMsg');
+        el.className = `alert alert-${tipo}`;
+        el.innerHTML = html;
+    }
+    function ocultarMsg() {
+        const el = document.getElementById('backupMsg');
+        el.className = 'd-none';
+        el.innerHTML = '';
+    }
+    function formatFecha(f) {
+        if (!f) return '';
+        try {
+            const d = new Date(f);
+            return isNaN(d.getTime()) ? '' : d.toLocaleDateString('es-AR', { day:'numeric', month:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
+        } catch { return ''; }
+    }
+
+    // Init
+    document.addEventListener('DOMContentLoaded', listar);
+
+    return { crear, listar, verificar, eliminar, abrirModalRestaurar, seleccionarModo, ejecutarRestore };
+})();
+</script>

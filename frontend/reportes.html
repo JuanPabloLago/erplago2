@@ -4,669 +4,148 @@
     <script src="js/config.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reportes y Estadísticas - ERP Lago</title>
+    <title>Reportes - ERP LAGO</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/erp-lago-styles.css">
     <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        .btn-reporte {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            padding: 12px 16px; border-radius: 10px; min-width: 120px;
+            font-size: 0.8rem; transition: all 0.2s;
         }
-        .navbar {
-            background: rgba(255, 255, 255, 0.95) !important;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        }
-        .main-container { padding: 30px 15px; }
-        .kpi-card {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-            transition: transform 0.3s, box-shadow 0.3s;
-            border: none;
-        }
-        .kpi-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 40px rgba(0,0,0,0.18);
-        }
-        .kpi-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 26px;
-            margin-bottom: 15px;
-        }
-        .kpi-value {
-            font-size: 32px;
-            font-weight: 700;
-            margin: 10px 0 5px 0;
-            color: #2d3748;
-        }
-        .kpi-label {
-            color: #718096;
-            font-size: 14px;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .chart-card {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-        }
-        .chart-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: #2d3748;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 3px solid #667eea;
-        }
-        .filters-card {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-        }
-        .btn-filter {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            padding: 10px 25px;
-            font-weight: 600;
-            border-radius: 8px;
-            transition: all 0.3s;
-            color: white;
-        }
-        .btn-filter:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-            color: white;
-        }
-        .btn-export {
-            background: #48bb78;
-            border: none;
-            padding: 10px 25px;
-            font-weight: 600;
-            border-radius: 8px;
-            transition: all 0.3s;
-            color: white;
-        }
-        .btn-export:hover {
-            background: #38a169;
-            transform: translateY(-2px);
-            color: white;
-        }
-        .table-container {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin-top: 25px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-            max-height: 500px;
-            overflow-y: auto;
-        }
-        .table {
-            margin-bottom: 0;
-        }
-        .table thead th {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: white;
-            font-size: 18px;
-        }
+        .btn-reporte i { font-size: 1.5rem; }
+        .btn-reporte.active { box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
+        .filtro-grupo { min-width: 140px; }
+        .chart-box { height: 280px; }
     </style>
 </head>
 <body>
     <script src="js/connection-indicator.js"></script>
-    <nav class="navbar navbar-expand-lg navbar-light">
+
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-dark sticky-top" style="background: linear-gradient(135deg, #1e293b, #334155);">
         <div class="container-fluid">
-            <a class="navbar-brand fw-bold" href="dashboard.html">
-                <i class="fas fa-chart-line me-2"></i>ERP Lago - Reportes
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.html"><i class="fas fa-home me-1"></i>Inicio</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="ventas.html"><i class="fas fa-cash-register me-1"></i>Ventas</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="reportes.html"><i class="fas fa-chart-bar me-1"></i>Reportes</a>
-                    </li>
-                    <li class="nav-item">
-                        <button class="btn btn-outline-danger btn-sm ms-3" onclick="logout()">
-                            <i class="fas fa-sign-out-alt me-1"></i>Cerrar Sesión
-                        </button>
-                    </li>
-                </ul>
-            </div>
+            <span class="navbar-brand mb-0"><i class="bi bi-bar-chart-line"></i> Reportes</span>
+            <a href="dashboard.html" class="btn btn-sm btn-outline-light"><i class="bi bi-house"></i> Dashboard</a>
         </div>
     </nav>
 
-    <div class="container-fluid main-container">
-        <div class="filters-card">
-            <div class="row align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label fw-bold">Fecha Desde</label>
-                    <input type="date" class="form-control" id="fechaDesde">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-bold">Fecha Hasta</label>
-                    <input type="date" class="form-control" id="fechaHasta">
-                </div>
-                <div class="col-md-6">
-                    <button class="btn btn-filter me-2" onclick="cargarReportes()">
-                        <i class="fas fa-sync-alt me-2"></i>Actualizar
-                    </button>
-                    <button class="btn btn-filter me-2" onclick="setRangoHoy()">
-                        <i class="fas fa-calendar-day me-2"></i>Hoy
-                    </button>
-                    <button class="btn btn-filter me-2" onclick="setRangoSemana()">
-                        <i class="fas fa-calendar-week me-2"></i>Esta Semana
-                    </button>
-                    <button class="btn btn-filter me-2" onclick="setRangoMes()">
-                        <i class="fas fa-calendar-alt me-2"></i>Este Mes
-                    </button>
-                    <button class="btn btn-export" onclick="exportarExcel()">
-                        <i class="fas fa-file-excel me-2"></i>Exportar Excel
-                    </button>
-                </div>
-            </div>
+    <div class="container-fluid py-3">
+
+        <!-- SELECTOR DE REPORTE -->
+        <div class="d-flex flex-wrap gap-2 mb-3" id="botonesReporte">
+            <!-- Se llena dinámicamente -->
         </div>
 
-        <div class="row" id="kpisContainer">
-            <div class="col-lg-3 col-md-6">
-                <div class="kpi-card">
-                    <div class="kpi-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                        <i class="fas fa-dollar-sign"></i>
+        <!-- FILTROS -->
+        <div id="panelFiltros" style="display:none">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body py-2">
+                    <div class="d-flex flex-wrap gap-2 align-items-end">
+
+                        <!-- Fechas -->
+                        <div id="grupoFechas" class="filtro-grupo">
+                            <label class="form-label mb-0 small">Desde</label>
+                            <input type="date" id="filtroDesde" class="form-control form-control-sm">
+                        </div>
+                        <div id="grupoFechasHasta" class="filtro-grupo">
+                            <label class="form-label mb-0 small">Hasta</label>
+                            <input type="date" id="filtroHasta" class="form-control form-control-sm">
+                        </div>
+
+                        <!-- Vendedor -->
+                        <div id="grupoVendedor" class="filtro-grupo" style="display:none">
+                            <label class="form-label mb-0 small">Vendedor</label>
+                            <select id="filtroVendedor" class="form-select form-select-sm"></select>
+                        </div>
+
+                        <!-- Forma de pago -->
+                        <div id="grupoFormaPago" class="filtro-grupo" style="display:none">
+                            <label class="form-label mb-0 small">Forma Pago</label>
+                            <select id="filtroFormaPago" class="form-select form-select-sm"></select>
+                        </div>
+
+                        <!-- Orden (ranking) -->
+                        <div id="grupoOrden" class="filtro-grupo" style="display:none">
+                            <label class="form-label mb-0 small">Ordenar por</label>
+                            <select id="filtroOrden" class="form-select form-select-sm">
+                                <option value="cantidad">Cantidad</option>
+                                <option value="monto">Monto</option>
+                            </select>
+                        </div>
+
+                        <!-- Categoría (stock) -->
+                        <div id="grupoCategoria" class="filtro-grupo" style="display:none">
+                            <label class="form-label mb-0 small">Categoría</label>
+                            <select id="filtroCategoria" class="form-select form-select-sm"></select>
+                        </div>
+                        <!-- Bloque 7.3a: subcategoria espejo de categoria (mismo catalogo plano) -->
+                        <div id="grupoSubcategoria" class="filtro-grupo" style="display:none">
+                            <label class="form-label mb-0 small">Subcategor&iacute;a</label>
+                            <select id="filtroSubcategoria" class="form-select form-select-sm"></select>
+                        </div>
+
+                        <!-- Solo con stock -->
+                        <div id="grupoConStock" class="filtro-grupo" style="display:none">
+                            <label class="form-label mb-0 small">&nbsp;</label>
+                            <div class="form-check">
+                                <input type="checkbox" id="filtroConStock" class="form-check-input" checked>
+                                <label class="form-check-label small" for="filtroConStock">Solo con stock</label>
+                            </div>
+                        </div>
+
+                        <!-- Botón generar -->
+                        <div class="filtro-grupo">
+                            <label class="form-label mb-0 small">&nbsp;</label>
+                            <button id="btnGenerar" class="btn btn-primary btn-sm w-100" onclick="ejecutarReporte()">
+                                <i class="bi bi-play-fill"></i> Generar
+                            </button>
+                        </div>
                     </div>
-                    <div class="kpi-label">Ventas Hoy</div>
-                    <div class="kpi-value" id="ventasHoy">$0</div>
-                    <small class="text-muted" id="pedidosHoy">0 pedidos</small>
                 </div>
             </div>
-            <div class="col-lg-3 col-md-6">
-                <div class="kpi-card">
-                    <div class="kpi-icon" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); color: white;">
-                        <i class="fas fa-calendar-check"></i>
+        </div>
+
+        <!-- RESULTADOS -->
+        <div id="panelResultados" style="display:none">
+
+            <!-- Header resultados -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0" id="tituloReporte"></h5>
+                <div class="d-flex gap-2 align-items-center">
+                    <small class="text-muted" id="contadorResultados"></small>
+                    <button class="btn btn-sm btn-outline-success" onclick="exportarCSV()">
+                        <i class="bi bi-file-earmark-spreadsheet"></i> CSV
+                    </button>
+                </div>
+            </div>
+
+            <!-- Gráfico -->
+            <div id="chartContainer" style="display:none" class="mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body p-2">
+                        <div class="chart-box"><canvas id="chartReporte"></canvas></div>
                     </div>
-                    <div class="kpi-label">Ventas del Mes</div>
-                    <div class="kpi-value" id="ventasMes">$0</div>
-                    <small class="text-muted" id="pedidosMes">0 pedidos</small>
                 </div>
             </div>
-            <div class="col-lg-3 col-md-6">
-                <div class="kpi-card">
-                    <div class="kpi-icon" style="background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); color: white;">
-                        <i class="fas fa-users"></i>
+
+            <!-- Tabla -->
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive" id="tablaResultados" style="max-height: 500px; overflow-y: auto;">
+                        <!-- Se llena dinámicamente -->
                     </div>
-                    <div class="kpi-label">Clientes Activos</div>
-                    <div class="kpi-value" id="clientesActivos">0</div>
-                    <small class="text-muted">Total registrados</small>
-                </div>
-            </div>
-            <div class="col-lg-3 col-md-6">
-                <div class="kpi-card">
-                    <div class="kpi-icon" style="background: linear-gradient(135deg, #f56565 0%, #c53030 100%); color: white;">
-                        <i class="fas fa-exclamation-triangle"></i>
-                    </div>
-                    <div class="kpi-label">Stock Bajo</div>
-                    <div class="kpi-value" id="stockBajo">0</div>
-                    <small class="text-muted">Productos críticos</small>
                 </div>
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-lg-8">
-                <div class="chart-card">
-                    <h5 class="chart-title">
-                        <i class="fas fa-chart-line me-2"></i>Evolución de Ventas (Últimos 30 Días)
-                    </h5>
-                    <canvas id="chartVentasDiarias"></canvas>
-                </div>
-            </div>
-            <div class="col-lg-4">
-                <div class="chart-card">
-                    <h5 class="chart-title">
-                        <i class="fas fa-trophy me-2"></i>Top 5 Productos
-                    </h5>
-                    <canvas id="chartTopProductos"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-lg-6">
-                <div class="chart-card">
-                    <h5 class="chart-title">
-                        <i class="fas fa-user-tie me-2"></i>Ventas por Vendedor
-                    </h5>
-                    <canvas id="chartVendedores"></canvas>
-                </div>
-            </div>
-            <div class="col-lg-6">
-                <div class="chart-card">
-                    <h5 class="chart-title">
-                        <i class="fas fa-coins me-2"></i>Top 10 Productos Más Rentables
-                    </h5>
-                    <canvas id="chartRentabilidad"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <div class="table-container" id="tablaStockBajo" style="display: none;">
-            <h5 class="chart-title">
-                <i class="fas fa-box-open me-2"></i>Productos con Stock Bajo Mínimo
-            </h5>
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>SKU</th>
-                        <th>Producto</th>
-                        <th>Stock Actual</th>
-                        <th>Stock Mínimo</th>
-                        <th>Faltante</th>
-                    </tr>
-                </thead>
-                <tbody id="tablaStockBajoBody"></tbody>
-            </table>
-        </div>
-
-        <div class="table-container">
-            <h5 class="chart-title">
-                <i class="fas fa-list me-2"></i>Ventas Detalladas del Período
-            </h5>
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Fecha</th>
-                        <th>Cliente</th>
-                        <th>Vendedor</th>
-                        <th>Estado</th>
-                        <th>Total</th>
-                    </tr>
-                </thead>
-                <tbody id="tablaVentasBody"></tbody>
-            </table>
-        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-    <script>
-        const API_URL = '/api';
-        let chartVentasDiarias, chartTopProductos, chartVendedores, chartRentabilidad;
-        let datosParaExportar = {};
-         const token = localStorage.getItem('authToken');
-        if (!token) {
-            window.location.href = 'login.html';
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const hoy = new Date();
-            const hace30dias = new Date();
-            hace30dias.setDate(hace30dias.getDate() - 30);
-            
-            document.getElementById('fechaHasta').valueAsDate = hoy;
-            document.getElementById('fechaDesde').valueAsDate = hace30dias;
-            
-            cargarReportes();
-        });
-
-        function setRangoHoy() {
-            const hoy = new Date();
-            document.getElementById('fechaDesde').valueAsDate = hoy;
-            document.getElementById('fechaHasta').valueAsDate = hoy;
-            cargarReportes();
-        }
-
-        function setRangoSemana() {
-            const hoy = new Date();
-            const hace7dias = new Date();
-            hace7dias.setDate(hace7dias.getDate() - 7);
-            document.getElementById('fechaDesde').valueAsDate = hace7dias;
-            document.getElementById('fechaHasta').valueAsDate = hoy;
-            cargarReportes();
-        }
-
-        function setRangoMes() {
-            const hoy = new Date();
-            const hace30dias = new Date();
-            hace30dias.setDate(hace30dias.getDate() - 30);
-            document.getElementById('fechaDesde').valueAsDate = hace30dias;
-            document.getElementById('fechaHasta').valueAsDate = hoy;
-            cargarReportes();
-        }
-
-        async function cargarReportes() {
-            try {
-                const fechaDesde = document.getElementById('fechaDesde').value;
-                const fechaHasta = document.getElementById('fechaHasta').value;
-                
-                await cargarDashboard(fechaDesde, fechaHasta);
-                await cargarVentasPorVendedor(fechaDesde, fechaHasta);
-                await cargarStockBajo();
-                await cargarVentasDetalladas(fechaDesde, fechaHasta);
-                await cargarRentabilidad(fechaDesde, fechaHasta);
-                
-            } catch (error) {
-                console.error('Error al cargar reportes:', error);
-                alert('Error al cargar los reportes');
-            }
-        }
-
-        async function cargarDashboard(fechaDesde, fechaHasta) {
-            const response = await fetch(`${API_URL}/reportes/dashboard?fecha_desde=${fechaDesde}&fecha_hasta=${fechaHasta}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await response.json();
-            
-            document.getElementById('ventasHoy').textContent = `$${data.hoy.ventas.toFixed(2)}`;
-            document.getElementById('pedidosHoy').textContent = `${data.hoy.pedidos} pedidos`;
-            
-            document.getElementById('ventasMes').textContent = `$${data.mes.ventas.toFixed(2)}`;
-            document.getElementById('pedidosMes').textContent = `${data.mes.pedidos} pedidos`;
-            
-            document.getElementById('clientesActivos').textContent = data.clientes_activos;
-            document.getElementById('stockBajo').textContent = data.productos_stock_bajo;
-            
-            crearGraficoVentasDiarias(data.ventas_por_dia);
-            crearGraficoTopProductos(data.top_productos);
-            
-            datosParaExportar.dashboard = data;
-        }
-
-        function crearGraficoVentasDiarias(datos) {
-            const ctx = document.getElementById('chartVentasDiarias');
-            if (chartVentasDiarias) chartVentasDiarias.destroy();
-            
-            const labels = datos.map(d => new Date(d.fecha).toLocaleDateString());
-            const values = datos.map(d => parseFloat(d.total_ventas));
-            
-            chartVentasDiarias = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels.reverse(),
-                    datasets: [{
-                        label: 'Ventas ($)',
-                        data: values.reverse(),
-                        borderColor: 'rgb(102, 126, 234)',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        tension: 0.4,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { display: true },
-                        tooltip: {
-                            callbacks: {
-                                label: (context) => `$${context.parsed.y.toFixed(2)}`
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: (value) => `$${value}`
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function crearGraficoTopProductos(datos) {
-            const ctx = document.getElementById('chartTopProductos');
-            if (chartTopProductos) chartTopProductos.destroy();
-            
-            const top5 = datos.slice(0, 5);
-            const labels = top5.map(d => d.nombre.length > 20 ? d.nombre.substring(0, 20) + '...' : d.nombre);
-            const values = top5.map(d => parseFloat(d.cantidad_vendida));
-            
-            chartTopProductos = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: values,
-                        backgroundColor: [
-                            'rgba(102, 126, 234, 0.8)',
-                            'rgba(72, 187, 120, 0.8)',
-                            'rgba(237, 137, 54, 0.8)',
-                            'rgba(245, 101, 101, 0.8)',
-                            'rgba(159, 122, 234, 0.8)'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { position: 'bottom' }
-                    }
-                }
-            });
-        }
-
-        async function cargarVentasPorVendedor(fechaDesde, fechaHasta) {
-            const response = await fetch(`${API_URL}/reportes/ventas-por-vendedor?fecha_desde=${fechaDesde}&fecha_hasta=${fechaHasta}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const datos = await response.json();
-            
-            const ctx = document.getElementById('chartVendedores');
-            if (chartVendedores) chartVendedores.destroy();
-            
-            chartVendedores = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: datos.map(d => d.vendedor),
-                    datasets: [{
-                        label: 'Ventas ($)',
-                        data: datos.map(d => parseFloat(d.total_ventas)),
-                        backgroundColor: 'rgba(72, 187, 120, 0.8)'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: (value) => `$${value}`
-                            }
-                        }
-                    }
-                }
-            });
-            
-            datosParaExportar.vendedores = datos;
-        }
-
-        async function cargarStockBajo() {
-            const response = await fetch(`${API_URL}/reportes/stock-bajo`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const datos = await response.json();
-            
-            if (datos.length > 0) {
-                document.getElementById('tablaStockBajo').style.display = 'block';
-                const tbody = document.getElementById('tablaStockBajoBody');
-                tbody.innerHTML = datos.map(p => `
-                    <tr>
-                        <td><strong>${p.sku}</strong></td>
-                        <td>${p.nombre}</td>
-                        <td><span class="badge bg-danger">${p.stock_real}</span></td>
-                        <td>${p.stock_minimo}</td>
-                        <td><span class="badge bg-warning">${p.faltante}</span></td>
-                    </tr>
-                `).join('');
-            }
-            
-            datosParaExportar.stockBajo = datos;
-        }
-
-        async function cargarVentasDetalladas(fechaDesde, fechaHasta) {
-            const response = await fetch(`${API_URL}/reportes/ventas-detallado?fecha_desde=${fechaDesde}&fecha_hasta=${fechaHasta}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const datos = await response.json();
-            
-            const tbody = document.getElementById('tablaVentasBody');
-            tbody.innerHTML = datos.map(v => `
-                <tr>
-                    <td><strong>#${v.id_pedido}</strong></td>
-                    <td>${new Date(v.fecha_creacion).toLocaleString()}</td>
-                    <td>${v.cliente}</td>
-                    <td>${v.vendedor}</td>
-                    <td><span class="badge bg-info">${v.estado}</span></td>
-                    <td><strong>$${parseFloat(v.total).toFixed(2)}</strong></td>
-                </tr>
-            `).join('');
-            
-            datosParaExportar.ventas = datos;
-        }
-
-        async function cargarRentabilidad(fechaDesde, fechaHasta) {
-            const response = await fetch(`${API_URL}/reportes/rentabilidad-productos?fecha_desde=${fechaDesde}&fecha_hasta=${fechaHasta}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const datos = await response.json();
-            
-            const ctx = document.getElementById('chartRentabilidad');
-            if (chartRentabilidad) chartRentabilidad.destroy();
-            
-            const top10 = datos.slice(0, 10);
-            
-            chartRentabilidad = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: top10.map(d => d.nombre.length > 15 ? d.nombre.substring(0, 15) + '...' : d.nombre),
-                    datasets: [{
-                        label: 'Total Vendido ($)',
-                        data: top10.map(d => parseFloat(d.total_vendido)),
-                        backgroundColor: 'rgba(237, 137, 54, 0.8)'
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: (value) => `$${value}`
-                            }
-                        }
-                    }
-                }
-            });
-            
-            datosParaExportar.rentabilidad = datos;
-        }
-
-function exportarExcel() {
-    try {
-        const wb = XLSX.utils.book_new();
-        
-        // Hoja de ventas detalladas
-        if (datosParaExportar.ventas && datosParaExportar.ventas.length > 0) {
-            // Limpiar datos de ventas
-            const ventasLimpias = datosParaExportar.ventas.map(v => ({
-                'ID Pedido': v.id_pedido,
-                'Fecha': new Date(v.fecha_creacion).toLocaleString(),
-                'Cliente': v.cliente,
-                'Vendedor': v.vendedor,
-                'Estado': v.estado,
-                'Total': parseFloat(v.total).toFixed(2),
-                'Observaciones': v.observaciones || ''
-            }));
-            const wsVentas = XLSX.utils.json_to_sheet(ventasLimpias);
-            XLSX.utils.book_append_sheet(wb, wsVentas, 'Ventas');
-        }
-        
-        // Hoja de vendedores
-        if (datosParaExportar.vendedores && datosParaExportar.vendedores.length > 0) {
-            const vendedoresLimpios = datosParaExportar.vendedores.map(v => ({
-                'Vendedor': v.vendedor,
-                'Total Pedidos': v.total_pedidos,
-                'Total Ventas': parseFloat(v.total_ventas).toFixed(2),
-                'Ticket Promedio': parseFloat(v.ticket_promedio).toFixed(2)
-            }));
-            const wsVendedores = XLSX.utils.json_to_sheet(vendedoresLimpios);
-            XLSX.utils.book_append_sheet(wb, wsVendedores, 'Vendedores');
-        }
-        
-        // Hoja de stock bajo
-        if (datosParaExportar.stockBajo && datosParaExportar.stockBajo.length > 0) {
-            const stockLimpio = datosParaExportar.stockBajo.map(s => ({
-                'SKU': s.sku,
-                'Producto': s.nombre,
-                'Stock Actual': s.stock_real,
-                'Stock Mínimo': s.stock_minimo,
-                'Faltante': s.faltante
-            }));
-            const wsStock = XLSX.utils.json_to_sheet(stockLimpio);
-            XLSX.utils.book_append_sheet(wb, wsStock, 'Stock Bajo');
-        }
-        
-        // Hoja de rentabilidad
-        if (datosParaExportar.rentabilidad && datosParaExportar.rentabilidad.length > 0) {
-            const rentabilidadLimpia = datosParaExportar.rentabilidad.map(r => ({
-                'Producto': r.nombre,
-                'SKU': r.sku,
-                'Unidades Vendidas': r.unidades_vendidas,
-                'Total Vendido': parseFloat(r.total_vendido).toFixed(2),
-                'Precio Promedio': parseFloat(r.precio_promedio).toFixed(2)
-            }));
-            const wsRentabilidad = XLSX.utils.json_to_sheet(rentabilidadLimpia);
-            XLSX.utils.book_append_sheet(wb, wsRentabilidad, 'Rentabilidad');
-        }
-        
-        const fechaDesde = document.getElementById('fechaDesde').value;
-        const fechaHasta = document.getElementById('fechaHasta').value;
-        const nombreArchivo = `Reporte_ERP_${fechaDesde}_${fechaHasta}.xlsx`;
-        
-        XLSX.writeFile(wb, nombreArchivo);
-        
-        alert('✅ Reporte exportado exitosamente');
-    } catch (error) {
-        console.error('Error al exportar:', error);
-        alert('❌ Error al exportar el reporte: ' + error.message);
-    }
-}
-        function logout() {
-            localStorage.removeItem('authToken');
-            window.location.href = 'login.html';
-        }
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/reportes.js"></script>
+    <script src="js/config-panel.js"></script>
+    <script src="js/auth.js"></script>
 </body>
 </html>
