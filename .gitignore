@@ -11,23 +11,59 @@ certs/
 # ═══ DEPENDENCIAS (se regeneran con npm install) ═══
 node_modules/
 
+# ═══ REPORTES DE TEST / COBERTURA (se regeneran con jest) ═══
+coverage/
+.nyc_output/
+
 # ═══ BACKUPS (por-instancia, no son código) ═══
 backups/
 backups_web/
 _backups_*/
+_backups_*.csv
+_bak_*.sql
+_bak_*.csv
 *.dump
 
-# ═══ BASURA DE DESARROLLO / PARCHES VIEJOS ═══
+# ═══ BINARIOS COMPRIMIDOS (nunca van a git) ═══
+*.zip
+*.tar.gz
+*.tgz
+*.tar
+
+# ═══ VERSIONES VIEJAS / PARCHES / RESPALDOS PUNTUALES DE FUENTES ═══
+# .bak, .bak.algo Y .bak_algo (guion bajo), .backup, .backups/
 *.bak
 *.bak.*
-_backup_*/
+*.bak_*
+*.backup
+*.backup.*
+.backups/
+# .pre_* / .PRE_* / .PREVIO* / .ANTES* / .BACKUP_* (respaldos manuales al editar)
+*.pre_*
+*.PRE_*
+*.PREVIO*
+*.PREVIO.*
+*.ANTES_*
+*.BACKUP_*
+*.HIBRIDO
+*.before_*
+
+# ═══ DIRECTORIOS ARCHIVO / CÓDIGO MUERTO / TOOLKITS VIEJOS ═══
 _archive/
 _codigo_muerto_*/
 _migrations_legacy/
+_archivados_*/
+**/_archivados/
+**/_archivados_*/
+**/_old_toolkits/
 
 # ═══ LOGS Y TEMPORALES ═══
 *.log
 .DS_Store
+diag_tmp.js
+hiberfil.sys
+*.sys
 
 # ═══ REPORTES GENERADOS DEL TOOLKIT ═══
 scripts_mantenimiento/resultados/
+scripts_mantenimiento/.toolkit_history.json
